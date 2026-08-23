@@ -14,7 +14,11 @@ builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
-        policy.WithOrigins("http://localhost:3000", "https://*.vercel.app")
+        policy.WithOrigins(
+                  "http://localhost:3000",
+                  "https://godgamergauntlet.com",
+                  "https://www.godgamergauntlet.com",
+                  "https://*.vercel.app")
               .SetIsOriginAllowedToAllowWildcardSubdomains()
               .AllowAnyHeader()
               .AllowAnyMethod()

@@ -2,7 +2,7 @@
 
 > Living documentation for the godgamergauntlet.com backend. Update this file whenever the schema, API surface, or deployment story changes.
 >
-> **Last updated:** 2026-08-23 (Phase 2)
+> **Last updated:** 2026-08-23 (Phase 2.1 — custom-domain CORS)
 
 ---
 
@@ -204,8 +204,12 @@ Seeded on first boot against an empty database (idempotent — skipped if any ro
 
 Policy name: `AllowFrontend` (applied via `app.UseCors` before authorization/controllers).
 
-- Allowed origins: `http://localhost:3000` and any `https://*.vercel.app` subdomain (wildcard subdomains enabled)
-- Headers: all. Methods: all. Credentials: allowed.
+- Allowed origins:
+  - `http://localhost:3000` (local Next.js)
+  - `https://godgamergauntlet.com`
+  - `https://www.godgamergauntlet.com`
+  - any `https://*.vercel.app` subdomain (preview deployments; wildcard subdomains enabled)
+- Headers: `AllowAnyHeader`. Methods: `AllowAnyMethod`. Credentials: allowed.
 
 ---
 
@@ -320,3 +324,4 @@ cd GodGamerGauntlet.Web && npm run dev
 | 1 | Project scaffold, EF Core + Npgsql, domain models, AppDbContext, Game/Run repositories, GameController, RunController with difficulty formula, InitialCreate migration |
 | 1.5 | User management layer (repository + controller), DbInitializer (auto-migrate + seed 15 games + demo user), CORS `AllowFrontend`, this ledger |
 | 2 | Next.js 16 frontend (`GodGamerGauntlet.Web`): Tailwind v4 design tokens, font stack, typed API client, landing page, The Draft Room with live scoring and run initialization |
+| 2.1 | CORS `AllowFrontend` extended with `https://godgamergauntlet.com` and `https://www.godgamergauntlet.com` so the production custom domain can call the API |
