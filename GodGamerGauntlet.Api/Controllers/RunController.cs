@@ -77,4 +77,64 @@ public class RunController(IRunRepository runRepository, IGameRepository gameRep
         var run = await runRepository.GetByIdAsync(id, cancellationToken);
         return run is null ? NotFound() : Ok(RunResponse.FromEntity(run));
     }
+
+    [HttpPost("{id:guid}/report")]
+    [ProducesResponseType(typeof(RunResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Report(Guid id, ReportMatchRequest request, CancellationToken cancellationToken)
+    {
+        if (!Enum.TryParse<RunSlotStatus>(request.Result, ignoreCase: true, out var result)
+            || result == RunSlotStatus.Pending)
+        {
+            return BadRequest("result must be 'Won' or 'Lost'.");
+        }
+
+        var run = await runRepository.GetByIdTrackedAsync(id, cancellationToken);
+        if (run is null)
+        {
+            return NotFound();
+        }
+
+        if (run.Status != RunStatus.Active)
+        {
+            return BadRequest("Run is not currently active.");
+        }
+
+        var slots = run.Slots.OrderBy(s => s.Position).ToList();
+
+        var target = slots.FirstOrDefault(s => s.Position == request.SlotPosition);
+        if (target is null)
+        {
+            return BadRequest($"Slot at position {request.SlotPosition} does not exist on this run.");
+        }
+
+        if (target.Status != RunSlotStatus.Pending)
+        {
+            return BadRequest($"Slot {request.SlotPosition} has already been reported as {target.Status}.");
+        }
+
+        if (slots.Any(s => s.Position < request.SlotPosition && s.Status != RunSlotStatus.Won))
+        {
+            return BadRequest(
+                $"Slot {request.SlotPosition} cannot be reported yet: all preceding slots must be won first.");
+        }
+
+        target.Status = result;
+
+        if (result == RunSlotStatus.Lost)
+        {
+            run.Status = RunStatus.Failed;
+            run.EndTime = DateTime.UtcNow;
+        }
+        else if (request.SlotPosition == RequiredSlotCount)
+        {
+            run.Status = RunStatus.Completed;
+            run.EndTime = DateTime.UtcNow;
+        }
+
+        await runRepository.SaveChangesAsync(cancellationToken);
+
+        return Ok(RunResponse.FromEntity(run));
+    }
 }

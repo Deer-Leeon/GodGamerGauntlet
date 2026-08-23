@@ -2,7 +2,7 @@
 
 > Living documentation for the godgamergauntlet.com backend. Update this file whenever the schema, API surface, or deployment story changes.
 >
-> **Last updated:** 2026-08-23 (Phase 2.2 — proxy-aware middleware pipeline)
+> **Last updated:** 2026-08-23 (Phase 3 — Active Run Engine & Live Tracker)
 
 ---
 
@@ -143,7 +143,22 @@ Game object: `{ "id": "uuid", "title": "string", "baseDifficulty": int }`
 | Method | Route | Body | Success | Errors |
 |---|---|---|---|---|
 | POST | `/api/runs/initialize` | `{ "userId": "uuid", "gameIds": ["uuid" × 10, ordered by slot position] }` | `201` → Run object | `400` wrong count / unknown user / unknown game ids |
-| GET | `/api/runs/{id}` | — | `200` → Run (slots incl. game data) | `404` not found |
+| GET | `/api/runs/{id}` | — | `200` → Run (ordered slots) | `404` not found |
+| POST | `/api/runs/{id}/report` | `{ "slotPosition": 1-10, "result": "Won" \| "Lost" }` | `200` → updated Run | `400` state-machine violation (below), `404` unknown run |
+
+### Match-reporting state machine (`POST /api/runs/{id}/report`)
+
+All rules enforced server-side; violations return `400` with a plain-text reason:
+
+1. Run must be `Active` — reporting on a `Failed`/`Completed` run is rejected ("Run is not currently active.").
+2. `slotPosition` must be 1–10 and exist on the run; `result` must parse to `Won` or `Lost`.
+3. Target slot must be `Pending` (no double-reporting) **and** every preceding slot must be `Won` (strict sequential progression).
+4. `result = Won` → slot becomes `Won`; if it was slot 10, the run becomes `Completed` with `EndTime = UtcNow`.
+5. `result = Lost` → slot becomes `Lost`, run becomes `Failed` with `EndTime = UtcNow`; all remaining slots stay `Pending` and are permanently locked by rule 1.
+
+### DTO validation note (fixed production 500)
+
+Request DTOs are positional records; validation attributes must target the **constructor parameter** (`[Required]`), never the property (`[property: Required]`). The property form compiles but makes ASP.NET Core model validation throw `InvalidOperationException` → empty `500` on every POST (the browser showed it as `Failed to fetch` because error responses carry no CORS headers).
 
 Run object:
 
@@ -250,7 +265,7 @@ Typed wrappers over `fetch` against `NEXT_PUBLIC_API_URL`: `getGames(): Promise<
 |---|---|
 | `/` | Landing page with CTA into the Draft Room |
 | `/draft` | The Draft Room (below) |
-| `/run/[id]` | Live run tracker — **planned, Phase 3** (linked from the draft success state) |
+| `/run/[id]` | Live Run Tracker — header with streamer, status badge (cyan Active / red Failed / gold Completed) and total score; 10-slot board where won slots show earned score in cyan, the current slot glows with RECORD WIN / RECORD LOSS buttons, future slots are dimmed, and a lost slot shows the death state and locks the board; "Start a New Run" link when the run is over |
 
 ### The Draft Room (`/draft`)
 
@@ -335,3 +350,4 @@ cd GodGamerGauntlet.Web && npm run dev
 | 2 | Next.js 16 frontend (`GodGamerGauntlet.Web`): Tailwind v4 design tokens, font stack, typed API client, landing page, The Draft Room with live scoring and run initialization |
 | 2.1 | CORS `AllowFrontend` extended with `https://godgamergauntlet.com` and `https://www.godgamergauntlet.com` so the production custom domain can call the API |
 | 2.2 | Forwarded-headers middleware (Railway proxy) and pipeline reorder: CORS before HTTPS redirection so `OPTIONS` preflights on `POST` succeed — fixes `Failed to fetch` on Launch Gauntlet |
+| 3 | Fixed record-DTO validation attributes that 500'd every POST body; `POST /api/runs/{id}/report` with strict sequential state machine; `getRun`/`reportSlotMatch` client functions; Live Run Tracker at `/run/[id]` |

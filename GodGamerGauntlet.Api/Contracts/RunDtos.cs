@@ -4,8 +4,12 @@ using GodGamerGauntlet.Api.Models;
 namespace GodGamerGauntlet.Api.Contracts;
 
 public record InitializeRunRequest(
-    [property: Required] Guid UserId,
-    [property: Required, MinLength(10), MaxLength(10)] List<Guid> GameIds);
+    [Required] Guid UserId,
+    [Required, MinLength(10), MaxLength(10)] List<Guid> GameIds);
+
+public record ReportMatchRequest(
+    [Range(1, 10)] int SlotPosition,
+    [Required] string Result);
 
 public record RunSlotResponse(Guid Id, Guid GameId, int Position, string Status)
 {

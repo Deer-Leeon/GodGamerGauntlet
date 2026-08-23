@@ -15,6 +15,18 @@ public class RunRepository(AppDbContext context) : IRunRepository
             .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
     }
 
+    public async Task<Run?> GetByIdTrackedAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        return await context.Runs
+            .Include(r => r.Slots.OrderBy(s => s.Position))
+            .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
+    }
+
+    public async Task SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        await context.SaveChangesAsync(cancellationToken);
+    }
+
     public async Task<Run> AddAsync(Run run, CancellationToken cancellationToken = default)
     {
         context.Runs.Add(run);

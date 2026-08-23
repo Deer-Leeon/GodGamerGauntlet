@@ -68,3 +68,18 @@ export function initializeRun(
     body: JSON.stringify({ userId, gameIds }),
   });
 }
+
+export function getRun(id: string): Promise<Run> {
+  return request<Run>(`/api/runs/${id}`);
+}
+
+export function reportSlotMatch(
+  id: string,
+  position: number,
+  result: "Won" | "Lost",
+): Promise<Run> {
+  return request<Run>(`/api/runs/${id}/report`, {
+    method: "POST",
+    body: JSON.stringify({ slotPosition: position, result }),
+  });
+}
