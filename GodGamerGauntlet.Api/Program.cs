@@ -37,14 +37,29 @@ using (var scope = app.Services.CreateScope())
     await DbInitializer.InitializeAsync(context);
 }
 
+// Behind Railway's proxy, TLS terminates upstream; trust X-Forwarded-* so the
+// app sees the original scheme and doesn't 307-redirect CORS preflights.
+var forwardedHeadersOptions = new ForwardedHeadersOptions
+{
+    ForwardedHeaders = Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedFor
+                       | Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedProto
+};
+// Railway's proxy is not on loopback; without clearing these, the forwarded
+// headers would be ignored entirely.
+forwardedHeadersOptions.KnownNetworks.Clear();
+forwardedHeadersOptions.KnownProxies.Clear();
+app.UseForwardedHeaders(forwardedHeadersOptions);
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+// CORS must run before HTTPS redirection so OPTIONS preflights are answered,
+// never redirected (browsers refuse redirects on preflight requests).
 app.UseCors("AllowFrontend");
+app.UseHttpsRedirection();
 app.UseAuthorization();
 app.MapControllers();
 

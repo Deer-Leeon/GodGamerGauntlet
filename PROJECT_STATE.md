@@ -2,7 +2,7 @@
 
 > Living documentation for the godgamergauntlet.com backend. Update this file whenever the schema, API surface, or deployment story changes.
 >
-> **Last updated:** 2026-08-23 (Phase 2.1 — custom-domain CORS)
+> **Last updated:** 2026-08-23 (Phase 2.2 — proxy-aware middleware pipeline)
 
 ---
 
@@ -211,6 +211,15 @@ Policy name: `AllowFrontend` (applied via `app.UseCors` before authorization/con
   - any `https://*.vercel.app` subdomain (preview deployments; wildcard subdomains enabled)
 - Headers: `AllowAnyHeader`. Methods: `AllowAnyMethod`. Credentials: allowed.
 
+### Middleware pipeline order (proxy-aware)
+
+The order in `Program.cs` matters behind Railway's TLS-terminating proxy:
+
+1. `UseForwardedHeaders` (`X-Forwarded-For` / `X-Forwarded-Proto`, with `KnownNetworks`/`KnownProxies` cleared because Railway's proxy is not on loopback) — restores the original request scheme.
+2. `UseCors("AllowFrontend")` — answers `OPTIONS` preflights first.
+3. `UseHttpsRedirection` — after CORS, so preflights are never 307-redirected (browsers reject redirects on preflight, which surfaced as `Failed to fetch` on `POST /api/runs/initialize`).
+4. `UseAuthorization` → `MapControllers`.
+
 ---
 
 ## 7. Frontend Architecture (GodGamerGauntlet.Web)
@@ -325,3 +334,4 @@ cd GodGamerGauntlet.Web && npm run dev
 | 1.5 | User management layer (repository + controller), DbInitializer (auto-migrate + seed 15 games + demo user), CORS `AllowFrontend`, this ledger |
 | 2 | Next.js 16 frontend (`GodGamerGauntlet.Web`): Tailwind v4 design tokens, font stack, typed API client, landing page, The Draft Room with live scoring and run initialization |
 | 2.1 | CORS `AllowFrontend` extended with `https://godgamergauntlet.com` and `https://www.godgamergauntlet.com` so the production custom domain can call the API |
+| 2.2 | Forwarded-headers middleware (Railway proxy) and pipeline reorder: CORS before HTTPS redirection so `OPTIONS` preflights on `POST` succeed — fixes `Failed to fetch` on Launch Gauntlet |
