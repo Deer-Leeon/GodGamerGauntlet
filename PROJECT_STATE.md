@@ -2,7 +2,7 @@
 
 > Living documentation for the godgamergauntlet.com backend. Update this file whenever the schema, API surface, or deployment story changes.
 >
-> **Last updated:** 2026-08-23 (Phase 1.5)
+> **Last updated:** 2026-08-23 (Phase 2)
 
 ---
 
@@ -15,7 +15,9 @@
 | Database | PostgreSQL (Npgsql.EntityFrameworkCore.PostgreSQL 8) |
 | API Docs | Swagger / Swashbuckle (Development environment only, at `/swagger`) |
 | Hosting target | Railway (API + managed PostgreSQL) |
-| Frontend (planned) | Next.js on Vercel (consumes this API via CORS policy `AllowFrontend`) |
+| Frontend | Next.js 16 (App Router, TypeScript, Turbopack) in `GodGamerGauntlet.Web/`, deployed to Vercel |
+| Styling | Tailwind CSS v4 (CSS-first `@theme` tokens — no `tailwind.config.ts`) |
+| Fonts | Space Grotesk (headings), JetBrains Mono (data/scores), Inter (body) via `next/font/google` |
 
 ### Architectural pattern
 
@@ -33,6 +35,16 @@ GodGamerGauntlet.Api/
 ├── Repositories/       # Interfaces + EF implementations
 ├── Program.cs          # DI, CORS, startup migration/seeding, pipeline
 └── appsettings.json    # ConnectionStrings:DefaultConnection
+
+GodGamerGauntlet.Web/
+├── .env.local          # NEXT_PUBLIC_API_URL (gitignored; localhost:5000 or Railway URL)
+└── src/
+    ├── app/
+    │   ├── globals.css     # Tailwind v4 @theme design tokens + panel utility
+    │   ├── layout.tsx      # Fonts, metadata, bg-dark body
+    │   ├── page.tsx        # Landing page → /draft
+    │   └── draft/page.tsx  # The Draft Room (client component)
+    └── lib/api.ts          # Typed API client (getGames, getUsers, initializeRun)
 ```
 
 ### Startup behavior
@@ -197,7 +209,59 @@ Policy name: `AllowFrontend` (applied via `app.UseCors` before authorization/con
 
 ---
 
-## 7. Deployment Instructions
+## 7. Frontend Architecture (GodGamerGauntlet.Web)
+
+### Design system — "High-Stakes Dark Mode"
+
+Tailwind CSS v4 is configured CSS-first: design tokens are declared in `@theme` inside `src/app/globals.css` (v4 replaced `tailwind.config.ts` with CSS token declarations).
+
+| Token | Value | Utility classes |
+|---|---|---|
+| `--color-dark` | `#0A0E1A` | `bg-dark` (global body background) |
+| `--color-surface` | `#0F111A` | `bg-surface` |
+| `--color-accent-streak` | `#FFC000` | `text-accent-streak`, `bg-accent-streak` — scores, primary CTA |
+| `--color-accent-win` | `#00E5FF` | `text-accent-win` — success, positive stats |
+| `--color-accent-death` | `#FF3366` | `text-accent-death` — errors, destructive actions |
+| `panel` (custom `@utility`) | `rgba(255,255,255,0.04)` bg + `border-white/10` | frosted card surface |
+| `--font-heading` | Space Grotesk | `font-heading` |
+| `--font-mono` | JetBrains Mono | `font-mono` — timers, scores, run IDs |
+| `--font-sans` | Inter | default body font |
+
+### API client (`src/lib/api.ts`)
+
+Typed wrappers over `fetch` against `NEXT_PUBLIC_API_URL`: `getGames(): Promise<Game[]>`, `getUsers(): Promise<User[]>`, `initializeRun(userId, gameIds): Promise<Run>`. Interfaces mirror the API's camelCase JSON (`User`, `Game`, `Run`, `RunSlot`, status string unions). Non-2xx responses throw with the response body as the message.
+
+### Routes
+
+| Route | Purpose |
+|---|---|
+| `/` | Landing page with CTA into the Draft Room |
+| `/draft` | The Draft Room (below) |
+| `/run/[id]` | Live run tracker — **planned, Phase 3** (linked from the draft success state) |
+
+### The Draft Room (`/draft`)
+
+Client component with this flow:
+
+1. **User selector** — dropdown of all users, defaults to `GodGamerDemo`.
+2. **Game catalog** — grid of seeded games (title + base difficulty); "Add to Draft" fills the first empty slot; a game can be drafted only once.
+3. **Gauntlet board** — 10 numbered slots showing per-slot math (`base × multiplier = slot score`), with move up/down and remove controls.
+4. **Live score header** — sticky scoreboard recalculating `Total Projected Score` client-side with the same formula the API uses (section 4).
+5. **Launch Gauntlet** — enabled only at 10/10 slots; POSTs to `/api/runs/initialize`, then shows the returned Run ID, server-calculated score, and a link to `/run/{id}`.
+
+### Environment
+
+`GodGamerGauntlet.Web/.env.local` (gitignored — create per environment):
+
+```
+NEXT_PUBLIC_API_URL=http://localhost:5000
+```
+
+The API's dev profile (`launchSettings.json`) was aligned to port **5000** to match. On Vercel, set `NEXT_PUBLIC_API_URL` to the Railway API domain.
+
+---
+
+## 8. Deployment Instructions
 
 ### Local development
 
@@ -231,11 +295,28 @@ dotnet ef database update --project GodGamerGauntlet.Api
 4. Deploy. Startup auto-migration brings the schema up to date and seeds the catalog on the first boot.
 5. Point the Vercel frontend at the Railway public domain; CORS already allows `*.vercel.app`.
 
+### Vercel (frontend)
+
+1. Import the GitHub repo in Vercel and set the project **Root Directory** to `GodGamerGauntlet.Web`.
+2. Set the environment variable `NEXT_PUBLIC_API_URL` to the Railway API's public URL.
+3. Deploy — the production domain (`*.vercel.app`) is already permitted by the API's CORS policy.
+
+### Local frontend development
+
+```bash
+# Terminal 1 — API on http://localhost:5000
+dotnet run --project GodGamerGauntlet.Api
+
+# Terminal 2 — Next.js on http://localhost:3000
+cd GodGamerGauntlet.Web && npm run dev
+```
+
 ---
 
-## 8. Phase History
+## 9. Phase History
 
 | Phase | Scope |
 |---|---|
 | 1 | Project scaffold, EF Core + Npgsql, domain models, AppDbContext, Game/Run repositories, GameController, RunController with difficulty formula, InitialCreate migration |
 | 1.5 | User management layer (repository + controller), DbInitializer (auto-migrate + seed 15 games + demo user), CORS `AllowFrontend`, this ledger |
+| 2 | Next.js 16 frontend (`GodGamerGauntlet.Web`): Tailwind v4 design tokens, font stack, typed API client, landing page, The Draft Room with live scoring and run initialization |
