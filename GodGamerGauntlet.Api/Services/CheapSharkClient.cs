@@ -11,20 +11,28 @@ public class CheapSharkClient(HttpClient httpClient)
     private const int SteamStoreId = 1;
 
     /// <summary>
-    /// AAA titles sorted by review volume — the recognizable big hits.
+    /// One page (up to 60 deals) of Steam deals ordered by review volume.
+    /// Returns an empty list once CheapShark's pagination cap is reached
+    /// (the API answers "400 Too Many Results" past page 50, ~3,060 deals).
     /// Note: CheapShark's Reviews sort is descending by default; passing desc=1
     /// inverts it and returns the *least* reviewed games, so it is omitted.
     /// </summary>
-    public Task<IReadOnlyList<CheapSharkDeal>> GetAaaHitsAsync(CancellationToken cancellationToken = default) =>
-        GetDealsAsync($"api/1.0/deals?storeID={SteamStoreId}&AAA=1&sortBy=Reviews&pageSize=60", cancellationToken);
-
-    /// <summary>Critically acclaimed games: Metacritic 80+, at least 1000 Steam reviews.</summary>
-    public Task<IReadOnlyList<CheapSharkDeal>> GetHighlyRatedAsync(CancellationToken cancellationToken = default) =>
-        GetDealsAsync($"api/1.0/deals?storeID={SteamStoreId}&metacritic=80&minimumReviewCount=1000&sortBy=DealRating&pageSize=60", cancellationToken);
-
-    private async Task<IReadOnlyList<CheapSharkDeal>> GetDealsAsync(string requestUri, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<CheapSharkDeal>> GetTopReviewedDealsAsync(
+        int pageNumber,
+        CancellationToken cancellationToken = default)
     {
-        var deals = await httpClient.GetFromJsonAsync<List<CheapSharkDeal>>(requestUri, cancellationToken);
+        using var response = await httpClient.GetAsync(
+            $"api/1.0/deals?storeID={SteamStoreId}&sortBy=Reviews&pageSize=60&pageNumber={pageNumber}",
+            cancellationToken);
+
+        if (response.StatusCode == System.Net.HttpStatusCode.BadRequest)
+        {
+            // End of the paginable window — not an error; the caller stops looping.
+            return [];
+        }
+
+        response.EnsureSuccessStatusCode();
+        var deals = await response.Content.ReadFromJsonAsync<List<CheapSharkDeal>>(cancellationToken);
         return deals ?? [];
     }
 }

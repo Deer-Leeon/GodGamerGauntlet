@@ -31,8 +31,9 @@ public class AdminController(
 
         await DbInitializer.SeedAsync(context);
 
-        // On-demand ingestion so the catalog is live before this request returns
-        // (takes a few seconds: two CheapShark calls spaced 1.5s apart).
+        // On-demand ingestion so the catalog is live before this request returns.
+        // The 100-page loop is rate-limited to one request per 1.5s, so expect
+        // this endpoint to take ~2.5 minutes to respond.
         var syncResult = await gameSyncService.SyncAsync(cancellationToken);
 
         logger.LogWarning(

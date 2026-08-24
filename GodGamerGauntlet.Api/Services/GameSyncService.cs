@@ -10,32 +10,46 @@ public class GameSyncService(
     ILogger<GameSyncService> logger) : IGameSyncService
 {
     private static readonly TimeSpan RequestDelay = TimeSpan.FromMilliseconds(1500);
+    private const int PagesToFetch = 100;
     private const int DefaultDifficulty = 70;
 
     public async Task<GameSyncResult> SyncAsync(CancellationToken cancellationToken = default)
     {
-        logger.LogInformation("Starting CheapShark game sync (AAA hits + highly rated).");
-
-        // Pass 1: AAA titles ordered by review volume.
-        var aaaHits = await cheapShark.GetAaaHitsAsync(cancellationToken);
-
-        // Strict spacing between requests to avoid CheapShark rate limits / IP bans.
-        await Task.Delay(RequestDelay, cancellationToken);
-
-        // Pass 2: critically acclaimed games (Metacritic 80+, 1000+ reviews).
-        var highlyRated = await cheapShark.GetHighlyRatedAsync(cancellationToken);
-
-        // Combine and deduplicate by CheapShark gameID (our ExternalId);
-        // the AAA pass wins when a game appears in both.
-        var dealsByGameId = new Dictionary<string, CheapSharkDeal>();
-        foreach (var deal in aaaHits.Concat(highlyRated))
-        {
-            dealsByGameId.TryAdd(deal.GameId, deal);
-        }
-
         logger.LogInformation(
-            "CheapShark returned {Aaa} AAA hits and {Rated} highly rated deals ({Unique} unique games).",
-            aaaHits.Count, highlyRated.Count, dealsByGameId.Count);
+            "Starting CheapShark game sync: up to {Pages} pages of top-reviewed Steam deals (~{Duration:F0} min).",
+            PagesToFetch, PagesToFetch * RequestDelay.TotalMinutes);
+
+        // Aggregate all pages, deduplicating by CheapShark gameID (our ExternalId);
+        // the same game can appear in multiple deals, first (most-reviewed) wins.
+        var dealsByGameId = new Dictionary<string, CheapSharkDeal>();
+
+        for (var page = 0; page < PagesToFetch; page++)
+        {
+            if (page > 0)
+            {
+                // Strict spacing between requests to avoid CheapShark rate limits / IP bans.
+                await Task.Delay(RequestDelay, cancellationToken);
+            }
+
+            var deals = await cheapShark.GetTopReviewedDealsAsync(page, cancellationToken);
+            if (deals.Count == 0)
+            {
+                logger.LogInformation("CheapShark ran out of deals at page {Page}; stopping early.", page);
+                break;
+            }
+
+            foreach (var deal in deals)
+            {
+                dealsByGameId.TryAdd(deal.GameId, deal);
+            }
+
+            if ((page + 1) % 10 == 0)
+            {
+                logger.LogInformation(
+                    "CheapShark sync progress: {Pages}/{Total} pages fetched, {Unique} unique games so far.",
+                    page + 1, PagesToFetch, dealsByGameId.Count);
+            }
+        }
 
         var games = dealsByGameId.Values
             .Where(d => !string.IsNullOrWhiteSpace(d.Title))

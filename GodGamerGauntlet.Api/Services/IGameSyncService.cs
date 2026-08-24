@@ -4,7 +4,8 @@ namespace GodGamerGauntlet.Api.Services;
 public record GameSyncResult(int GamesProcessed, int GamesAdded);
 
 /// <summary>
-/// Runs the dual-pass CheapShark ingestion (AAA hits + highly rated deals)
+/// Runs the CheapShark ingestion (100 pages of top-reviewed Steam deals,
+/// ~6,000 games, rate-limited to one request per 1.5s — takes ~2.5 minutes)
 /// and upserts the results into the game catalog. Callable on demand
 /// (admin hard-reset) and on a schedule (background worker).
 /// </summary>

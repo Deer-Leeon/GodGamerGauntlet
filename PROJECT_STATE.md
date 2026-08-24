@@ -2,7 +2,7 @@
 
 > Living documentation for the godgamergauntlet.com backend. Update this file whenever the schema, API surface, or deployment story changes.
 >
-> **Last updated:** 2026-08-23 (Phase 5.2 — On-Demand Sync Service & 4h Refresh)
+> **Last updated:** 2026-08-23 (Phase 5.3 — Massive Single-Pass Ingestion, ~3,000 games)
 
 ---
 
@@ -181,7 +181,7 @@ Query semantics (single SQL query via EF projection in `RunRepository.GetLeaderb
 |---|---|---|---|---|
 | POST | `/api/admin/hard-reset` | — | `200` → `{ message, runsDeleted, slotsDeleted, gamesDeleted, cheapSharkGamesProcessed, cheapSharkGamesAdded }` | — |
 
-Hard reset wipes RunSlots → Runs → Games (in that order — RunSlots reference Games with restrict-delete) using EF Core 8 `ExecuteDeleteAsync()` bulk deletes, calls `DbInitializer.SeedAsync` to restore the 15 hand-curated baseline games, then **awaits the CheapShark sync inline** so the full catalog is live before the request returns (~2–5 s: two CheapShark calls spaced 1.5 s apart). **Users are preserved.** ⚠️ Currently unauthenticated — lock down before exposing publicly.
+Hard reset wipes RunSlots → Runs → Games (in that order — RunSlots reference Games with restrict-delete) using EF Core 8 `ExecuteDeleteAsync()` bulk deletes, calls `DbInitializer.SeedAsync` to restore the 15 hand-curated baseline games, then **awaits the CheapShark sync inline** so the full catalog is live before the request returns. ⚠️ **The full-catalog ingestion loop is rate-limited to one request per 1.5 s, so this endpoint takes ~1.5–2.5 minutes to return `200 OK`** (measured: 1 m 19 s for 51 pages). Use `curl --max-time 300` or equivalent. **Users are preserved.** ⚠️ Currently unauthenticated — lock down before exposing publicly.
 
 ### DTO validation note (fixed production 500)
 
@@ -266,17 +266,20 @@ IGameRepository.UpsertGamesAsync → PostgreSQL Games table
 
 - **`Services/CheapSharkClient.cs`** — typed `HttpClient` wrapper. Base address `https://www.cheapshark.com/`, 30s timeout, `AddStandardResilienceHandler()` (retries with backoff on transient faults). Sends `User-Agent: GodGamerGauntlet/1.0 (godgamergauntlet.com)` — **CheapShark returns 400 for missing/generic User-Agent headers.**
 - **`Services/CheapSharkDeal.cs`** — JSON model for a deal row (`gameID`, `title`, `thumb`, `normalPrice`, `salePrice`, `metacriticScore`, `steamRatingPercent`).
-- **`Services/IGameSyncService.cs` / `GameSyncService.cs`** — scoped service holding the actual ingestion: two targeted queries spaced by a **strict 1500 ms delay** (rate-limit compliance), deduplication by `gameID`, mapping to `Game`, upsert. Returns `GameSyncResult(GamesProcessed, GamesAdded)`. Callable on demand (admin hard-reset) and on schedule.
-- **`Services/GameSyncBackgroundService.cs`** — hosted service that only schedules: resolves `IGameSyncService` in a fresh DI scope **on startup and every 4 hours** (shortened from 12 h in Phase 5.2 for fresher pricing). Failures are logged and retried next cycle — the host never crashes over a failed sync.
+- **`Services/IGameSyncService.cs` / `GameSyncService.cs`** — scoped service holding the actual ingestion: a paginated loop over top-reviewed Steam deals with a **strict 1500 ms delay between page requests** (rate-limit compliance), deduplication by `gameID`, mapping to `Game`, upsert. Returns `GameSyncResult(GamesProcessed, GamesAdded)`. Callable on demand (admin hard-reset) and on schedule. Progress is logged every 10 pages.
+- **`Services/GameSyncBackgroundService.cs`** — hosted service that only schedules: resolves `IGameSyncService` in a fresh DI scope **on startup and every 4 hours**. Failures are logged and retried next cycle — the host never crashes over a failed sync.
 
-### Dual-pass curated queries (Phase 5.1)
+### Massive single-pass ingestion (Phase 5.3 — replaces the Phase 5.1 dual-pass)
 
-| Pass | Query | Purpose |
-|---|---|---|
-| 1 — AAA Hits | `deals?storeID=1&AAA=1&sortBy=Reviews&pageSize=60` | Big-name AAA titles by review volume |
-| 2 — Highly Rated | `deals?storeID=1&metacritic=80&minimumReviewCount=1000&sortBy=DealRating&pageSize=60` | Critically acclaimed games (Metacritic 80+, 1000+ Steam reviews) |
+Query per page: `deals?storeID=1&sortBy=Reviews&pageSize=60&pageNumber={n}` — pure review-volume ranking, no AAA/Metacritic filters. The loop targets 100 pages (6,000 deals) but stops early when CheapShark's pagination window ends.
 
-Results are combined and deduplicated by `gameID` (the AAA pass wins ties) before the upsert. **API quirk:** CheapShark's `sortBy=Reviews` is already descending; passing `desc=1` inverts it and returns the *least*-reviewed games, so it is deliberately omitted.
+**API quirks discovered by live testing:**
+
+- `sortBy=Reviews` is already descending; passing `desc=1` inverts it and returns the *least*-reviewed games, so it is deliberately omitted.
+- **CheapShark caps this query at page 50** (51 pages × 60 = **3,060 deals max**). Page 51+ returns `400 Too Many Results - Refine Search`. The client treats that 400 as end-of-catalog and returns an empty page so the loop stops gracefully and everything already aggregated still gets upserted (a naive loop would throw and discard all 3,000 games).
+- A full sync takes **~80 s** (51 requests × 1.5 s spacing). Measured end-to-end: catalog of **3,074 games** (3,060 ingested + 15 seeded, 1 title overlap merged).
+
+EF Core SQL command logging (`Microsoft.EntityFrameworkCore.Database.Command`) and HttpClient chatter are set to `Warning` in `appsettings.json` — at Information level each sync printed ~3,000 INSERT statements into the logs.
 
 ### Upsert semantics (`GameRepository.UpsertGamesAsync`)
 
@@ -431,3 +434,4 @@ cd GodGamerGauntlet.Web && npm run dev
 | 5 | CheapShark catalog ingestion: Game entity extended with ExternalId/Thumb/NormalPrice/SalePrice (+migration), `UpsertGamesAsync`, typed `CheapSharkClient` with resilience handler and required User-Agent, `GameSyncBackgroundService` (startup + 12h cycle, 1.5s page delay), Draft Room catalog with thumbnails and prices |
 | 5.1 | `POST /api/admin/hard-reset` (`ExecuteDeleteAsync` wipe of slots/runs/games + baseline re-seed via extracted `DbInitializer.SeedAsync`); ingestion refined to two targeted queries (AAA hits by review volume, Metacritic 80+ with 1000+ reviews) deduplicated by gameID — dropped `desc=1` which inverted the Reviews sort |
 | 5.2 | Ingestion extracted into scoped `IGameSyncService`/`GameSyncService` (returns processed/added counts); background worker now only schedules it and the interval dropped 12 h → 4 h; hard-reset awaits the sync inline so the full catalog is live when the request returns |
+| 5.3 | Massive single-pass ingestion: dual-pass replaced by a 100-page `sortBy=Reviews` loop (1.5 s per page); CheapShark caps at page 50 (~3,060 deals) with `400 Too Many Results`, handled as graceful end-of-catalog; hard-reset now takes ~1.5–2.5 min; EF SQL logging quieted to Warning |
