@@ -12,6 +12,8 @@ public interface IGameRepository
 
     Task<Game> AddAsync(Game game, CancellationToken cancellationToken = default);
 
+    Task<bool> AnyAsync(CancellationToken cancellationToken = default);
+
     /// <summary>
     /// Inserts new games and refreshes store data (thumb, prices) on existing ones,
     /// matching by ExternalId first and then case-insensitive title.

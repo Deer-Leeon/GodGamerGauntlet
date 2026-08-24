@@ -20,6 +20,15 @@ public class GameSyncService(
             return new GameSyncResult(0, 0);
         }
 
+        // Serverless cold-starts would otherwise re-run all 500 pages (~12 min,
+        // 500 RAWG requests) on every wake. Only ingest when the catalog is empty
+        // (first boot or after hard-reset).
+        if (await gameRepository.AnyAsync(cancellationToken))
+        {
+            logger.LogInformation("RAWG sync skipped: catalog already populated.");
+            return new GameSyncResult(0, 0);
+        }
+
         logger.LogInformation(
             "Starting RAWG game sync: up to {Pages} pages of most-added games (~{Duration:F0} min).",
             PagesToFetch, PagesToFetch * RequestDelay.TotalMinutes);

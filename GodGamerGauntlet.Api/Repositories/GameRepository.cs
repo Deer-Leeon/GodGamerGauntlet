@@ -38,6 +38,9 @@ public class GameRepository(AppDbContext context) : IGameRepository
         return game;
     }
 
+    public Task<bool> AnyAsync(CancellationToken cancellationToken = default) =>
+        context.Games.AnyAsync(cancellationToken);
+
     public async Task<int> UpsertGamesAsync(IReadOnlyList<Game> games, CancellationToken cancellationToken = default)
     {
         var existing = await context.Games.ToListAsync(cancellationToken);

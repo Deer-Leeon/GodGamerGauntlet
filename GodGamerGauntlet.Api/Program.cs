@@ -2,11 +2,23 @@ using GodGamerGauntlet.Api.Data;
 using GodGamerGauntlet.Api.Repositories;
 using GodGamerGauntlet.Api.Services;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
 
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? throw new InvalidOperationException("Connection string 'DefaultConnection' is not configured.");
+var npgsql = new NpgsqlConnectionStringBuilder(connectionString)
+{
+    // Drop idle connections quickly so Railway Serverless can sleep (pooled
+    // keepalives count as outbound traffic and keep the container awake).
+    MinPoolSize = 0,
+    ConnectionIdleLifetime = 15,
+    ConnectionPruningInterval = 10
+};
+
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(npgsql.ConnectionString));
 
 builder.Services.AddScoped<IGameRepository, GameRepository>();
 builder.Services.AddScoped<IRunRepository, RunRepository>();
@@ -33,6 +45,9 @@ builder.Services.AddHttpClient<RawgClient>(client =>
     client.BaseAddress = new Uri("https://api.rawg.io/");
     client.Timeout = TimeSpan.FromMinutes(2);
     client.DefaultRequestHeaders.UserAgent.ParseAdd("GodGamerGauntlet/1.0 (godgamergauntlet.com)");
+}).ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+{
+    PooledConnectionIdleTimeout = TimeSpan.FromSeconds(15)
 }).AddStandardResilienceHandler(options =>
 {
     // RAWG pages sometimes take >10s; the default attempt timeout cancelled
