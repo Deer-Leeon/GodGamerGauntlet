@@ -2,7 +2,7 @@
 
 > Living documentation for the godgamergauntlet.com backend. Update this file whenever the schema, API surface, or deployment story changes.
 >
-> **Last updated:** 2026-08-23 (Phase 5.1 — Hard Reset & Curated Dual-Pass Ingestion)
+> **Last updated:** 2026-08-23 (Phase 5.2 — On-Demand Sync Service & 4h Refresh)
 
 ---
 
@@ -179,9 +179,9 @@ Query semantics (single SQL query via EF projection in `RunRepository.GetLeaderb
 
 | Method | Route | Body | Success | Errors |
 |---|---|---|---|---|
-| POST | `/api/admin/hard-reset` | — | `200` → `{ message, runsDeleted, slotsDeleted, gamesDeleted }` | — |
+| POST | `/api/admin/hard-reset` | — | `200` → `{ message, runsDeleted, slotsDeleted, gamesDeleted, cheapSharkGamesProcessed, cheapSharkGamesAdded }` | — |
 
-Hard reset wipes RunSlots → Runs → Games (in that order — RunSlots reference Games with restrict-delete) using EF Core 8 `ExecuteDeleteAsync()` bulk deletes, then calls `DbInitializer.SeedAsync` to restore the 15 hand-curated baseline games. **Users are preserved.** The next background sync re-ingests the curated CheapShark catalog. ⚠️ Currently unauthenticated — lock down before exposing publicly.
+Hard reset wipes RunSlots → Runs → Games (in that order — RunSlots reference Games with restrict-delete) using EF Core 8 `ExecuteDeleteAsync()` bulk deletes, calls `DbInitializer.SeedAsync` to restore the 15 hand-curated baseline games, then **awaits the CheapShark sync inline** so the full catalog is live before the request returns (~2–5 s: two CheapShark calls spaced 1.5 s apart). **Users are preserved.** ⚠️ Currently unauthenticated — lock down before exposing publicly.
 
 ### DTO validation note (fixed production 500)
 
@@ -252,8 +252,12 @@ The browser never calls CheapShark. All ingestion happens server-side:
 CheapShark API (deals, storeID=1 Steam)
         │  HTTPS, typed client + resilience handler (Polly retries/backoff)
         ▼
-GameSyncBackgroundService (BackgroundService singleton)
-        │  DI scope per sync
+IGameSyncService / GameSyncService (scoped — the actual ingestion)
+        ▲                          ▲
+        │ DI scope per cycle       │ awaited inline
+GameSyncBackgroundService     AdminController hard-reset
+(startup + every 4 hours)     (on-demand instant sync)
+        │
         ▼
 IGameRepository.UpsertGamesAsync → PostgreSQL Games table
 ```
@@ -262,7 +266,8 @@ IGameRepository.UpsertGamesAsync → PostgreSQL Games table
 
 - **`Services/CheapSharkClient.cs`** — typed `HttpClient` wrapper. Base address `https://www.cheapshark.com/`, 30s timeout, `AddStandardResilienceHandler()` (retries with backoff on transient faults). Sends `User-Agent: GodGamerGauntlet/1.0 (godgamergauntlet.com)` — **CheapShark returns 400 for missing/generic User-Agent headers.**
 - **`Services/CheapSharkDeal.cs`** — JSON model for a deal row (`gameID`, `title`, `thumb`, `normalPrice`, `salePrice`, `metacriticScore`, `steamRatingPercent`).
-- **`Services/GameSyncBackgroundService.cs`** — hosted service. Syncs **on startup and every 12 hours** via two targeted queries spaced by a **strict 1500 ms delay** (rate-limit compliance). Deduplicates by `gameID`, maps to `Game`, upserts. Failures are logged and retried next cycle — the host never crashes over a failed sync.
+- **`Services/IGameSyncService.cs` / `GameSyncService.cs`** — scoped service holding the actual ingestion: two targeted queries spaced by a **strict 1500 ms delay** (rate-limit compliance), deduplication by `gameID`, mapping to `Game`, upsert. Returns `GameSyncResult(GamesProcessed, GamesAdded)`. Callable on demand (admin hard-reset) and on schedule.
+- **`Services/GameSyncBackgroundService.cs`** — hosted service that only schedules: resolves `IGameSyncService` in a fresh DI scope **on startup and every 4 hours** (shortened from 12 h in Phase 5.2 for fresher pricing). Failures are logged and retried next cycle — the host never crashes over a failed sync.
 
 ### Dual-pass curated queries (Phase 5.1)
 
@@ -425,3 +430,4 @@ cd GodGamerGauntlet.Web && npm run dev
 | 4 | Global Leaderboard: `GET /api/leaderboard` (top 50 finished runs, earned-score aggregation in SQL, Completed-over-Failed tiebreak), `getLeaderboard` client function, `/leaderboard` page with podium styling, nav links from home/draft/run pages |
 | 5 | CheapShark catalog ingestion: Game entity extended with ExternalId/Thumb/NormalPrice/SalePrice (+migration), `UpsertGamesAsync`, typed `CheapSharkClient` with resilience handler and required User-Agent, `GameSyncBackgroundService` (startup + 12h cycle, 1.5s page delay), Draft Room catalog with thumbnails and prices |
 | 5.1 | `POST /api/admin/hard-reset` (`ExecuteDeleteAsync` wipe of slots/runs/games + baseline re-seed via extracted `DbInitializer.SeedAsync`); ingestion refined to two targeted queries (AAA hits by review volume, Metacritic 80+ with 1000+ reviews) deduplicated by gameID — dropped `desc=1` which inverted the Reviews sort |
+| 5.2 | Ingestion extracted into scoped `IGameSyncService`/`GameSyncService` (returns processed/added counts); background worker now only schedules it and the interval dropped 12 h → 4 h; hard-reset awaits the sync inline so the full catalog is live when the request returns |

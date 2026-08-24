@@ -36,6 +36,7 @@ builder.Services.AddHttpClient<CheapSharkClient>(client =>
     client.DefaultRequestHeaders.UserAgent.ParseAdd("GodGamerGauntlet/1.0 (godgamergauntlet.com)");
 }).AddStandardResilienceHandler();
 
+builder.Services.AddScoped<IGameSyncService, GameSyncService>();
 builder.Services.AddHostedService<GameSyncBackgroundService>();
 
 builder.Services.AddControllers();

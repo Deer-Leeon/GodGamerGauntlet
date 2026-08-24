@@ -1,4 +1,5 @@
 using GodGamerGauntlet.Api.Data;
+using GodGamerGauntlet.Api.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -6,11 +7,15 @@ namespace GodGamerGauntlet.Api.Controllers;
 
 [ApiController]
 [Route("api/admin")]
-public class AdminController(AppDbContext context, ILogger<AdminController> logger) : ControllerBase
+public class AdminController(
+    AppDbContext context,
+    IGameSyncService gameSyncService,
+    ILogger<AdminController> logger) : ControllerBase
 {
     /// <summary>
-    /// Wipes all runs and the entire game catalog, then re-seeds the 15
-    /// hand-curated baseline games. Users are preserved.
+    /// Wipes all runs and the entire game catalog, re-seeds the 15 hand-curated
+    /// baseline games, then immediately runs the CheapShark sync so the Draft
+    /// Room is fully populated when the request returns. Users are preserved.
     /// </summary>
     [HttpPost("hard-reset")]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -26,16 +31,22 @@ public class AdminController(AppDbContext context, ILogger<AdminController> logg
 
         await DbInitializer.SeedAsync(context);
 
+        // On-demand ingestion so the catalog is live before this request returns
+        // (takes a few seconds: two CheapShark calls spaced 1.5s apart).
+        var syncResult = await gameSyncService.SyncAsync(cancellationToken);
+
         logger.LogWarning(
-            "Hard reset complete: {Runs} runs, {Slots} slots, {Games} games deleted; baseline catalog re-seeded.",
-            runsDeleted, slotsDeleted, gamesDeleted);
+            "Hard reset complete: {Runs} runs, {Slots} slots, {Games} games deleted; baseline re-seeded and {Synced} CheapShark games ingested.",
+            runsDeleted, slotsDeleted, gamesDeleted, syncResult.GamesAdded);
 
         return Ok(new
         {
-            message = "Database hard reset complete. Baseline catalog re-seeded.",
+            message = "Hard reset and CheapShark sync completed successfully. Baseline catalog re-seeded and live deals ingested.",
             runsDeleted,
             slotsDeleted,
-            gamesDeleted
+            gamesDeleted,
+            cheapSharkGamesProcessed = syncResult.GamesProcessed,
+            cheapSharkGamesAdded = syncResult.GamesAdded
         });
     }
 }
