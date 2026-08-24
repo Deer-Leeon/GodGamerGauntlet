@@ -30,13 +30,22 @@ function normalize(value: string): string {
     .trim();
 }
 
-function currentPrice(game: Game): number {
-  if (game.salePrice > 0 && game.salePrice < game.normalPrice) return game.salePrice;
+/** Effective price, or null when the source (RAWG) has no pricing data. */
+function currentPrice(game: Game): number | null {
+  if (game.normalPrice === null) return null;
+  if (game.salePrice !== null && game.salePrice > 0 && game.salePrice < game.normalPrice) {
+    return game.salePrice;
+  }
   return game.normalPrice;
 }
 
 function isOnSale(game: Game): boolean {
-  return game.salePrice > 0 && game.salePrice < game.normalPrice;
+  return (
+    game.normalPrice !== null &&
+    game.salePrice !== null &&
+    game.salePrice > 0 &&
+    game.salePrice < game.normalPrice
+  );
 }
 
 function isFree(game: Game): boolean {
@@ -142,9 +151,18 @@ function matchesFilters(game: Game, filters: SearchFilters): boolean {
     return false;
   }
   const price = currentPrice(game);
-  if (filters.minPrice !== undefined && price < filters.minPrice) return false;
-  if (filters.maxPrice !== undefined && price > filters.maxPrice) return false;
+  if (filters.minPrice !== undefined || filters.maxPrice !== undefined) {
+    // Price filters only make sense for games that actually have a price.
+    if (price === null) return false;
+    if (filters.minPrice !== undefined && price < filters.minPrice) return false;
+    if (filters.maxPrice !== undefined && price > filters.maxPrice) return false;
+  }
   return true;
+}
+
+/** Sort helper: games without pricing data go last. */
+function priceForSort(game: Game): number {
+  return currentPrice(game) ?? Number.POSITIVE_INFINITY;
 }
 
 export function searchGames(
@@ -190,12 +208,12 @@ export function searchGames(
       case "difficulty":
         return b.game.baseDifficulty - a.game.baseDifficulty;
       case "price":
-        return currentPrice(a.game) - currentPrice(b.game);
+        return priceForSort(a.game) - priceForSort(b.game);
       case "sale": {
         const aSale = isOnSale(a.game) ? 1 : 0;
         const bSale = isOnSale(b.game) ? 1 : 0;
         if (bSale !== aSale) return bSale - aSale;
-        return currentPrice(a.game) - currentPrice(b.game);
+        return priceForSort(a.game) - priceForSort(b.game);
       }
       default:
         return a.game.title.localeCompare(b.game.title);

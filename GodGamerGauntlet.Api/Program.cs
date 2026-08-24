@@ -26,13 +26,12 @@ builder.Services.AddCors(options =>
               .AllowCredentials());
 });
 
-// CheapShark ingestion: typed client with standard resilience (retries with
-// backoff on transient faults), consumed only by the background sync worker.
-builder.Services.AddHttpClient<CheapSharkClient>(client =>
+// RAWG ingestion: typed client with standard resilience (retries with
+// backoff on transient faults), consumed only by the sync service.
+builder.Services.AddHttpClient<RawgClient>(client =>
 {
-    client.BaseAddress = new Uri("https://www.cheapshark.com/");
+    client.BaseAddress = new Uri("https://api.rawg.io/");
     client.Timeout = TimeSpan.FromSeconds(30);
-    // CheapShark rejects requests without a descriptive User-Agent (400).
     client.DefaultRequestHeaders.UserAgent.ParseAdd("GodGamerGauntlet/1.0 (godgamergauntlet.com)");
 }).AddStandardResilienceHandler();
 

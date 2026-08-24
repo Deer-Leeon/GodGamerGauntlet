@@ -12,8 +12,8 @@ public record GameResponse(
     string Title,
     int BaseDifficulty,
     string? Thumb,
-    decimal NormalPrice,
-    decimal SalePrice)
+    decimal? NormalPrice,
+    decimal? SalePrice)
 {
     public static GameResponse FromEntity(Game game) =>
         new(game.Id, game.Title, game.BaseDifficulty, game.Thumb, game.NormalPrice, game.SalePrice);

@@ -35,13 +35,17 @@ function formatScore(value: number): string {
 }
 
 function GamePrice({ game }: { game: Game }) {
-  if (game.normalPrice <= 0) return null;
-  const discounted = game.salePrice > 0 && game.salePrice < game.normalPrice;
+  // RAWG-sourced games carry no pricing; hide the tag entirely.
+  if (game.normalPrice === null || game.normalPrice <= 0) return null;
+  const discounted =
+    game.salePrice !== null &&
+    game.salePrice > 0 &&
+    game.salePrice < game.normalPrice;
   return (
     <p className="font-mono text-xs">
       {discounted ? (
         <>
-          <span className="text-accent-win">${game.salePrice.toFixed(2)}</span>{" "}
+          <span className="text-accent-win">${game.salePrice!.toFixed(2)}</span>{" "}
           <span className="text-gray-500 line-through">
             ${game.normalPrice.toFixed(2)}
           </span>

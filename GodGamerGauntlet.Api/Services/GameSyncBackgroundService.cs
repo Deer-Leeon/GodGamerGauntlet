@@ -1,15 +1,16 @@
 namespace GodGamerGauntlet.Api.Services;
 
 /// <summary>
-/// Schedules the CheapShark catalog sync: once at startup, then every 4 hours
-/// to keep pricing fresh. The actual ingestion lives in <see cref="IGameSyncService"/>
-/// so it can also be triggered on demand (admin hard-reset).
+/// Schedules the RAWG catalog sync: once at startup, then every 24 hours —
+/// 500 requests per cycle must stay well inside RAWG's 20k monthly request
+/// limit. The actual ingestion lives in <see cref="IGameSyncService"/> so it
+/// can also be triggered on demand (admin hard-reset).
 /// </summary>
 public class GameSyncBackgroundService(
     IServiceScopeFactory scopeFactory,
     ILogger<GameSyncBackgroundService> logger) : BackgroundService
 {
-    private static readonly TimeSpan SyncInterval = TimeSpan.FromHours(4);
+    private static readonly TimeSpan SyncInterval = TimeSpan.FromHours(24);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -30,7 +31,7 @@ public class GameSyncBackgroundService(
             catch (Exception ex)
             {
                 // Never crash the host over a failed sync; try again next cycle.
-                logger.LogError(ex, "CheapShark game sync failed; retrying in {Interval}.", SyncInterval);
+                logger.LogError(ex, "RAWG game sync failed; retrying in {Interval}.", SyncInterval);
             }
 
             try

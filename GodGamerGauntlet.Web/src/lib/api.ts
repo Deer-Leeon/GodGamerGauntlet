@@ -11,8 +11,9 @@ export interface Game {
   title: string;
   baseDifficulty: number;
   thumb: string | null;
-  normalPrice: number;
-  salePrice: number;
+  /** RAWG does not track storefront pricing, so prices may be absent. */
+  normalPrice: number | null;
+  salePrice: number | null;
 }
 
 export type RunStatus = "Active" | "Failed" | "Completed";

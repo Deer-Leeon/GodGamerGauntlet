@@ -9,13 +9,15 @@ namespace GodGamerGauntlet.Api.Controllers;
 [Route("api/admin")]
 public class AdminController(
     AppDbContext context,
-    IGameSyncService gameSyncService,
+    IServiceScopeFactory scopeFactory,
     ILogger<AdminController> logger) : ControllerBase
 {
     /// <summary>
     /// Wipes all runs and the entire game catalog, re-seeds the 15 hand-curated
-    /// baseline games, then immediately runs the CheapShark sync so the Draft
-    /// Room is fully populated when the request returns. Users are preserved.
+    /// baseline games, then kicks off the RAWG sync in the background. The full
+    /// 500-page ingestion takes ~13 minutes, far too long to await inside one
+    /// HTTP request, so this returns as soon as the reset itself is done.
+    /// Users are preserved.
     /// </summary>
     [HttpPost("hard-reset")]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -31,23 +33,32 @@ public class AdminController(
 
         await DbInitializer.SeedAsync(context);
 
-        // On-demand ingestion so the catalog is live before this request returns.
-        // The 100-page loop is rate-limited to one request per 1.5s, so expect
-        // this endpoint to take ~2.5 minutes to respond.
-        var syncResult = await gameSyncService.SyncAsync(cancellationToken);
-
         logger.LogWarning(
-            "Hard reset complete: {Runs} runs, {Slots} slots, {Games} games deleted; baseline re-seeded and {Synced} CheapShark games ingested.",
-            runsDeleted, slotsDeleted, gamesDeleted, syncResult.GamesAdded);
+            "Hard reset complete: {Runs} runs, {Slots} slots, {Games} games deleted; baseline re-seeded. Starting RAWG sync in background.",
+            runsDeleted, slotsDeleted, gamesDeleted);
+
+        // Fire-and-forget with its own scope and no request-bound cancellation,
+        // so the ingestion survives after this response is sent.
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                using var scope = scopeFactory.CreateScope();
+                var syncService = scope.ServiceProvider.GetRequiredService<IGameSyncService>();
+                await syncService.SyncAsync(CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Background RAWG sync after hard reset failed.");
+            }
+        });
 
         return Ok(new
         {
-            message = "Hard reset and CheapShark sync completed successfully. Baseline catalog re-seeded and live deals ingested.",
+            message = "Hard reset complete. Baseline catalog re-seeded; RAWG sync started in the background (~13 minutes for the full 20,000-game catalog).",
             runsDeleted,
             slotsDeleted,
-            gamesDeleted,
-            cheapSharkGamesProcessed = syncResult.GamesProcessed,
-            cheapSharkGamesAdded = syncResult.GamesAdded
+            gamesDeleted
         });
     }
 }

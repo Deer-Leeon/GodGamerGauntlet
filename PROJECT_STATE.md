@@ -2,7 +2,7 @@
 
 > Living documentation for the godgamergauntlet.com backend. Update this file whenever the schema, API surface, or deployment story changes.
 >
-> **Last updated:** 2026-08-23 (Phase 5.4 — Draft Room Search & Pagination)
+> **Last updated:** 2026-08-23 (Phase 6 — RAWG Catalog Ingestion, 20,000 games / 24-hour cycle)
 
 ---
 
@@ -76,10 +76,10 @@ All primary keys are `uuid` (Guid, generated in application code). Enums are sto
 | Id | uuid | PK |
 | Title | varchar(200) | NOT NULL |
 | BaseDifficulty | int | NOT NULL, CHECK `1 ≤ BaseDifficulty ≤ 100` (`CK_Games_BaseDifficulty`) |
-| ExternalId | varchar(50) | NULL (CheapShark gameID), **unique index** |
-| Thumb | varchar(500) | NULL (cover thumbnail URL, Steam CDN) |
-| NormalPrice | numeric(10,2) | NOT NULL (0 for hand-seeded games) |
-| SalePrice | numeric(10,2) | NOT NULL (0 for hand-seeded games) |
+| ExternalId | varchar(50) | NULL (RAWG game id), **unique index** |
+| Thumb | varchar(500) | NULL (cover image URL, RAWG media CDN) |
+| NormalPrice | numeric(10,2) | NULL — RAWG tracks no pricing; null for all ingested and seeded games |
+| SalePrice | numeric(10,2) | NULL — same |
 
 ### Runs
 
@@ -116,6 +116,7 @@ All primary keys are `uuid` (Guid, generated in application code). Enums are sto
 |---|---|
 | `20260823204713_InitialCreate` | Generated; applied automatically at startup via `MigrateAsync()` |
 | `20260824011412_AddCheapSharkGameFields` | Adds ExternalId/Thumb/NormalPrice/SalePrice to Games; auto-applied at startup |
+| `20260824043027_MakeGamePricesNullable` | NormalPrice/SalePrice → nullable numeric(10,2) for the RAWG era (no storefront pricing) |
 
 ---
 
@@ -179,9 +180,9 @@ Query semantics (single SQL query via EF projection in `RunRepository.GetLeaderb
 
 | Method | Route | Body | Success | Errors |
 |---|---|---|---|---|
-| POST | `/api/admin/hard-reset` | — | `200` → `{ message, runsDeleted, slotsDeleted, gamesDeleted, cheapSharkGamesProcessed, cheapSharkGamesAdded }` | — |
+| POST | `/api/admin/hard-reset` | — | `200` → `{ message, runsDeleted, slotsDeleted, gamesDeleted }` | — |
 
-Hard reset wipes RunSlots → Runs → Games (in that order — RunSlots reference Games with restrict-delete) using EF Core 8 `ExecuteDeleteAsync()` bulk deletes, calls `DbInitializer.SeedAsync` to restore the 15 hand-curated baseline games, then **awaits the CheapShark sync inline** so the full catalog is live before the request returns. ⚠️ **The full-catalog ingestion loop is rate-limited to one request per 1.5 s, so this endpoint takes ~1.5–2.5 minutes to return `200 OK`** (measured: 1 m 19 s for 51 pages). Use `curl --max-time 300` or equivalent. **Users are preserved.** ⚠️ Currently unauthenticated — lock down before exposing publicly.
+Hard reset wipes RunSlots → Runs → Games (in that order — RunSlots reference Games with restrict-delete) using EF Core 8 `ExecuteDeleteAsync()` bulk deletes, calls `DbInitializer.SeedAsync` to restore the 15 hand-curated baseline games, then **fires the RAWG sync in the background** (own DI scope, detached from the request's cancellation token) and returns immediately. The response no longer includes sync counts — a full 500-page ingestion takes ~13 minutes, far beyond any sane HTTP timeout, so the previous inline-await design (Phase 5.2) was retired with the RAWG switch. Watch the API logs for sync progress (logged every 25 pages). **Users are preserved.** ⚠️ Currently unauthenticated — lock down before exposing publicly.
 
 ### DTO validation note (fixed production 500)
 
@@ -240,56 +241,58 @@ Seeded on first boot against an empty database (idempotent — skipped if any ro
 
 **Users (1):** `GodGamerDemo`
 
-Since Phase 5 the seeded games are a curated baseline only — the live catalog grows automatically via the CheapShark sync (section 5a). Seeded games keep `Thumb = null` and prices at 0 until CheapShark carries a deal matching their title.
+Since Phase 5 the seeded games are a curated baseline only — the live catalog grows automatically via the RAWG sync (section 5a). Seeded games keep `Thumb = null` and `null` prices until RAWG carries a game matching their title (which backfills the cover image but never their curated difficulty).
 
 ---
 
-## 5a. CheapShark Catalog Ingestion (Phase 5)
+## 5a. RAWG Catalog Ingestion (Phase 6 — replaces CheapShark entirely)
 
-The browser never calls CheapShark. All ingestion happens server-side:
+Phase 6 abandoned the CheapShark/Steam-deals architecture (capped at ~3,060 games, Steam-only) for the **RAWG Video Games Database API**: up to **20,000 games across all platforms** per sync. RAWG provides rich metadata (name, cover art, Metacritic) but **no storefront pricing** — hence the nullable price columns. `CheapSharkClient.cs`/`CheapSharkDeal.cs` are deleted.
+
+The browser never calls RAWG. All ingestion happens server-side:
 
 ```
-CheapShark API (deals, storeID=1 Steam)
+RAWG API (api.rawg.io/api/games, ordering=-added)
         │  HTTPS, typed client + resilience handler (Polly retries/backoff)
         ▼
 IGameSyncService / GameSyncService (scoped — the actual ingestion)
         ▲                          ▲
-        │ DI scope per cycle       │ awaited inline
+        │ DI scope per cycle       │ fire-and-forget (own DI scope)
 GameSyncBackgroundService     AdminController hard-reset
-(startup + every 4 hours)     (on-demand instant sync)
+(startup + every 24 hours)    (background sync trigger)
         │
         ▼
 IGameRepository.UpsertGamesAsync → PostgreSQL Games table
 ```
 
+### API key (required)
+
+RAWG requires a free API key ([rawg.io/apidocs](https://rawg.io/apidocs)). The client reads it from configuration key **`RawgApiKey`** — set it in `appsettings.json` locally or as the `RawgApiKey` environment variable on Railway. **Without a key the sync skips entirely with a logged warning** (the app still boots and serves the seeded catalog); no requests are wasted against a guaranteed 401.
+
 ### Components
 
-- **`Services/CheapSharkClient.cs`** — typed `HttpClient` wrapper. Base address `https://www.cheapshark.com/`, 30s timeout, `AddStandardResilienceHandler()` (retries with backoff on transient faults). Sends `User-Agent: GodGamerGauntlet/1.0 (godgamergauntlet.com)` — **CheapShark returns 400 for missing/generic User-Agent headers.**
-- **`Services/CheapSharkDeal.cs`** — JSON model for a deal row (`gameID`, `title`, `thumb`, `normalPrice`, `salePrice`, `metacriticScore`, `steamRatingPercent`).
-- **`Services/IGameSyncService.cs` / `GameSyncService.cs`** — scoped service holding the actual ingestion: a paginated loop over top-reviewed Steam deals with a **strict 1500 ms delay between page requests** (rate-limit compliance), deduplication by `gameID`, mapping to `Game`, upsert. Returns `GameSyncResult(GamesProcessed, GamesAdded)`. Callable on demand (admin hard-reset) and on schedule. Progress is logged every 10 pages.
-- **`Services/GameSyncBackgroundService.cs`** — hosted service that only schedules: resolves `IGameSyncService` in a fresh DI scope **on startup and every 4 hours**. Failures are logged and retried next cycle — the host never crashes over a failed sync.
+- **`Services/RawgClient.cs`** — typed `HttpClient` wrapper. Base address `https://api.rawg.io/`, 30s timeout, `AddStandardResilienceHandler()`. `GetTopGamesAsync(int pageNumber)` queries `api/games?key={key}&page={n}&page_size=40&ordering=-added` (most-added games first — RAWG's strongest popularity signal). A 404 (`Invalid page.` past the last page) or 400 returns an empty list so the loop stops gracefully.
+- **`Services/RawgGame.cs`** — JSON models: `RawgGame` (`id`, `name`, `background_image`, `metacritic`) and the paged `RawgGamesResponse` envelope (`results`).
+- **`Services/IGameSyncService.cs` / `GameSyncService.cs`** — scoped service holding the ingestion: a loop over pages **1 to 500** (500 × 40 = 20,000 games) with a **strict 1500 ms delay between page requests**, deduplication by RAWG `id` (stored as `ExternalId`), mapping to `Game`, single upsert at the end. Returns `GameSyncResult(GamesProcessed, GamesAdded)`. Progress logged every 25 pages. **A full sync takes ~13 minutes** (500 × 1.5 s).
+- **`Services/GameSyncBackgroundService.cs`** — hosted service that only schedules: resolves `IGameSyncService` in a fresh DI scope **on startup and every 24 hours**. The long interval keeps usage well inside RAWG's **20,000 requests/month free-tier limit** (≈500/day scheduled + occasional hard-resets ≈ 15–16k/month). Failures are logged and retried next cycle — the host never crashes over a failed sync.
 
-### Massive single-pass ingestion (Phase 5.3 — replaces the Phase 5.1 dual-pass)
+### Field mapping
 
-Query per page: `deals?storeID=1&sortBy=Reviews&pageSize=60&pageNumber={n}` — pure review-volume ranking, no AAA/Metacritic filters. The loop targets 100 pages (6,000 deals) but stops early when CheapShark's pagination window ends.
-
-**API quirks discovered by live testing:**
-
-- `sortBy=Reviews` is already descending; passing `desc=1` inverts it and returns the *least*-reviewed games, so it is deliberately omitted.
-- **CheapShark caps this query at page 50** (51 pages × 60 = **3,060 deals max**). Page 51+ returns `400 Too Many Results - Refine Search`. The client treats that 400 as end-of-catalog and returns an empty page so the loop stops gracefully and everything already aggregated still gets upserted (a naive loop would throw and discard all 3,000 games).
-- A full sync takes **~80 s** (51 requests × 1.5 s spacing). Measured end-to-end: catalog of **3,074 games** (3,060 ingested + 15 seeded, 1 title overlap merged).
-
-EF Core SQL command logging (`Microsoft.EntityFrameworkCore.Database.Command`) and HttpClient chatter are set to `Warning` in `appsettings.json` — at Information level each sync printed ~3,000 INSERT statements into the logs.
+| RAWG JSON | Game entity | Notes |
+|---|---|---|
+| `id` (number) | `ExternalId` (string) | dedupe + upsert match key |
+| `name` | `Title` | truncated to 200 chars |
+| `background_image` | `Thumb` | RAWG media CDN (`media.rawg.io`) |
+| `metacritic` | `BaseDifficulty` | clamped 1–100; **fallback 70 when null/0** |
+| — | `NormalPrice` / `SalePrice` | always `null` — RAWG has no pricing |
 
 ### Upsert semantics (`GameRepository.UpsertGamesAsync`)
 
 - Match existing rows by `ExternalId` first, then case-insensitive title.
-- Matched rows: refresh `Thumb`, `NormalPrice`, `SalePrice`, backfill `ExternalId` — but **never overwrite the curated `BaseDifficulty`** of seeded games.
+- Matched rows: refresh `Thumb` and prices, backfill `ExternalId` — but **never overwrite the curated `BaseDifficulty`** of seeded games.
 - Unmatched rows are inserted; returns the count of newly added games.
 
-### Difficulty derivation for ingested games
-
-CheapShark has no difficulty concept, so ingested games derive `BaseDifficulty` from review data: Metacritic score when present (> 0), else Steam rating percent, else a default of 70 — clamped to the 1–100 check constraint.
+EF Core SQL command logging (`Microsoft.EntityFrameworkCore.Database.Command`) and HttpClient chatter remain at `Warning` in `appsettings.json` — at Information level each sync would print ~20,000 INSERT statements into the logs.
 
 ---
 
@@ -351,7 +354,7 @@ Typed wrappers over `fetch` against `NEXT_PUBLIC_API_URL`: `getGames(): Promise<
 Client component with this flow:
 
 1. **User selector** — dropdown of all users, defaults to `GodGamerDemo`.
-2. **Game catalog** — searchable, paginated grid of the live database catalog (CheapShark-ingested + seeded games): rounded cover thumbnail (letter placeholder when absent), title with match highlighting, base difficulty, and price — sale price in cyan with the normal price struck through when discounted. Instant client-side search ranks prefix/word/substring/fuzzy matches; operators `sale`, `free`, `>80`, `<$10` filter price and difficulty. 24 games per page with compact pager. `/` or Ctrl/Cmd+K focuses the search box. "Add to Draft" fills the first empty slot; a game can be drafted only once.
+2. **Game catalog** — searchable, paginated grid of the live database catalog (RAWG-ingested + seeded games): rounded cover thumbnail (letter placeholder when absent), title with match highlighting, base difficulty, and price. **Price tags are hidden entirely when prices are `null`** (all RAWG-sourced games) so cards stay visually balanced; when present, the sale price shows in cyan with the normal price struck through. Instant client-side search ranks prefix/word/substring/fuzzy matches; operators `sale`, `free`, `>80`, `<$10` filter price and difficulty (price operators exclude games without pricing data; price sorts push them last). 24 games per page with compact pager. `/` or Ctrl/Cmd+K focuses the search box. "Add to Draft" fills the first empty slot; a game can be drafted only once.
 3. **Gauntlet board** — 10 numbered slots showing per-slot math (`base × multiplier = slot score`), with move up/down and remove controls.
 4. **Live score header** — sticky scoreboard recalculating `Total Projected Score` client-side with the same formula the API uses (section 4).
 5. **Launch Gauntlet** — enabled only at 10/10 slots; POSTs to `/api/runs/initialize`, then shows the returned Run ID, server-calculated score, and a link to `/run/{id}`.
@@ -399,6 +402,7 @@ dotnet ef database update --project GodGamerGauntlet.Api
    - `ConnectionStrings__DefaultConnection` = `Host=<PGHOST>;Port=<PGPORT>;Database=<PGDATABASE>;Username=<PGUSER>;Password=<PGPASSWORD>;SSL Mode=Require;Trust Server Certificate=true` (compose from Railway's Postgres variables)
    - `ASPNETCORE_URLS` = `http://0.0.0.0:$PORT` (bind to Railway's assigned port)
    - `ASPNETCORE_ENVIRONMENT` = `Production`
+   - `RawgApiKey` = your RAWG API key (free at [rawg.io/apidocs](https://rawg.io/apidocs)) — **the catalog sync silently skips without it**
 4. Deploy. Startup auto-migration brings the schema up to date and seeds the catalog on the first boot.
 5. Point the Vercel frontend at the Railway public domain; CORS already allows `*.vercel.app`.
 
@@ -436,3 +440,4 @@ cd GodGamerGauntlet.Web && npm run dev
 | 5.2 | Ingestion extracted into scoped `IGameSyncService`/`GameSyncService` (returns processed/added counts); background worker now only schedules it and the interval dropped 12 h → 4 h; hard-reset awaits the sync inline so the full catalog is live when the request returns |
 | 5.3 | Massive single-pass ingestion: dual-pass replaced by a 100-page `sortBy=Reviews` loop (1.5 s per page); CheapShark caps at page 50 (~3,060 deals) with `400 Too Many Results`, handled as graceful end-of-catalog; hard-reset now takes ~1.5–2.5 min; EF SQL logging quieted to Warning |
 | 5.4 | Draft Room catalog search + pagination: ranked instant search (`src/lib/catalogSearch.ts`) with operators `sale`/`free`/`>80`/`<$10`, match highlighting, 24-per-page pager, `/` and Ctrl/Cmd+K focus |
+| 6 | **RAWG replaces CheapShark**: `CheapSharkClient`/`CheapSharkDeal` deleted; `RawgClient` (`api/games?ordering=-added`, `RawgApiKey` from config, graceful skip without key); 500-page × 40-game loop (20,000 games, 1.5 s spacing, ~13 min full sync); background cycle 4 h → **24 h** for the 20k/month request limit; prices → nullable (`MakeGamePricesNullable` migration) with frontend hiding null price tags; hard-reset now fires the sync in the background and returns instantly |
