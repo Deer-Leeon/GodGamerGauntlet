@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import {
   getGames,
@@ -23,6 +24,48 @@ function formatScore(value: number): string {
     minimumFractionDigits: 1,
     maximumFractionDigits: 1,
   });
+}
+
+function GamePrice({ game }: { game: Game }) {
+  if (game.normalPrice <= 0) return null;
+  const discounted = game.salePrice > 0 && game.salePrice < game.normalPrice;
+  return (
+    <p className="font-mono text-xs">
+      {discounted ? (
+        <>
+          <span className="text-accent-win">${game.salePrice.toFixed(2)}</span>{" "}
+          <span className="text-gray-500 line-through">
+            ${game.normalPrice.toFixed(2)}
+          </span>
+        </>
+      ) : (
+        <span className="text-gray-400">${game.normalPrice.toFixed(2)}</span>
+      )}
+    </p>
+  );
+}
+
+function GameThumb({ game }: { game: Game }) {
+  if (!game.thumb) {
+    return (
+      <span
+        aria-hidden
+        className="flex h-12 w-16 shrink-0 items-center justify-center rounded-lg bg-white/5 font-heading text-lg font-bold text-gray-600"
+      >
+        {game.title.charAt(0)}
+      </span>
+    );
+  }
+  return (
+    <Image
+      src={game.thumb}
+      alt=""
+      width={64}
+      height={48}
+      unoptimized
+      className="h-12 w-16 shrink-0 rounded-lg border border-white/10 object-cover"
+    />
+  );
 }
 
 export default function DraftRoomPage() {
@@ -256,10 +299,14 @@ export default function DraftRoomPage() {
                   key={game.id}
                   className="panel flex flex-col justify-between gap-3 rounded-xl p-4"
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <span className="font-heading font-semibold">
-                      {game.title}
-                    </span>
+                  <div className="flex items-start gap-3">
+                    <GameThumb game={game} />
+                    <div className="min-w-0 flex-1">
+                      <span className="block truncate font-heading font-semibold">
+                        {game.title}
+                      </span>
+                      <GamePrice game={game} />
+                    </div>
                     <span className="font-mono text-sm text-accent-streak">
                       {game.baseDifficulty}
                     </span>

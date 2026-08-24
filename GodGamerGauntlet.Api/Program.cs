@@ -1,5 +1,6 @@
 using GodGamerGauntlet.Api.Data;
 using GodGamerGauntlet.Api.Repositories;
+using GodGamerGauntlet.Api.Services;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -24,6 +25,18 @@ builder.Services.AddCors(options =>
               .AllowAnyMethod()
               .AllowCredentials());
 });
+
+// CheapShark ingestion: typed client with standard resilience (retries with
+// backoff on transient faults), consumed only by the background sync worker.
+builder.Services.AddHttpClient<CheapSharkClient>(client =>
+{
+    client.BaseAddress = new Uri("https://www.cheapshark.com/");
+    client.Timeout = TimeSpan.FromSeconds(30);
+    // CheapShark rejects requests without a descriptive User-Agent (400).
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("GodGamerGauntlet/1.0 (godgamergauntlet.com)");
+}).AddStandardResilienceHandler();
+
+builder.Services.AddHostedService<GameSyncBackgroundService>();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();

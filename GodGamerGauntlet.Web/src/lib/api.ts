@@ -10,6 +10,9 @@ export interface Game {
   id: string;
   title: string;
   baseDifficulty: number;
+  thumb: string | null;
+  normalPrice: number;
+  salePrice: number;
 }
 
 export type RunStatus = "Active" | "Failed" | "Completed";

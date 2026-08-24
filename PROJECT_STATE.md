@@ -2,7 +2,7 @@
 
 > Living documentation for the godgamergauntlet.com backend. Update this file whenever the schema, API surface, or deployment story changes.
 >
-> **Last updated:** 2026-08-23 (Phase 4 — Global Leaderboard)
+> **Last updated:** 2026-08-23 (Phase 5 — CheapShark Catalog Ingestion)
 
 ---
 
@@ -76,6 +76,10 @@ All primary keys are `uuid` (Guid, generated in application code). Enums are sto
 | Id | uuid | PK |
 | Title | varchar(200) | NOT NULL |
 | BaseDifficulty | int | NOT NULL, CHECK `1 ≤ BaseDifficulty ≤ 100` (`CK_Games_BaseDifficulty`) |
+| ExternalId | varchar(50) | NULL (CheapShark gameID), **unique index** |
+| Thumb | varchar(500) | NULL (cover thumbnail URL, Steam CDN) |
+| NormalPrice | numeric(10,2) | NOT NULL (0 for hand-seeded games) |
+| SalePrice | numeric(10,2) | NOT NULL (0 for hand-seeded games) |
 
 ### Runs
 
@@ -111,6 +115,7 @@ All primary keys are `uuid` (Guid, generated in application code). Enums are sto
 | Migration | Status |
 |---|---|
 | `20260823204713_InitialCreate` | Generated; applied automatically at startup via `MigrateAsync()` |
+| `20260824011412_AddCheapSharkGameFields` | Adds ExternalId/Thumb/NormalPrice/SalePrice to Games; auto-applied at startup |
 
 ---
 
@@ -136,7 +141,7 @@ User object: `{ "id": "uuid", "username": "string", "createdAt": "ISO-8601 UTC" 
 | POST | `/api/games` | `{ "title": "string (≤200)", "baseDifficulty": 1-100 }` | `201` → Game | `400` invalid body |
 | GET | `/api/games/{id}` | — | `200` → Game | `404` not found |
 
-Game object: `{ "id": "uuid", "title": "string", "baseDifficulty": int }`
+Game object: `{ "id": "uuid", "title": "string", "baseDifficulty": int, "thumb": "url | null", "normalPrice": decimal, "salePrice": decimal }`
 
 ### Runs
 
@@ -227,6 +232,40 @@ Seeded on first boot against an empty database (idempotent — skipped if any ro
 
 **Users (1):** `GodGamerDemo`
 
+Since Phase 5 the seeded games are a curated baseline only — the live catalog grows automatically via the CheapShark sync (section 5a). Seeded games keep `Thumb = null` and prices at 0 until CheapShark carries a deal matching their title.
+
+---
+
+## 5a. CheapShark Catalog Ingestion (Phase 5)
+
+The browser never calls CheapShark. All ingestion happens server-side:
+
+```
+CheapShark API (deals, storeID=1 Steam)
+        │  HTTPS, typed client + resilience handler (Polly retries/backoff)
+        ▼
+GameSyncBackgroundService (BackgroundService singleton)
+        │  DI scope per sync
+        ▼
+IGameRepository.UpsertGamesAsync → PostgreSQL Games table
+```
+
+### Components
+
+- **`Services/CheapSharkClient.cs`** — typed `HttpClient` wrapper. Base address `https://www.cheapshark.com/`, 30s timeout, `AddStandardResilienceHandler()` (retries with backoff on transient faults). Sends `User-Agent: GodGamerGauntlet/1.0 (godgamergauntlet.com)` — **CheapShark returns 400 for missing/generic User-Agent headers.**
+- **`Services/CheapSharkDeal.cs`** — JSON model for a deal row (`gameID`, `title`, `thumb`, `normalPrice`, `salePrice`, `metacriticScore`, `steamRatingPercent`).
+- **`Services/GameSyncBackgroundService.cs`** — hosted service. Syncs **on startup and every 12 hours**; fetches 2 pages × 60 Steam deals with a **strict 1500 ms delay between page requests** (rate-limit compliance). Deduplicates by `gameID`, maps to `Game`, upserts. Failures are logged and retried next cycle — the host never crashes over a failed sync.
+
+### Upsert semantics (`GameRepository.UpsertGamesAsync`)
+
+- Match existing rows by `ExternalId` first, then case-insensitive title.
+- Matched rows: refresh `Thumb`, `NormalPrice`, `SalePrice`, backfill `ExternalId` — but **never overwrite the curated `BaseDifficulty`** of seeded games.
+- Unmatched rows are inserted; returns the count of newly added games.
+
+### Difficulty derivation for ingested games
+
+CheapShark has no difficulty concept, so ingested games derive `BaseDifficulty` from review data: Metacritic score when present (> 0), else Steam rating percent, else a default of 70 — clamped to the 1–100 check constraint.
+
 ---
 
 ## 6. CORS Policy
@@ -287,7 +326,7 @@ Typed wrappers over `fetch` against `NEXT_PUBLIC_API_URL`: `getGames(): Promise<
 Client component with this flow:
 
 1. **User selector** — dropdown of all users, defaults to `GodGamerDemo`.
-2. **Game catalog** — grid of seeded games (title + base difficulty); "Add to Draft" fills the first empty slot; a game can be drafted only once.
+2. **Game catalog** — grid of the live database catalog (CheapShark-ingested + seeded games): rounded cover thumbnail (letter placeholder when absent), title, base difficulty, and price — sale price in cyan with the normal price struck through when discounted. "Add to Draft" fills the first empty slot; a game can be drafted only once.
 3. **Gauntlet board** — 10 numbered slots showing per-slot math (`base × multiplier = slot score`), with move up/down and remove controls.
 4. **Live score header** — sticky scoreboard recalculating `Total Projected Score` client-side with the same formula the API uses (section 4).
 5. **Launch Gauntlet** — enabled only at 10/10 slots; POSTs to `/api/runs/initialize`, then shows the returned Run ID, server-calculated score, and a link to `/run/{id}`.
@@ -367,3 +406,4 @@ cd GodGamerGauntlet.Web && npm run dev
 | 2.2 | Forwarded-headers middleware (Railway proxy) and pipeline reorder: CORS before HTTPS redirection so `OPTIONS` preflights on `POST` succeed — fixes `Failed to fetch` on Launch Gauntlet |
 | 3 | Fixed record-DTO validation attributes that 500'd every POST body; `POST /api/runs/{id}/report` with strict sequential state machine; `getRun`/`reportSlotMatch` client functions; Live Run Tracker at `/run/[id]` |
 | 4 | Global Leaderboard: `GET /api/leaderboard` (top 50 finished runs, earned-score aggregation in SQL, Completed-over-Failed tiebreak), `getLeaderboard` client function, `/leaderboard` page with podium styling, nav links from home/draft/run pages |
+| 5 | CheapShark catalog ingestion: Game entity extended with ExternalId/Thumb/NormalPrice/SalePrice (+migration), `UpsertGamesAsync`, typed `CheapSharkClient` with resilience handler and required User-Agent, `GameSyncBackgroundService` (startup + 12h cycle, 1.5s page delay), Draft Room catalog with thumbnails and prices |

@@ -37,4 +37,47 @@ public class GameRepository(AppDbContext context) : IGameRepository
         await context.SaveChangesAsync(cancellationToken);
         return game;
     }
+
+    public async Task<int> UpsertGamesAsync(IReadOnlyList<Game> games, CancellationToken cancellationToken = default)
+    {
+        var existing = await context.Games.ToListAsync(cancellationToken);
+        var byExternalId = existing
+            .Where(g => g.ExternalId is not null)
+            .ToDictionary(g => g.ExternalId!);
+        var byTitle = existing
+            .GroupBy(g => g.Title.ToLowerInvariant())
+            .ToDictionary(g => g.Key, g => g.First());
+
+        var added = 0;
+
+        foreach (var incoming in games)
+        {
+            var match =
+                (incoming.ExternalId is not null && byExternalId.TryGetValue(incoming.ExternalId, out var byId)
+                    ? byId
+                    : null)
+                ?? byTitle.GetValueOrDefault(incoming.Title.ToLowerInvariant());
+
+            if (match is null)
+            {
+                context.Games.Add(incoming);
+                byTitle[incoming.Title.ToLowerInvariant()] = incoming;
+                if (incoming.ExternalId is not null)
+                {
+                    byExternalId[incoming.ExternalId] = incoming;
+                }
+                added++;
+                continue;
+            }
+
+            // Refresh store data but keep the curated difficulty of existing entries.
+            match.ExternalId ??= incoming.ExternalId;
+            match.Thumb = incoming.Thumb ?? match.Thumb;
+            match.NormalPrice = incoming.NormalPrice;
+            match.SalePrice = incoming.SalePrice;
+        }
+
+        await context.SaveChangesAsync(cancellationToken);
+        return added;
+    }
 }

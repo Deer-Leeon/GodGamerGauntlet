@@ -27,6 +27,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.Entity<Game>(entity =>
         {
             entity.Property(g => g.Title).HasMaxLength(200).IsRequired();
+            entity.Property(g => g.ExternalId).HasMaxLength(50);
+            entity.HasIndex(g => g.ExternalId).IsUnique();
+            entity.Property(g => g.Thumb).HasMaxLength(500);
+            entity.Property(g => g.NormalPrice).HasPrecision(10, 2);
+            entity.Property(g => g.SalePrice).HasPrecision(10, 2);
             entity.ToTable(t => t.HasCheckConstraint(
                 "CK_Games_BaseDifficulty", "\"BaseDifficulty\" BETWEEN 1 AND 100"));
         });

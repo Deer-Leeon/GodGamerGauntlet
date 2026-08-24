@@ -7,8 +7,14 @@ public record CreateGameRequest(
     [Required, MaxLength(200)] string Title,
     [Range(1, 100)] int BaseDifficulty);
 
-public record GameResponse(Guid Id, string Title, int BaseDifficulty)
+public record GameResponse(
+    Guid Id,
+    string Title,
+    int BaseDifficulty,
+    string? Thumb,
+    decimal NormalPrice,
+    decimal SalePrice)
 {
     public static GameResponse FromEntity(Game game) =>
-        new(game.Id, game.Title, game.BaseDifficulty);
+        new(game.Id, game.Title, game.BaseDifficulty, game.Thumb, game.NormalPrice, game.SalePrice);
 }
