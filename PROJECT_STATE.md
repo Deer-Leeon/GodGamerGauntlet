@@ -2,7 +2,7 @@
 
 > Living documentation for the godgamergauntlet.com backend. Update this file whenever the schema, API surface, or deployment story changes.
 >
-> **Last updated:** 2026-08-23 (Phase 5 — CheapShark Catalog Ingestion)
+> **Last updated:** 2026-08-23 (Phase 5.1 — Hard Reset & Curated Dual-Pass Ingestion)
 
 ---
 
@@ -175,6 +175,14 @@ Query semantics (single SQL query via EF projection in `RunRepository.GetLeaderb
 - `totalScore` is the **earned** score — the slot formula summed over `Won` slots only (a failed run keeps the points from slots it survived; this differs from the run's stored `TotalDifficultyScore`, which is the projected total for all 10 slots).
 - Ordering: earned score desc → `Completed` before `Failed` on ties → most recent `EndTime` first. Top 50 returned.
 
+### Admin
+
+| Method | Route | Body | Success | Errors |
+|---|---|---|---|---|
+| POST | `/api/admin/hard-reset` | — | `200` → `{ message, runsDeleted, slotsDeleted, gamesDeleted }` | — |
+
+Hard reset wipes RunSlots → Runs → Games (in that order — RunSlots reference Games with restrict-delete) using EF Core 8 `ExecuteDeleteAsync()` bulk deletes, then calls `DbInitializer.SeedAsync` to restore the 15 hand-curated baseline games. **Users are preserved.** The next background sync re-ingests the curated CheapShark catalog. ⚠️ Currently unauthenticated — lock down before exposing publicly.
+
 ### DTO validation note (fixed production 500)
 
 Request DTOs are positional records; validation attributes must target the **constructor parameter** (`[Required]`), never the property (`[property: Required]`). The property form compiles but makes ASP.NET Core model validation throw `InvalidOperationException` → empty `500` on every POST (the browser showed it as `Failed to fetch` because error responses carry no CORS headers).
@@ -254,7 +262,16 @@ IGameRepository.UpsertGamesAsync → PostgreSQL Games table
 
 - **`Services/CheapSharkClient.cs`** — typed `HttpClient` wrapper. Base address `https://www.cheapshark.com/`, 30s timeout, `AddStandardResilienceHandler()` (retries with backoff on transient faults). Sends `User-Agent: GodGamerGauntlet/1.0 (godgamergauntlet.com)` — **CheapShark returns 400 for missing/generic User-Agent headers.**
 - **`Services/CheapSharkDeal.cs`** — JSON model for a deal row (`gameID`, `title`, `thumb`, `normalPrice`, `salePrice`, `metacriticScore`, `steamRatingPercent`).
-- **`Services/GameSyncBackgroundService.cs`** — hosted service. Syncs **on startup and every 12 hours**; fetches 2 pages × 60 Steam deals with a **strict 1500 ms delay between page requests** (rate-limit compliance). Deduplicates by `gameID`, maps to `Game`, upserts. Failures are logged and retried next cycle — the host never crashes over a failed sync.
+- **`Services/GameSyncBackgroundService.cs`** — hosted service. Syncs **on startup and every 12 hours** via two targeted queries spaced by a **strict 1500 ms delay** (rate-limit compliance). Deduplicates by `gameID`, maps to `Game`, upserts. Failures are logged and retried next cycle — the host never crashes over a failed sync.
+
+### Dual-pass curated queries (Phase 5.1)
+
+| Pass | Query | Purpose |
+|---|---|---|
+| 1 — AAA Hits | `deals?storeID=1&AAA=1&sortBy=Reviews&pageSize=60` | Big-name AAA titles by review volume |
+| 2 — Highly Rated | `deals?storeID=1&metacritic=80&minimumReviewCount=1000&sortBy=DealRating&pageSize=60` | Critically acclaimed games (Metacritic 80+, 1000+ Steam reviews) |
+
+Results are combined and deduplicated by `gameID` (the AAA pass wins ties) before the upsert. **API quirk:** CheapShark's `sortBy=Reviews` is already descending; passing `desc=1` inverts it and returns the *least*-reviewed games, so it is deliberately omitted.
 
 ### Upsert semantics (`GameRepository.UpsertGamesAsync`)
 
@@ -407,3 +424,4 @@ cd GodGamerGauntlet.Web && npm run dev
 | 3 | Fixed record-DTO validation attributes that 500'd every POST body; `POST /api/runs/{id}/report` with strict sequential state machine; `getRun`/`reportSlotMatch` client functions; Live Run Tracker at `/run/[id]` |
 | 4 | Global Leaderboard: `GET /api/leaderboard` (top 50 finished runs, earned-score aggregation in SQL, Completed-over-Failed tiebreak), `getLeaderboard` client function, `/leaderboard` page with podium styling, nav links from home/draft/run pages |
 | 5 | CheapShark catalog ingestion: Game entity extended with ExternalId/Thumb/NormalPrice/SalePrice (+migration), `UpsertGamesAsync`, typed `CheapSharkClient` with resilience handler and required User-Agent, `GameSyncBackgroundService` (startup + 12h cycle, 1.5s page delay), Draft Room catalog with thumbnails and prices |
+| 5.1 | `POST /api/admin/hard-reset` (`ExecuteDeleteAsync` wipe of slots/runs/games + baseline re-seed via extracted `DbInitializer.SeedAsync`); ingestion refined to two targeted queries (AAA hits by review volume, Metacritic 80+ with 1000+ reviews) deduplicated by gameID — dropped `desc=1` which inverted the Reviews sort |

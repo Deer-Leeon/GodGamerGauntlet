@@ -8,7 +8,12 @@ public static class DbInitializer
     public static async Task InitializeAsync(AppDbContext context)
     {
         await context.Database.MigrateAsync();
+        await SeedAsync(context);
+    }
 
+    /// <summary>Restores the hand-curated baseline (15 games, demo user) into empty tables. Idempotent.</summary>
+    public static async Task SeedAsync(AppDbContext context)
+    {
         if (!await context.Games.AnyAsync())
         {
             context.Games.AddRange(SeedGames());

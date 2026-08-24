@@ -5,9 +5,10 @@ using GodGamerGauntlet.Api.Repositories;
 namespace GodGamerGauntlet.Api.Services;
 
 /// <summary>
-/// Periodically ingests the Steam deals catalog from CheapShark into PostgreSQL.
-/// Runs once at startup, then every 12 hours. Pages are fetched with a strict
-/// 1.5s delay between requests to respect CheapShark's rate limits.
+/// Periodically ingests a curated Steam catalog from CheapShark into PostgreSQL.
+/// Runs once at startup, then every 12 hours. Two targeted queries (AAA hits and
+/// highly rated games) are spaced by a strict 1.5s delay to respect CheapShark's
+/// rate limits.
 /// </summary>
 public class GameSyncBackgroundService(
     CheapSharkClient cheapShark,
@@ -15,8 +16,7 @@ public class GameSyncBackgroundService(
     ILogger<GameSyncBackgroundService> logger) : BackgroundService
 {
     private static readonly TimeSpan SyncInterval = TimeSpan.FromHours(12);
-    private static readonly TimeSpan PageDelay = TimeSpan.FromMilliseconds(1500);
-    private const int PagesToFetch = 2;
+    private static readonly TimeSpan RequestDelay = TimeSpan.FromMilliseconds(1500);
     private const int DefaultDifficulty = 70;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -50,30 +50,28 @@ public class GameSyncBackgroundService(
 
     private async Task SyncAsync(CancellationToken cancellationToken)
     {
-        logger.LogInformation("Starting CheapShark game sync ({Pages} pages).", PagesToFetch);
+        logger.LogInformation("Starting CheapShark game sync (AAA hits + highly rated).");
 
+        // Pass 1: AAA titles ordered by review volume.
+        var aaaHits = await cheapShark.GetAaaHitsAsync(cancellationToken);
+
+        // Strict spacing between requests to avoid CheapShark rate limits / IP bans.
+        await Task.Delay(RequestDelay, cancellationToken);
+
+        // Pass 2: critically acclaimed games (Metacritic 80+, 1000+ reviews).
+        var highlyRated = await cheapShark.GetHighlyRatedAsync(cancellationToken);
+
+        // Combine and deduplicate by CheapShark gameID (our ExternalId);
+        // the AAA pass wins when a game appears in both.
         var dealsByGameId = new Dictionary<string, CheapSharkDeal>();
-
-        for (var page = 0; page < PagesToFetch; page++)
+        foreach (var deal in aaaHits.Concat(highlyRated))
         {
-            if (page > 0)
-            {
-                // Strict spacing between requests to avoid CheapShark rate limits / IP bans.
-                await Task.Delay(PageDelay, cancellationToken);
-            }
-
-            var deals = await cheapShark.GetSteamDealsPageAsync(page, cancellationToken);
-            foreach (var deal in deals)
-            {
-                // The same game can appear in several deals; keep the first (best-ranked).
-                dealsByGameId.TryAdd(deal.GameId, deal);
-            }
-
-            if (deals.Count == 0)
-            {
-                break;
-            }
+            dealsByGameId.TryAdd(deal.GameId, deal);
         }
+
+        logger.LogInformation(
+            "CheapShark returned {Aaa} AAA hits and {Rated} highly rated deals ({Unique} unique games).",
+            aaaHits.Count, highlyRated.Count, dealsByGameId.Count);
 
         var games = dealsByGameId.Values
             .Where(d => !string.IsNullOrWhiteSpace(d.Title))
