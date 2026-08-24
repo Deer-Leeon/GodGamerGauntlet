@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -11,6 +11,14 @@ import {
   type Run,
   type User,
 } from "@/lib/api";
+import {
+  PAGE_SIZE,
+  highlightTitle,
+  pageWindow,
+  parseQuery,
+  searchGames,
+  type CatalogSort,
+} from "@/lib/catalogSearch";
 
 const SLOT_COUNT = 10;
 
@@ -80,6 +88,11 @@ export default function DraftRoomPage() {
   const [launching, setLaunching] = useState(false);
   const [launchError, setLaunchError] = useState<string | null>(null);
   const [createdRun, setCreatedRun] = useState<Run | null>(null);
+  const [query, setQuery] = useState("");
+  const [sort, setSort] = useState<CatalogSort>("title");
+  const [page, setPage] = useState(1);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const catalogRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -114,6 +127,52 @@ export default function DraftRoomPage() {
 
   const filledCount = draftedIds.size;
   const boardFull = slots.every((slot) => slot !== null);
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      const target = event.target as HTMLElement | null;
+      const typingInField =
+        target?.tagName === "INPUT" ||
+        target?.tagName === "TEXTAREA" ||
+        target?.tagName === "SELECT" ||
+        target?.isContentEditable;
+
+      if (
+        (event.key === "/" ||
+          (event.key === "k" && (event.metaKey || event.ctrlKey))) &&
+        !typingInField
+      ) {
+        event.preventDefault();
+        searchRef.current?.focus();
+        searchRef.current?.select();
+      }
+      if (event.key === "Escape" && document.activeElement === searchRef.current) {
+        searchRef.current?.blur();
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  const rankedGames = useMemo(
+    () => searchGames(games, query, sort),
+    [games, query, sort],
+  );
+  const pageCount = Math.max(1, Math.ceil(rankedGames.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount);
+  const pagedGames = rankedGames.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE,
+  );
+  const highlightTokens = useMemo(() => parseQuery(query).titleTokens, [query]);
+
+  function updateQuery(value: string) {
+    setQuery(value);
+    setPage(1);
+    setSort((current) =>
+      value.trim() && current === "title" ? "relevance" : current,
+    );
+  }
 
   const totalProjectedScore = useMemo(
     () =>
@@ -279,10 +338,84 @@ export default function DraftRoomPage() {
 
       <div className="grid gap-8 lg:grid-cols-[1fr_1.2fr]">
         {/* Available Games Catalog */}
-        <section>
-          <h2 className="mb-4 font-heading text-lg font-bold uppercase tracking-wide text-gray-300">
-            Game Catalog
-          </h2>
+        <section ref={catalogRef}>
+          <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2 className="font-heading text-lg font-bold uppercase tracking-wide text-gray-300">
+                Game Catalog
+              </h2>
+              <p className="mt-1 text-xs text-gray-500" aria-live="polite">
+                {loading
+                  ? "Loading catalog…"
+                  : rankedGames.length === games.length
+                    ? `${games.length.toLocaleString()} games`
+                    : `${rankedGames.length.toLocaleString()} of ${games.length.toLocaleString()} games`}
+                {!loading && pageCount > 1
+                  ? ` · page ${currentPage} of ${pageCount}`
+                  : null}
+              </p>
+            </div>
+          </div>
+
+          <div className="mb-4 space-y-3">
+            <label className="sr-only" htmlFor="catalog-search">
+              Search games
+            </label>
+            <div className="panel relative flex items-center rounded-xl focus-within:border-accent-win/60">
+              <span aria-hidden className="pl-4 text-gray-500">
+                ⌕
+              </span>
+              <input
+                ref={searchRef}
+                id="catalog-search"
+                type="search"
+                value={query}
+                onChange={(event) => updateQuery(event.target.value)}
+                placeholder="Search titles, or try sale  <$10  >80"
+                autoComplete="off"
+                spellCheck={false}
+                className="w-full bg-transparent px-3 py-3 font-heading text-sm outline-none placeholder:text-gray-600"
+              />
+              {query ? (
+                <button
+                  type="button"
+                  onClick={() => updateQuery("")}
+                  className="mr-2 rounded-md px-2 py-1 text-xs text-gray-400 transition hover:text-accent-win"
+                >
+                  Clear
+                </button>
+              ) : (
+                <kbd className="mr-3 hidden rounded border border-white/10 px-1.5 py-0.5 font-mono text-[10px] text-gray-500 sm:inline">
+                  /
+                </kbd>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-[11px] leading-relaxed text-gray-600">
+                Tokens match any word. Operators:{" "}
+                <span className="font-mono text-gray-500">sale</span>{" "}
+                <span className="font-mono text-gray-500">free</span>{" "}
+                <span className="font-mono text-gray-500">&gt;80</span>{" "}
+                <span className="font-mono text-gray-500">&lt;$10</span>
+              </p>
+              <select
+                value={sort}
+                onChange={(event) => {
+                  setSort(event.target.value as CatalogSort);
+                  setPage(1);
+                }}
+                className="panel rounded-lg bg-surface px-3 py-1.5 font-heading text-xs outline-none focus:border-accent-win/60"
+                aria-label="Sort catalog"
+              >
+                <option value="relevance">Best match</option>
+                <option value="title">Title A–Z</option>
+                <option value="difficulty">Difficulty</option>
+                <option value="price">Price: low to high</option>
+                <option value="sale">On sale first</option>
+              </select>
+            </div>
+          </div>
+
           <ul className="grid gap-3 sm:grid-cols-2">
             {loading &&
               Array.from({ length: 6 }).map((_, i) => (
@@ -292,7 +425,15 @@ export default function DraftRoomPage() {
                   aria-hidden
                 />
               ))}
-            {games.map((game) => {
+            {!loading && pagedGames.length === 0 && (
+              <li className="panel col-span-full rounded-xl p-6 text-sm text-gray-400">
+                No games match{" "}
+                <span className="font-mono text-accent-win">{query}</span>. Try a
+                shorter title, or drop filters like{" "}
+                <span className="font-mono">sale</span>.
+              </li>
+            )}
+            {pagedGames.map(({ game }) => {
               const drafted = draftedIds.has(game.id);
               return (
                 <li
@@ -303,7 +444,19 @@ export default function DraftRoomPage() {
                     <GameThumb game={game} />
                     <div className="min-w-0 flex-1">
                       <span className="block truncate font-heading font-semibold">
-                        {game.title}
+                        {highlightTitle(game.title, highlightTokens).map(
+                          (part, index) =>
+                            part.hit ? (
+                              <mark
+                                key={index}
+                                className="rounded-sm bg-accent-streak/20 text-accent-streak"
+                              >
+                                {part.text}
+                              </mark>
+                            ) : (
+                              <span key={index}>{part.text}</span>
+                            ),
+                        )}
                       </span>
                       <GamePrice game={game} />
                     </div>
@@ -323,6 +476,15 @@ export default function DraftRoomPage() {
               );
             })}
           </ul>
+
+          <CatalogPager
+            page={currentPage}
+            pageCount={pageCount}
+            onPage={(next) => {
+              setPage(next);
+              catalogRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+            }}
+          />
         </section>
 
         {/* The 10-Slot Gauntlet Board */}
@@ -419,5 +581,64 @@ export default function DraftRoomPage() {
         </section>
       </div>
     </main>
+  );
+}
+
+function CatalogPager({
+  page,
+  pageCount,
+  onPage,
+}: {
+  page: number;
+  pageCount: number;
+  onPage: (page: number) => void;
+}) {
+  if (pageCount <= 1) return null;
+
+  const items = pageWindow(page, pageCount);
+
+  return (
+    <nav
+      className="mt-5 flex flex-wrap items-center justify-center gap-1.5"
+      aria-label="Catalog pages"
+    >
+      <button
+        type="button"
+        onClick={() => onPage(page - 1)}
+        disabled={page <= 1}
+        className="rounded-lg border border-white/10 px-3 py-1.5 font-heading text-xs transition enabled:hover:border-accent-win/60 enabled:hover:text-accent-win disabled:opacity-30"
+      >
+        Prev
+      </button>
+      {items.map((item, index) =>
+        item === "gap" ? (
+          <span key={`gap-${index}`} className="px-1 font-mono text-xs text-gray-600">
+            …
+          </span>
+        ) : (
+          <button
+            key={item}
+            type="button"
+            onClick={() => onPage(item)}
+            aria-current={item === page ? "page" : undefined}
+            className={`min-w-8 rounded-lg px-2.5 py-1.5 font-mono text-xs transition ${
+              item === page
+                ? "bg-accent-streak font-bold text-dark"
+                : "border border-white/10 hover:border-accent-win/60 hover:text-accent-win"
+            }`}
+          >
+            {item}
+          </button>
+        ),
+      )}
+      <button
+        type="button"
+        onClick={() => onPage(page + 1)}
+        disabled={page >= pageCount}
+        className="rounded-lg border border-white/10 px-3 py-1.5 font-heading text-xs transition enabled:hover:border-accent-win/60 enabled:hover:text-accent-win disabled:opacity-30"
+      >
+        Next
+      </button>
+    </nav>
   );
 }

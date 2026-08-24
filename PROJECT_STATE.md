@@ -2,7 +2,7 @@
 
 > Living documentation for the godgamergauntlet.com backend. Update this file whenever the schema, API surface, or deployment story changes.
 >
-> **Last updated:** 2026-08-23 (Phase 5.3 — Massive Single-Pass Ingestion, ~3,000 games)
+> **Last updated:** 2026-08-23 (Phase 5.4 — Draft Room Search & Pagination)
 
 ---
 
@@ -351,7 +351,7 @@ Typed wrappers over `fetch` against `NEXT_PUBLIC_API_URL`: `getGames(): Promise<
 Client component with this flow:
 
 1. **User selector** — dropdown of all users, defaults to `GodGamerDemo`.
-2. **Game catalog** — grid of the live database catalog (CheapShark-ingested + seeded games): rounded cover thumbnail (letter placeholder when absent), title, base difficulty, and price — sale price in cyan with the normal price struck through when discounted. "Add to Draft" fills the first empty slot; a game can be drafted only once.
+2. **Game catalog** — searchable, paginated grid of the live database catalog (CheapShark-ingested + seeded games): rounded cover thumbnail (letter placeholder when absent), title with match highlighting, base difficulty, and price — sale price in cyan with the normal price struck through when discounted. Instant client-side search ranks prefix/word/substring/fuzzy matches; operators `sale`, `free`, `>80`, `<$10` filter price and difficulty. 24 games per page with compact pager. `/` or Ctrl/Cmd+K focuses the search box. "Add to Draft" fills the first empty slot; a game can be drafted only once.
 3. **Gauntlet board** — 10 numbered slots showing per-slot math (`base × multiplier = slot score`), with move up/down and remove controls.
 4. **Live score header** — sticky scoreboard recalculating `Total Projected Score` client-side with the same formula the API uses (section 4).
 5. **Launch Gauntlet** — enabled only at 10/10 slots; POSTs to `/api/runs/initialize`, then shows the returned Run ID, server-calculated score, and a link to `/run/{id}`.
@@ -435,3 +435,4 @@ cd GodGamerGauntlet.Web && npm run dev
 | 5.1 | `POST /api/admin/hard-reset` (`ExecuteDeleteAsync` wipe of slots/runs/games + baseline re-seed via extracted `DbInitializer.SeedAsync`); ingestion refined to two targeted queries (AAA hits by review volume, Metacritic 80+ with 1000+ reviews) deduplicated by gameID — dropped `desc=1` which inverted the Reviews sort |
 | 5.2 | Ingestion extracted into scoped `IGameSyncService`/`GameSyncService` (returns processed/added counts); background worker now only schedules it and the interval dropped 12 h → 4 h; hard-reset awaits the sync inline so the full catalog is live when the request returns |
 | 5.3 | Massive single-pass ingestion: dual-pass replaced by a 100-page `sortBy=Reviews` loop (1.5 s per page); CheapShark caps at page 50 (~3,060 deals) with `400 Too Many Results`, handled as graceful end-of-catalog; hard-reset now takes ~1.5–2.5 min; EF SQL logging quieted to Warning |
+| 5.4 | Draft Room catalog search + pagination: ranked instant search (`src/lib/catalogSearch.ts`) with operators `sale`/`free`/`>80`/`<$10`, match highlighting, 24-per-page pager, `/` and Ctrl/Cmd+K focus |
