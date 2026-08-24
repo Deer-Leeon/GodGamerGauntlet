@@ -429,7 +429,12 @@ export default function DraftRoomPage() {
                   aria-hidden
                 />
               ))}
-            {!loading && pagedGames.length === 0 && (
+            {!loading && games.length === 0 && (
+              <li className="panel col-span-full rounded-xl p-6 text-sm text-gray-400">
+                Catalog is empty. Games show up here after RAWG sync finishes.
+              </li>
+            )}
+            {!loading && games.length > 0 && pagedGames.length === 0 && (
               <li className="panel col-span-full rounded-xl p-6 text-sm text-gray-400">
                 No games match{" "}
                 <span className="font-mono text-accent-win">{query}</span>. Try a

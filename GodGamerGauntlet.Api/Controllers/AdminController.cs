@@ -13,11 +13,9 @@ public class AdminController(
     ILogger<AdminController> logger) : ControllerBase
 {
     /// <summary>
-    /// Wipes all runs and the entire game catalog, re-seeds the 15 hand-curated
-    /// baseline games, then kicks off the RAWG sync in the background. The full
-    /// 500-page ingestion takes ~13 minutes, far too long to await inside one
-    /// HTTP request, so this returns as soon as the reset itself is done.
-    /// Users are preserved.
+    /// Wipes all runs and the entire game catalog, then kicks off the RAWG sync
+    /// in the background. The catalog stays empty until that ingest finishes
+    /// (~13 minutes). Users are preserved.
     /// </summary>
     [HttpPost("hard-reset")]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -34,7 +32,7 @@ public class AdminController(
         await DbInitializer.SeedAsync(context);
 
         logger.LogWarning(
-            "Hard reset complete: {Runs} runs, {Slots} slots, {Games} games deleted; baseline re-seeded. Starting RAWG sync in background.",
+            "Hard reset complete: {Runs} runs, {Slots} slots, {Games} games deleted; catalog left empty. Starting RAWG sync in background.",
             runsDeleted, slotsDeleted, gamesDeleted);
 
         // Fire-and-forget with its own scope and no request-bound cancellation,
@@ -55,7 +53,7 @@ public class AdminController(
 
         return Ok(new
         {
-            message = "Hard reset complete. Baseline catalog re-seeded; RAWG sync started in the background (~13 minutes for the full 20,000-game catalog).",
+            message = "Hard reset complete. Catalog wiped; RAWG sync started in the background (~13 minutes for the full 20,000-game catalog).",
             runsDeleted,
             slotsDeleted,
             gamesDeleted

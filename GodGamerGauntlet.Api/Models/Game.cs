@@ -11,7 +11,7 @@ public class Game
     [Range(1, 100)]
     public int BaseDifficulty { get; set; }
 
-    /// <summary>RAWG game id for ingested games; null for hand-seeded catalog entries.</summary>
+    /// <summary>RAWG game id for ingested games.</summary>
     public string? ExternalId { get; set; }
 
     /// <summary>Cover image URL.</summary>
