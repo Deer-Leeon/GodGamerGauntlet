@@ -1,40 +1,15 @@
 using GodGamerGauntlet.Api.Contracts;
-using GodGamerGauntlet.Api.Models;
 using GodGamerGauntlet.Api.Repositories;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GodGamerGauntlet.Api.Controllers;
 
+// Account creation moved to POST /api/auth/register (Phase 7) — a password-less
+// create endpoint would let anyone squat usernames.
 [ApiController]
 [Route("api/users")]
 public class UserController(IUserRepository userRepository) : ControllerBase
 {
-    [HttpPost]
-    [ProducesResponseType(typeof(UserResponse), StatusCodes.Status201Created)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status409Conflict)]
-    public async Task<IActionResult> Create(CreateUserRequest request, CancellationToken cancellationToken)
-    {
-        var username = request.Username.Trim();
-
-        var existing = await userRepository.GetByUsernameAsync(username, cancellationToken);
-        if (existing is not null)
-        {
-            return Conflict($"Username '{username}' is already taken.");
-        }
-
-        var user = new User
-        {
-            Id = Guid.NewGuid(),
-            Username = username,
-            CreatedAt = DateTime.UtcNow
-        };
-
-        await userRepository.AddAsync(user, cancellationToken);
-
-        return CreatedAtAction(nameof(GetById), new { id = user.Id }, UserResponse.FromEntity(user));
-    }
-
     [HttpGet]
     [ProducesResponseType(typeof(IEnumerable<UserResponse>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAll(CancellationToken cancellationToken)

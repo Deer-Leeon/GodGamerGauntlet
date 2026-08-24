@@ -17,4 +17,10 @@ public class Run
     public double TotalDifficultyScore { get; set; }
 
     public ICollection<RunSlot> Slots { get; set; } = new List<RunSlot>();
+
+    public ICollection<RunVote> Votes { get; set; } = new List<RunVote>();
+
+    public ICollection<RunComment> Comments { get; set; } = new List<RunComment>();
+
+    public ICollection<RunReaction> Reactions { get; set; } = new List<RunReaction>();
 }

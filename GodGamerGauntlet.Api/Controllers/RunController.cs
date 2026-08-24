@@ -1,6 +1,8 @@
+using System.Security.Claims;
 using GodGamerGauntlet.Api.Contracts;
 using GodGamerGauntlet.Api.Models;
 using GodGamerGauntlet.Api.Repositories;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GodGamerGauntlet.Api.Controllers;
@@ -11,9 +13,13 @@ public class RunController(IRunRepository runRepository, IGameRepository gameRep
 {
     private const int RequiredSlotCount = 10;
 
+    private Guid CurrentUserId => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
     [HttpPost("initialize")]
+    [Authorize]
     [ProducesResponseType(typeof(RunResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Initialize(InitializeRunRequest request, CancellationToken cancellationToken)
     {
         if (request.GameIds.Count != RequiredSlotCount)
@@ -21,9 +27,10 @@ public class RunController(IRunRepository runRepository, IGameRepository gameRep
             return BadRequest($"Exactly {RequiredSlotCount} game ids are required, ordered by slot position.");
         }
 
-        if (!await runRepository.UserExistsAsync(request.UserId, cancellationToken))
+        var userId = CurrentUserId;
+        if (!await runRepository.UserExistsAsync(userId, cancellationToken))
         {
-            return BadRequest($"User '{request.UserId}' does not exist.");
+            return BadRequest("The authenticated user no longer exists.");
         }
 
         var games = await gameRepository.GetByIdsAsync(request.GameIds, cancellationToken);
@@ -38,7 +45,7 @@ public class RunController(IRunRepository runRepository, IGameRepository gameRep
         var run = new Run
         {
             Id = Guid.NewGuid(),
-            UserId = request.UserId,
+            UserId = userId,
             StartTime = DateTime.UtcNow,
             Status = RunStatus.Active
         };
@@ -79,8 +86,11 @@ public class RunController(IRunRepository runRepository, IGameRepository gameRep
     }
 
     [HttpPost("{id:guid}/report")]
+    [Authorize]
     [ProducesResponseType(typeof(RunResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Report(Guid id, ReportMatchRequest request, CancellationToken cancellationToken)
     {
@@ -94,6 +104,12 @@ public class RunController(IRunRepository runRepository, IGameRepository gameRep
         if (run is null)
         {
             return NotFound();
+        }
+
+        // Only the streamer who owns the run can report its results.
+        if (run.UserId != CurrentUserId)
+        {
+            return Forbid();
         }
 
         if (run.Status != RunStatus.Active)

@@ -3,14 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import {
-  getGames,
-  getUsers,
-  initializeRun,
-  type Game,
-  type Run,
-  type User,
-} from "@/lib/api";
+import { getGames, initializeRun, type Game, type Run } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 import {
   PAGE_SIZE,
   highlightTitle,
@@ -81,9 +75,8 @@ function GameThumb({ game }: { game: Game }) {
 }
 
 export default function DraftRoomPage() {
-  const [users, setUsers] = useState<User[]>([]);
+  const { user, loading: authLoading } = useAuth();
   const [games, setGames] = useState<Game[]>([]);
-  const [selectedUserId, setSelectedUserId] = useState<string>("");
   const [slots, setSlots] = useState<(Game | null)[]>(
     Array(SLOT_COUNT).fill(null),
   );
@@ -101,13 +94,10 @@ export default function DraftRoomPage() {
   useEffect(() => {
     let cancelled = false;
 
-    Promise.all([getUsers(), getGames()])
-      .then(([fetchedUsers, fetchedGames]) => {
+    getGames()
+      .then((fetchedGames) => {
         if (cancelled) return;
-        setUsers(fetchedUsers);
         setGames(fetchedGames);
-        const demo = fetchedUsers.find((u) => u.username === "GodGamerDemo");
-        setSelectedUserId(demo?.id ?? fetchedUsers[0]?.id ?? "");
       })
       .catch((error: unknown) => {
         if (cancelled) return;
@@ -217,12 +207,12 @@ export default function DraftRoomPage() {
   }
 
   async function launchGauntlet() {
-    if (!boardFull || !selectedUserId) return;
+    if (!boardFull || !user) return;
     setLaunching(true);
     setLaunchError(null);
     try {
       const gameIds = slots.map((game) => game!.id);
-      const run = await initializeRun(selectedUserId, gameIds);
+      const run = await initializeRun(gameIds);
       setCreatedRun(run);
     } catch (error: unknown) {
       setLaunchError(
@@ -311,34 +301,27 @@ export default function DraftRoomPage() {
         </div>
       )}
 
-      {/* User Selector */}
-      <section className="mb-8">
-        <label
-          htmlFor="user-select"
-          className="mb-2 block text-xs uppercase tracking-widest text-gray-400"
-        >
-          Active Streamer
-        </label>
-        <select
-          id="user-select"
-          value={selectedUserId}
-          onChange={(event) => setSelectedUserId(event.target.value)}
-          disabled={loading || users.length === 0}
-          className="panel w-full max-w-sm rounded-xl bg-surface px-4 py-3 font-heading text-sm outline-none focus:border-accent-win/60"
-        >
-          {users.length === 0 ? (
-            <option value="">
-              {loading ? "Loading users…" : "No users available"}
-            </option>
-          ) : (
-            users.map((user) => (
-              <option key={user.id} value={user.id}>
-                {user.username}
-              </option>
-            ))
-          )}
-        </select>
-      </section>
+      {/* Streamer identity comes from the logged-in account */}
+      {!authLoading && !user && (
+        <div className="panel mb-8 flex flex-wrap items-center justify-between gap-4 rounded-xl border-accent-streak/40 px-6 py-4">
+          <p className="text-sm text-gray-300">
+            You need an account to launch a gauntlet — the run is posted to the
+            community feed under your name.
+          </p>
+          <Link
+            href="/login"
+            className="rounded-lg bg-accent-streak px-5 py-2 font-heading text-sm font-bold text-dark transition hover:brightness-110"
+          >
+            Sign in
+          </Link>
+        </div>
+      )}
+      {user && (
+        <p className="mb-8 text-sm text-gray-400">
+          Drafting as{" "}
+          <span className="font-mono text-accent-win">{user.username}</span>
+        </p>
+      )}
 
       <div className="grid gap-8 lg:grid-cols-[1fr_1.2fr]">
         {/* Available Games Catalog */}
@@ -577,14 +560,16 @@ export default function DraftRoomPage() {
             <button
               type="button"
               onClick={launchGauntlet}
-              disabled={!boardFull || !selectedUserId || launching}
+              disabled={!boardFull || !user || launching}
               className="w-full rounded-xl bg-accent-streak py-4 font-heading text-lg font-bold text-dark transition enabled:hover:brightness-110 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-gray-500"
             >
               {launching
                 ? "Initializing…"
-                : boardFull
-                  ? "Launch Gauntlet"
-                  : `Fill all ${SLOT_COUNT} slots to launch (${filledCount}/${SLOT_COUNT})`}
+                : !user
+                  ? "Sign in to launch"
+                  : boardFull
+                    ? "Launch Gauntlet"
+                    : `Fill all ${SLOT_COUNT} slots to launch (${filledCount}/${SLOT_COUNT})`}
             </button>
           </div>
         </section>

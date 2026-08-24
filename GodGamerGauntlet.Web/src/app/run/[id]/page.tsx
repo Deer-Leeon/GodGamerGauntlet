@@ -13,6 +13,7 @@ import {
   type RunStatus,
   type User,
 } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 
 /** Slot score: BaseDifficulty * (1 + 0.1 * (Position - 1)^2) */
 function slotScore(baseDifficulty: number, position: number): number {
@@ -34,6 +35,7 @@ const STATUS_STYLES: Record<RunStatus, string> = {
 
 export default function LiveRunTrackerPage() {
   const { id } = useParams<{ id: string }>();
+  const { user } = useAuth();
 
   const [run, setRun] = useState<Run | null>(null);
   const [gamesById, setGamesById] = useState<Map<string, Game>>(new Map());
@@ -128,6 +130,8 @@ export default function LiveRunTrackerPage() {
   }
 
   const isOver = run.status === "Failed" || run.status === "Completed";
+  // Only the streamer who owns the run can report results.
+  const isOwner = user?.id === run.userId;
 
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-8">
@@ -253,24 +257,31 @@ export default function LiveRunTrackerPage() {
                     </p>
                   </div>
                 </div>
-                <div className="mt-4 grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => report(slot.position, "Won")}
-                    disabled={reporting}
-                    className="rounded-xl bg-accent-win py-3 font-heading font-bold text-dark transition enabled:hover:brightness-110 disabled:opacity-50"
-                  >
-                    {reporting ? "…" : "RECORD WIN"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => report(slot.position, "Lost")}
-                    disabled={reporting}
-                    className="rounded-xl bg-accent-death py-3 font-heading font-bold text-white transition enabled:hover:brightness-110 disabled:opacity-50"
-                  >
-                    {reporting ? "…" : "RECORD LOSS"}
-                  </button>
-                </div>
+                {isOwner ? (
+                  <div className="mt-4 grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => report(slot.position, "Won")}
+                      disabled={reporting}
+                      className="rounded-xl bg-accent-win py-3 font-heading font-bold text-dark transition enabled:hover:brightness-110 disabled:opacity-50"
+                    >
+                      {reporting ? "…" : "RECORD WIN"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => report(slot.position, "Lost")}
+                      disabled={reporting}
+                      className="rounded-xl bg-accent-death py-3 font-heading font-bold text-white transition enabled:hover:brightness-110 disabled:opacity-50"
+                    >
+                      {reporting ? "…" : "RECORD LOSS"}
+                    </button>
+                  </div>
+                ) : (
+                  <p className="mt-4 rounded-xl bg-white/5 px-4 py-3 text-center font-mono text-xs text-gray-400">
+                    Spectating — only{" "}
+                    {streamer?.username ?? "the run owner"} can record results.
+                  </p>
+                )}
               </li>
             );
           }

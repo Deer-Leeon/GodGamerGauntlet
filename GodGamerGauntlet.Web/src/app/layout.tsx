@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono, Space_Grotesk } from "next/font/google";
+import { AuthProvider } from "@/lib/auth";
+import SiteNav from "@/components/SiteNav";
 import "./globals.css";
 
 const inter = Inter({
@@ -30,7 +32,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${inter.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-dark text-gray-100">
-        {children}
+        <AuthProvider>
+          <SiteNav />
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );

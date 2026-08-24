@@ -2,7 +2,7 @@
 
 > Living documentation for the godgamergauntlet.com backend. Update this file whenever the schema, API surface, or deployment story changes.
 >
-> **Last updated:** 2026-08-23 (Phase 6 — RAWG Catalog Ingestion, 20,000 games / 24-hour cycle)
+> **Last updated:** 2026-08-24 (Phase 7 — JWT accounts + community feed: votes, reactions, comments)
 
 ---
 
@@ -21,30 +21,40 @@
 
 ### Architectural pattern
 
-Controller → Repository → `AppDbContext` → PostgreSQL. Controllers hold request validation and business orchestration; repositories own all database access behind interfaces (`IGameRepository`, `IRunRepository`, `IUserRepository`) registered as scoped services. DTO records in `Contracts/` decouple the wire format from EF entities.
+Controller → Repository → `AppDbContext` → PostgreSQL. Controllers hold request validation and business orchestration; repositories own all database access behind interfaces (`IGameRepository`, `IRunRepository`, `IUserRepository`) registered as scoped services. DTO records in `Contracts/` decouple the wire format from EF entities. (`FeedController` uses `AppDbContext` directly, like `AdminController` — the feed aggregation queries don't fit the entity-repository shape.)
+
+**Authentication (Phase 7):** stateless JWT Bearer. `AuthController` issues 30-day HS256 tokens (`JwtTokenService`); passwords are hashed with `PasswordHasher<User>` (`Microsoft.Extensions.Identity.Core` — no full ASP.NET Identity). The signing key derives from config key **`Jwt:Secret`** via SHA-256 (guaranteeing a 256-bit key); when the secret is missing, the app logs a warning and falls back to a **random per-boot key**, which keeps the API up but invalidates every session on restart. Claims: `ClaimTypes.NameIdentifier` (user id) + `ClaimTypes.Name` (username). Pipeline: `UseAuthentication()` before `UseAuthorization()`.
 
 ### Project layout
 
 ```
 GodGamerGauntlet.Api/
-├── Contracts/          # Request/response DTO records (GameDtos, RunDtos, UserDtos)
-├── Controllers/        # GameController, RunController, UserController
+├── Contracts/          # DTO records (Auth, Feed, Game, Run, User)
+├── Controllers/        # Auth, Feed, Game, Run, User, Admin, Leaderboard
 ├── Data/               # AppDbContext, DbInitializer (auto-migrate + seed)
-├── Migrations/         # EF Core migrations (InitialCreate)
-├── Models/             # User, Game, Run, RunSlot, RunStatus, RunSlotStatus
+├── Migrations/         # EF Core migrations
+├── Models/             # User, Game, Run, RunSlot, RunVote, RunComment, RunReaction + enums
 ├── Repositories/       # Interfaces + EF implementations
-├── Program.cs          # DI, CORS, startup migration/seeding, pipeline
-└── appsettings.json    # ConnectionStrings:DefaultConnection
+├── Services/           # RawgClient, GameSync*, JwtTokenService
+├── Program.cs          # DI, CORS, JWT auth, startup migration/seeding, pipeline
+└── appsettings.json    # ConnectionStrings:DefaultConnection, RawgApiKey, Jwt:Secret
 
 GodGamerGauntlet.Web/
 ├── .env.local          # NEXT_PUBLIC_API_URL (gitignored; localhost:5000 or Railway URL)
 └── src/
     ├── app/
-    │   ├── globals.css     # Tailwind v4 @theme design tokens + panel utility
-    │   ├── layout.tsx      # Fonts, metadata, bg-dark body
-    │   ├── page.tsx        # Landing page → /draft
-    │   └── draft/page.tsx  # The Draft Room (client component)
-    └── lib/api.ts          # Typed API client (getGames, getUsers, initializeRun)
+    │   ├── globals.css      # Tailwind v4 @theme design tokens + panel utility
+    │   ├── layout.tsx       # Fonts, metadata, AuthProvider + SiteNav wrap
+    │   ├── page.tsx         # Community feed (Hot/New/Top, votes, reactions, comments)
+    │   ├── login/page.tsx   # Sign in / create account
+    │   ├── draft/page.tsx   # The Draft Room (client component)
+    │   ├── run/[id]/        # Live run tracker
+    │   └── leaderboard/     # Global leaderboard
+    ├── components/SiteNav.tsx  # Shared nav header with auth state
+    └── lib/
+        ├── api.ts           # Typed API client + JWT storage/attachment
+        ├── auth.tsx         # AuthProvider React context (login/register/logout)
+        └── catalogSearch.ts # Draft Room search/pagination helpers
 ```
 
 ### Startup behavior
@@ -52,8 +62,7 @@ GodGamerGauntlet.Web/
 On every boot, `DbInitializer.InitializeAsync` runs inside a scoped service provider:
 
 1. `Database.MigrateAsync()` applies any pending EF migrations.
-2. If the `Games` table is empty, seeds the 15-game catalog (section 5).
-3. If the `Users` table is empty, seeds the demo user `GodGamerDemo`.
+2. If the `Users` table is empty, seeds the demo user `GodGamerDemo` (legacy, has no password so it cannot log in). Games are **not** seeded — the catalog fills exclusively via the RAWG sync (section 5a).
 
 ---
 
@@ -67,6 +76,7 @@ All primary keys are `uuid` (Guid, generated in application code). Enums are sto
 |---|---|---|
 | Id | uuid | PK |
 | Username | varchar(50) | NOT NULL, **unique index** |
+| PasswordHash | varchar(500) | NULL — legacy pre-auth accounts (e.g. `GodGamerDemo`) have no hash and can never log in |
 | CreatedAt | timestamptz | NOT NULL |
 
 ### Games
@@ -104,11 +114,48 @@ All primary keys are `uuid` (Guid, generated in application code). Enums are sto
 
 **Unique index:** `(RunId, Position)` — a run can never have two slots at the same position.
 
+### RunVotes (Phase 7)
+
+| Column | Type | Constraints |
+|---|---|---|
+| Id | uuid | PK |
+| RunId | uuid | FK → Runs.Id, cascade delete |
+| UserId | uuid | FK → Users.Id, cascade delete |
+| Value | int | NOT NULL, CHECK `Value IN (-1, 1)` (`CK_RunVotes_Value`) |
+| CreatedAt | timestamptz | NOT NULL |
+
+**Unique index:** `(RunId, UserId)` — one vote per user per run; changing direction updates the row, clearing (value 0) deletes it.
+
+### RunComments (Phase 7)
+
+| Column | Type | Constraints |
+|---|---|---|
+| Id | uuid | PK |
+| RunId | uuid | FK → Runs.Id, cascade delete |
+| UserId | uuid | FK → Users.Id, cascade delete |
+| Body | varchar(1000) | NOT NULL — flat, no nesting in v1 |
+| CreatedAt | timestamptz | NOT NULL |
+
+**Index:** `(RunId, CreatedAt)` for chronological thread loads.
+
+### RunReactions (Phase 7)
+
+| Column | Type | Constraints |
+|---|---|---|
+| Id | uuid | PK |
+| RunId | uuid | FK → Runs.Id, cascade delete |
+| UserId | uuid | FK → Users.Id, cascade delete |
+| Type | varchar(20) | NOT NULL — API accepts only `fire`, `skull`, `crown`, `gg` |
+| CreatedAt | timestamptz | NOT NULL |
+
+**Unique index:** `(RunId, UserId, Type)` — toggle semantics: a user has each reaction type at most once per run.
+
 ### Relationships
 
 - `User 1 ── * Run` (cascade delete)
 - `Run 1 ── * RunSlot` (max 10 enforced by API + position check constraint; cascade delete)
 - `RunSlot * ── 1 Game` (restrict delete: games referenced by slots cannot be removed)
+- `Run 1 ── * RunVote / RunComment / RunReaction` (cascade delete); each also FKs `User` (cascade delete)
 
 ### Migrations
 
@@ -117,22 +164,32 @@ All primary keys are `uuid` (Guid, generated in application code). Enums are sto
 | `20260823204713_InitialCreate` | Generated; applied automatically at startup via `MigrateAsync()` |
 | `20260824011412_AddCheapSharkGameFields` | Adds ExternalId/Thumb/NormalPrice/SalePrice to Games; auto-applied at startup |
 | `20260824043027_MakeGamePricesNullable` | NormalPrice/SalePrice → nullable numeric(10,2) for the RAWG era (no storefront pricing) |
+| `20260824232908_AddAuthAndCommunityFeed` | Adds `Users.PasswordHash`; creates RunVotes / RunComments / RunReactions with unique indexes and check constraint |
 
 ---
 
 ## 3. REST API Specification
 
-Base route pattern: `/api/{resource}`. All bodies are JSON. Validation errors return `400` with ASP.NET problem details.
+Base route pattern: `/api/{resource}`. All bodies are JSON. Validation errors return `400` with ASP.NET problem details. Endpoints marked 🔒 require an `Authorization: Bearer <JWT>` header (missing/invalid → `401`).
+
+### Auth (Phase 7)
+
+| Method | Route | Body | Success | Errors |
+|---|---|---|---|---|
+| POST | `/api/auth/register` | `{ "username": "3-50 chars", "password": "8-100 chars" }` | `201` → `{ token, user }` | `400` invalid body, `409` username taken |
+| POST | `/api/auth/login` | `{ "username", "password" }` | `200` → `{ token, user }` | `401` bad credentials or password-less legacy account |
+| GET 🔒 | `/api/auth/me` | — | `200` → User | `401` |
+
+Tokens are HS256 JWTs valid for **30 days**. The SPA stores the token in `localStorage` (`ggg_token`) and attaches it on every request.
 
 ### Users
 
 | Method | Route | Body | Success | Errors |
 |---|---|---|---|---|
-| POST | `/api/users` | `{ "username": "string (3-50 chars)" }` | `201` → User object | `400` invalid body, `409` username taken |
 | GET | `/api/users` | — | `200` → `User[]` | — |
 | GET | `/api/users/{id}` | — | `200` → User | `404` not found |
 
-User object: `{ "id": "uuid", "username": "string", "createdAt": "ISO-8601 UTC" }`
+User object: `{ "id": "uuid", "username": "string", "createdAt": "ISO-8601 UTC" }`. The old password-less `POST /api/users` was **removed** in Phase 7 (it would let anyone squat usernames); account creation goes through `/api/auth/register`.
 
 ### Games
 
@@ -148,9 +205,11 @@ Game object: `{ "id": "uuid", "title": "string", "baseDifficulty": int, "thumb":
 
 | Method | Route | Body | Success | Errors |
 |---|---|---|---|---|
-| POST | `/api/runs/initialize` | `{ "userId": "uuid", "gameIds": ["uuid" × 10, ordered by slot position] }` | `201` → Run object | `400` wrong count / unknown user / unknown game ids |
+| POST 🔒 | `/api/runs/initialize` | `{ "gameIds": ["uuid" × 10, ordered by slot position] }` | `201` → Run object | `400` wrong count / unknown game ids, `401` |
 | GET | `/api/runs/{id}` | — | `200` → Run (ordered slots) | `404` not found |
-| POST | `/api/runs/{id}/report` | `{ "slotPosition": 1-10, "result": "Won" \| "Lost" }` | `200` → updated Run | `400` state-machine violation (below), `404` unknown run |
+| POST 🔒 | `/api/runs/{id}/report` | `{ "slotPosition": 1-10, "result": "Won" \| "Lost" }` | `200` → updated Run | `400` state-machine violation (below), `401`, `403` not the run owner, `404` unknown run |
+
+Since Phase 7 the run owner comes from the JWT claim — `userId` is no longer accepted in the initialize body, and only the owner can report results.
 
 ### Match-reporting state machine (`POST /api/runs/{id}/report`)
 
@@ -176,13 +235,33 @@ Query semantics (single SQL query via EF projection in `RunRepository.GetLeaderb
 - `totalScore` is the **earned** score — the slot formula summed over `Won` slots only (a failed run keeps the points from slots it survived; this differs from the run's stored `TotalDifficultyScore`, which is the projected total for all 10 slots).
 - Ordering: earned score desc → `Completed` before `Failed` on ties → most recent `EndTime` first. Top 50 returned.
 
+### Community Feed (Phase 7 — `FeedController`)
+
+Every **finished** run (Completed or Failed) is a feed post — there is no separate Post table.
+
+| Method | Route | Body | Success | Errors |
+|---|---|---|---|---|
+| GET | `/api/feed?sort=hot\|new\|top&page=N` | — | `200` → `{ posts: FeedPost[], page, hasMore }` | — |
+| PUT 🔒 | `/api/runs/{id}/vote` | `{ "value": 1 \| -1 \| 0 }` (0 clears) | `200` → `{ voteScore, myVote }` | `400` bad value, `401`, `404` unknown/unfinished run |
+| POST 🔒 | `/api/runs/{id}/reactions/toggle` | `{ "type": "fire" \| "skull" \| "crown" \| "gg" }` | `200` → `{ reactions, myReactions }` | `400` bad type, `401`, `404` |
+| GET | `/api/runs/{id}/comments` | — | `200` → `Comment[]` (chronological) | — |
+| POST 🔒 | `/api/runs/{id}/comments` | `{ "body": "1-1000 chars" }` | `201` → Comment | `400`, `401`, `404` |
+
+FeedPost object: `{ runId, userId, streamerName, status, endTime, totalScore (earned, leaderboard formula), slotsCompleted, slotStatuses: ["Won"|"Lost"|"Pending" × 10], voteScore, myVote, commentCount, reactions: { type: count }, myReactions: [types] }`. `myVote`/`myReactions` are populated when a JWT is sent (the endpoint itself is public).
+
+Sorting — 20 posts per page:
+
+- `new`: latest `EndTime` first (SQL-side paging).
+- `top`: highest vote sum first (SQL-side paging), ties broken by `EndTime`.
+- `hot` (default): the **200 most recent** finished runs are ranked in memory by `voteScore / (hoursSinceEnd + 2)^1.5` — the classic gravity-decay curve — then paged. Older runs age out of Hot naturally.
+
 ### Admin
 
 | Method | Route | Body | Success | Errors |
 |---|---|---|---|---|
 | POST | `/api/admin/hard-reset` | — | `200` → `{ message, runsDeleted, slotsDeleted, gamesDeleted }` | — |
 
-Hard reset wipes RunSlots → Runs → Games (in that order — RunSlots reference Games with restrict-delete) using EF Core 8 `ExecuteDeleteAsync()` bulk deletes, calls `DbInitializer.SeedAsync` to restore the 15 hand-curated baseline games, then **fires the RAWG sync in the background** (own DI scope, detached from the request's cancellation token) and returns immediately. The response no longer includes sync counts — a full 500-page ingestion takes ~13 minutes, far beyond any sane HTTP timeout, so the previous inline-await design (Phase 5.2) was retired with the RAWG switch. Watch the API logs for sync progress (logged every 25 pages). **Users are preserved.** ⚠️ Currently unauthenticated — lock down before exposing publicly.
+Hard reset wipes RunSlots → Runs → Games (in that order — RunSlots reference Games with restrict-delete) using EF Core 8 `ExecuteDeleteAsync()` bulk deletes (run votes/comments/reactions cascade away with the runs), re-seeds only the demo user, then **fires the RAWG sync in the background** (own DI scope, detached from the request's cancellation token) and returns immediately — the catalog stays empty until the sync lands. The response no longer includes sync counts — a full 500-page ingestion takes ~13 minutes, far beyond any sane HTTP timeout, so the previous inline-await design (Phase 5.2) was retired with the RAWG switch. Watch the API logs for sync progress (logged every 25 pages). **Users are preserved.** ⚠️ Currently unauthenticated — lock down before exposing publicly.
 
 ### DTO validation note (fixed production 500)
 
@@ -237,11 +316,9 @@ The quadratic curve makes late slots dominate: a difficulty-90 game in slot 10 i
 
 Seeded on first boot against an empty database (idempotent — skipped if any rows exist):
 
-**Games (15):** Street Fighter 6 (85), Fall Guys (65), GeoGuessr (75), Chess.com (80), Getting Over It (90), Mario Kart 8 Deluxe (60), Brawlhalla (70), Rocket League (85), Apex Legends (90), Trackmania (75), Lethal Company (50), Overwatch 2 (80), Tetris 99 (75), Tekken 8 (85), Valorant (90)
+**Users (1):** `GodGamerDemo` — legacy account with no password; it exists for historical data but cannot log in since Phase 7.
 
-**Users (1):** `GodGamerDemo`
-
-Since Phase 5 the seeded games are a curated baseline only — the live catalog grows automatically via the RAWG sync (section 5a). Seeded games keep `Thumb = null` and `null` prices until RAWG carries a game matching their title (which backfills the cover image but never their curated difficulty).
+**Games: none.** The 15-game hand-curated baseline was removed in Phase 6.1 — the catalog is populated exclusively by the RAWG sync (section 5a) and stays empty until it finishes.
 
 ---
 
@@ -314,7 +391,7 @@ The order in `Program.cs` matters behind Railway's TLS-terminating proxy:
 1. `UseForwardedHeaders` (`X-Forwarded-For` / `X-Forwarded-Proto`, with `KnownNetworks`/`KnownProxies` cleared because Railway's proxy is not on loopback) — restores the original request scheme.
 2. `UseCors("AllowFrontend")` — answers `OPTIONS` preflights first.
 3. `UseHttpsRedirection` — after CORS, so preflights are never 307-redirected (browsers reject redirects on preflight, which surfaced as `Failed to fetch` on `POST /api/runs/initialize`).
-4. `UseAuthorization` → `MapControllers`.
+4. `UseAuthentication` → `UseAuthorization` → `MapControllers`.
 
 ---
 
@@ -338,22 +415,27 @@ Tailwind CSS v4 is configured CSS-first: design tokens are declared in `@theme` 
 
 ### API client (`src/lib/api.ts`)
 
-Typed wrappers over `fetch` against `NEXT_PUBLIC_API_URL`: `getGames(): Promise<Game[]>`, `getUsers(): Promise<User[]>`, `initializeRun(userId, gameIds): Promise<Run>`. Interfaces mirror the API's camelCase JSON (`User`, `Game`, `Run`, `RunSlot`, status string unions). Non-2xx responses throw with the response body as the message.
+Typed wrappers over `fetch` against `NEXT_PUBLIC_API_URL`. The JWT lives in `localStorage` under `ggg_token` (`getToken`/`setToken`) and is attached as `Authorization: Bearer` on every request automatically. Function groups: auth (`register`, `login`, `getMe`), catalog/runs (`getGames`, `getUsers`, `initializeRun(gameIds)`, `getRun`, `reportSlotMatch`, `getLeaderboard`), feed (`getFeed(sort, page)`, `voteOnRun`, `toggleReaction`, `getComments`, `addComment`). Non-2xx responses throw with the response body as the message.
+
+### Auth state (`src/lib/auth.tsx` + `src/components/SiteNav.tsx`)
+
+`AuthProvider` (client context, mounted in `layout.tsx`) validates the stored token against `/api/auth/me` on load and exposes `{ user, loading, login, register, logout }`. `SiteNav` is a sticky header on every page: logo, Feed / Draft Room / Leaderboard links, and either the username + Log out or a Sign in button. `/login` hosts both sign-in and create-account forms (mode toggle).
 
 ### Routes
 
 | Route | Purpose |
 |---|---|
-| `/` | Landing page with CTA into the Draft Room |
-| `/draft` | The Draft Room (below) |
-| `/run/[id]` | Live Run Tracker — header with streamer, status badge (cyan Active / red Failed / gold Completed) and total score; 10-slot board where won slots show earned score in cyan, the current slot glows with RECORD WIN / RECORD LOSS buttons, future slots are dimmed, and a lost slot shows the death state and locks the board; "Start a New Run" + "View Leaderboard" links when the run is over |
+| `/` | **Community feed** (Phase 7) — Hot/New/Top tabs; every finished run is a post card with vote arrows (optimistic updates), COMPLETED/FAILED badge, earned score, a 10-square slot strip (cyan won / red lost / dim pending), reaction bar (🔥 💀 👑 🫡), and an expandable inline comment thread with composer. Anonymous visitors can read everything; voting/reacting/commenting prompt sign-in. A compact "Enter the Draft Room" banner sits on top |
+| `/login` | Sign in / create account (JWT stored on success) |
+| `/draft` | The Draft Room (below) — requires sign-in to launch |
+| `/run/[id]` | Live Run Tracker — header with streamer, status badge (cyan Active / red Failed / gold Completed) and total score; 10-slot board where won slots show earned score in cyan, the current slot glows with RECORD WIN / RECORD LOSS buttons (**shown only to the run owner** since Phase 7; spectators see a "Spectating" note), future slots are dimmed, and a lost slot shows the death state and locks the board; "Start a New Run" + "View Leaderboard" links when the run is over |
 | `/leaderboard` | Global Leaderboard — top-50 finished runs with rank (gold #FFD700 / silver #C0C0C0 / bronze #CD7F32 for the podium), streamer, earned score, slots survived (`n/10`), Completed/Failed badge, and finish time; "Draft a New Run" CTA. Linked from the home page, the Draft Room header, and the run tracker end state |
 
 ### The Draft Room (`/draft`)
 
 Client component with this flow:
 
-1. **User selector** — dropdown of all users, defaults to `GodGamerDemo`.
+1. **Identity** — the run belongs to the logged-in user (shown as "Drafting as _username_"); signed-out visitors get a sign-in banner and a disabled launch button. The Phase 2 user dropdown is gone.
 2. **Game catalog** — searchable, paginated grid of the live database catalog (RAWG-ingested + seeded games): rounded cover thumbnail (letter placeholder when absent), title with match highlighting, base difficulty, and price. **Price tags are hidden entirely when prices are `null`** (all RAWG-sourced games) so cards stay visually balanced; when present, the sale price shows in cyan with the normal price struck through. Instant client-side search ranks prefix/word/substring/fuzzy matches; operators `sale`, `free`, `>80`, `<$10` filter price and difficulty (price operators exclude games without pricing data; price sorts push them last). 24 games per page with compact pager. `/` or Ctrl/Cmd+K focuses the search box. "Add to Draft" fills the first empty slot; a game can be drafted only once.
 3. **Gauntlet board** — 10 numbered slots showing per-slot math (`base × multiplier = slot score`), with move up/down and remove controls.
 4. **Live score header** — sticky scoreboard recalculating `Total Projected Score` client-side with the same formula the API uses (section 4).
@@ -403,6 +485,7 @@ dotnet ef database update --project GodGamerGauntlet.Api
    - `ASPNETCORE_URLS` = `http://0.0.0.0:$PORT` (bind to Railway's assigned port)
    - `ASPNETCORE_ENVIRONMENT` = `Production`
    - `RawgApiKey` = your RAWG API key (free at [rawg.io/apidocs](https://rawg.io/apidocs)) — **the catalog sync silently skips without it**
+   - `Jwt__Secret` = a long random string (e.g. `openssl rand -base64 48`) — **without it the API generates a random per-boot signing key and every deploy/restart logs all users out** (especially disruptive with Serverless sleep/wake cycles)
 4. Deploy. Startup auto-migration brings the schema up to date and seeds the catalog on the first boot.
 5. Point the Vercel frontend at the Railway public domain; CORS already allows `*.vercel.app`.
 
@@ -441,3 +524,5 @@ cd GodGamerGauntlet.Web && npm run dev
 | 5.3 | Massive single-pass ingestion: dual-pass replaced by a 100-page `sortBy=Reviews` loop (1.5 s per page); CheapShark caps at page 50 (~3,060 deals) with `400 Too Many Results`, handled as graceful end-of-catalog; hard-reset now takes ~1.5–2.5 min; EF SQL logging quieted to Warning |
 | 5.4 | Draft Room catalog search + pagination: ranked instant search (`src/lib/catalogSearch.ts`) with operators `sale`/`free`/`>80`/`<$10`, match highlighting, 24-per-page pager, `/` and Ctrl/Cmd+K focus |
 | 6 | **RAWG replaces CheapShark**: `CheapSharkClient`/`CheapSharkDeal` deleted; `RawgClient` (`api/games?ordering=-added`, `RawgApiKey` from config, graceful skip without key); 500-page × 40-game loop (20,000 games, 1.5 s spacing, ~13 min full sync); background cycle 4 h → **24 h** for the 20k/month request limit; prices → nullable (`MakeGamePricesNullable` migration) with frontend hiding null price tags; hard-reset now fires the sync in the background and returns instantly |
+| 6.1 | 15-game baseline seeding removed (catalog is RAWG-only, empty until first sync); serverless tuning: Npgsql `MinPoolSize=0` + 15 s idle lifetime, `SocketsHttpHandler` 15 s pooled-connection idle timeout so Railway Serverless can sleep |
+| 7 | **Accounts + community feed**: JWT auth (`AuthController` register/login/me, `PasswordHasher<User>`, `JwtTokenService`, 30-day HS256 tokens from `Jwt:Secret`); `POST /api/users` removed; run initialize/report locked to the authenticated owner; `RunVote`/`RunComment`/`RunReaction` tables (`AddAuthAndCommunityFeed` migration); `FeedController` (Hot/New/Top paged feed with gravity decay, vote upsert, reaction toggle, flat comments); frontend `AuthProvider` + `SiteNav` + `/login`; homepage replaced by the community feed; Draft Room drops the user dropdown; run tracker shows WIN/LOSS only to the owner |

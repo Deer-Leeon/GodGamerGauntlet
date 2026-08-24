@@ -4,7 +4,6 @@ using GodGamerGauntlet.Api.Models;
 namespace GodGamerGauntlet.Api.Contracts;
 
 public record InitializeRunRequest(
-    [Required] Guid UserId,
     [Required, MinLength(10), MaxLength(10)] List<Guid> GameIds);
 
 public record ReportMatchRequest(

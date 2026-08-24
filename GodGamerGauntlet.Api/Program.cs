@@ -1,7 +1,11 @@
+using System.Security.Cryptography;
+using System.Text;
 using GodGamerGauntlet.Api.Data;
 using GodGamerGauntlet.Api.Repositories;
 using GodGamerGauntlet.Api.Services;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -23,6 +27,33 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddScoped<IGameRepository, GameRepository>();
 builder.Services.AddScoped<IRunRepository, RunRepository>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
+
+// JWT auth. The signing key comes from Jwt:Secret (user secrets locally,
+// Jwt__Secret env var on Railway). Missing secret falls back to a random
+// per-boot key so the app stays up, but every restart logs everyone out.
+var jwtSecret = builder.Configuration["Jwt:Secret"];
+var jwtSecretMissing = string.IsNullOrWhiteSpace(jwtSecret);
+if (jwtSecretMissing)
+{
+    jwtSecret = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
+}
+// Hashing guarantees a 256-bit key no matter how short the configured secret is.
+var signingKey = new SymmetricSecurityKey(SHA256.HashData(Encoding.UTF8.GetBytes(jwtSecret!)));
+
+builder.Services.AddSingleton(new JwtTokenService(signingKey));
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = false,
+            ValidateAudience = false,
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = signingKey,
+            ClockSkew = TimeSpan.FromMinutes(1)
+        };
+    });
 
 builder.Services.AddCors(options =>
 {
@@ -67,6 +98,13 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
+if (jwtSecretMissing)
+{
+    app.Logger.LogWarning(
+        "Jwt:Secret is not configured; using a random per-boot signing key. " +
+        "All sessions will be invalidated on every restart — set the Jwt__Secret environment variable.");
+}
+
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -96,6 +134,7 @@ if (app.Environment.IsDevelopment())
 // never redirected (browsers refuse redirects on preflight requests).
 app.UseCors("AllowFrontend");
 app.UseHttpsRedirection();
+app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
