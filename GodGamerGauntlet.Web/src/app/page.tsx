@@ -15,12 +15,20 @@ export default function HomePage() {
         Draft a 10-game gauntlet where every slot multiplies the difficulty.
         Survive all ten and claim the title of God Gamer.
       </p>
-      <Link
-        href="/draft"
-        className="rounded-xl bg-accent-streak px-10 py-4 font-heading text-xl font-bold text-dark transition hover:brightness-110"
-      >
-        Enter the Draft Room
-      </Link>
+      <div className="flex flex-wrap items-center justify-center gap-4">
+        <Link
+          href="/draft"
+          className="rounded-xl bg-accent-streak px-10 py-4 font-heading text-xl font-bold text-dark transition hover:brightness-110"
+        >
+          Enter the Draft Room
+        </Link>
+        <Link
+          href="/leaderboard"
+          className="rounded-xl border border-accent-win/50 px-10 py-4 font-heading text-xl font-bold text-accent-win transition hover:bg-accent-win/10"
+        >
+          Global Leaderboard
+        </Link>
+      </div>
     </main>
   );
 }

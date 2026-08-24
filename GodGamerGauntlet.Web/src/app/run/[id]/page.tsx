@@ -306,12 +306,20 @@ export default function LiveRunTrackerPage() {
               ? "Gauntlet conquered. God Gamer confirmed."
               : "The gauntlet claims another."}
           </p>
-          <Link
-            href="/draft"
-            className="rounded-xl bg-accent-streak px-8 py-3 font-heading font-bold text-dark transition hover:brightness-110"
-          >
-            Start a New Run
-          </Link>
+          <div className="flex flex-wrap justify-center gap-3">
+            <Link
+              href="/draft"
+              className="rounded-xl bg-accent-streak px-8 py-3 font-heading font-bold text-dark transition hover:brightness-110"
+            >
+              Start a New Run
+            </Link>
+            <Link
+              href="/leaderboard"
+              className="rounded-xl border border-accent-win/50 px-8 py-3 font-heading font-bold text-accent-win transition hover:bg-accent-win/10"
+            >
+              View Leaderboard
+            </Link>
+          </div>
         </div>
       )}
     </main>

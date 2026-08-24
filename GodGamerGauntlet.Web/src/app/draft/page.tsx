@@ -179,6 +179,12 @@ export default function DraftRoomPage() {
           <p className="text-sm text-gray-400">
             Build your 10-game gauntlet. Later slots multiply the pain.
           </p>
+          <Link
+            href="/leaderboard"
+            className="mt-1 inline-block font-heading text-sm font-semibold text-accent-win transition hover:brightness-125"
+          >
+            View Global Leaderboard →
+          </Link>
         </div>
         <div className="text-right">
           <p className="text-xs uppercase tracking-widest text-gray-400">

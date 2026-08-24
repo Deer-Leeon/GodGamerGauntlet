@@ -69,6 +69,19 @@ export function initializeRun(
   });
 }
 
+export interface LeaderboardEntry {
+  runId: string;
+  streamerName: string;
+  totalScore: number;
+  status: "Completed" | "Failed";
+  slotsCompleted: number;
+  endTime: string | null;
+}
+
+export function getLeaderboard(): Promise<LeaderboardEntry[]> {
+  return request<LeaderboardEntry[]>("/api/leaderboard");
+}
+
 export function getRun(id: string): Promise<Run> {
   return request<Run>(`/api/runs/${id}`);
 }

@@ -2,7 +2,7 @@
 
 > Living documentation for the godgamergauntlet.com backend. Update this file whenever the schema, API surface, or deployment story changes.
 >
-> **Last updated:** 2026-08-23 (Phase 3 — Active Run Engine & Live Tracker)
+> **Last updated:** 2026-08-23 (Phase 4 — Global Leaderboard)
 
 ---
 
@@ -156,6 +156,20 @@ All rules enforced server-side; violations return `400` with a plain-text reason
 4. `result = Won` → slot becomes `Won`; if it was slot 10, the run becomes `Completed` with `EndTime = UtcNow`.
 5. `result = Lost` → slot becomes `Lost`, run becomes `Failed` with `EndTime = UtcNow`; all remaining slots stay `Pending` and are permanently locked by rule 1.
 
+### Leaderboard
+
+| Method | Route | Body | Success | Errors |
+|---|---|---|---|---|
+| GET | `/api/leaderboard` | — | `200` → `LeaderboardEntry[]` (top 50) | — |
+
+Entry object: `{ "runId": "uuid", "streamerName": "string", "totalScore": double, "status": "Completed" | "Failed", "slotsCompleted": int, "endTime": "ISO-8601" | null }`
+
+Query semantics (single SQL query via EF projection in `RunRepository.GetLeaderboardAsync`):
+
+- Only finished runs (`Status != Active`).
+- `totalScore` is the **earned** score — the slot formula summed over `Won` slots only (a failed run keeps the points from slots it survived; this differs from the run's stored `TotalDifficultyScore`, which is the projected total for all 10 slots).
+- Ordering: earned score desc → `Completed` before `Failed` on ties → most recent `EndTime` first. Top 50 returned.
+
 ### DTO validation note (fixed production 500)
 
 Request DTOs are positional records; validation attributes must target the **constructor parameter** (`[Required]`), never the property (`[property: Required]`). The property form compiles but makes ASP.NET Core model validation throw `InvalidOperationException` → empty `500` on every POST (the browser showed it as `Failed to fetch` because error responses carry no CORS headers).
@@ -265,7 +279,8 @@ Typed wrappers over `fetch` against `NEXT_PUBLIC_API_URL`: `getGames(): Promise<
 |---|---|
 | `/` | Landing page with CTA into the Draft Room |
 | `/draft` | The Draft Room (below) |
-| `/run/[id]` | Live Run Tracker — header with streamer, status badge (cyan Active / red Failed / gold Completed) and total score; 10-slot board where won slots show earned score in cyan, the current slot glows with RECORD WIN / RECORD LOSS buttons, future slots are dimmed, and a lost slot shows the death state and locks the board; "Start a New Run" link when the run is over |
+| `/run/[id]` | Live Run Tracker — header with streamer, status badge (cyan Active / red Failed / gold Completed) and total score; 10-slot board where won slots show earned score in cyan, the current slot glows with RECORD WIN / RECORD LOSS buttons, future slots are dimmed, and a lost slot shows the death state and locks the board; "Start a New Run" + "View Leaderboard" links when the run is over |
+| `/leaderboard` | Global Leaderboard — top-50 finished runs with rank (gold #FFD700 / silver #C0C0C0 / bronze #CD7F32 for the podium), streamer, earned score, slots survived (`n/10`), Completed/Failed badge, and finish time; "Draft a New Run" CTA. Linked from the home page, the Draft Room header, and the run tracker end state |
 
 ### The Draft Room (`/draft`)
 
@@ -351,3 +366,4 @@ cd GodGamerGauntlet.Web && npm run dev
 | 2.1 | CORS `AllowFrontend` extended with `https://godgamergauntlet.com` and `https://www.godgamergauntlet.com` so the production custom domain can call the API |
 | 2.2 | Forwarded-headers middleware (Railway proxy) and pipeline reorder: CORS before HTTPS redirection so `OPTIONS` preflights on `POST` succeed — fixes `Failed to fetch` on Launch Gauntlet |
 | 3 | Fixed record-DTO validation attributes that 500'd every POST body; `POST /api/runs/{id}/report` with strict sequential state machine; `getRun`/`reportSlotMatch` client functions; Live Run Tracker at `/run/[id]` |
+| 4 | Global Leaderboard: `GET /api/leaderboard` (top 50 finished runs, earned-score aggregation in SQL, Completed-over-Failed tiebreak), `getLeaderboard` client function, `/leaderboard` page with podium styling, nav links from home/draft/run pages |
