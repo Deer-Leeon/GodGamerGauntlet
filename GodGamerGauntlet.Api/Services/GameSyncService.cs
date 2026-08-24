@@ -24,8 +24,11 @@ public class GameSyncService(
             "Starting RAWG game sync: up to {Pages} pages of most-added games (~{Duration:F0} min).",
             PagesToFetch, PagesToFetch * RequestDelay.TotalMinutes);
 
-        // Aggregate all pages, deduplicating by RAWG game id (our ExternalId).
+        // Deduplicate by RAWG game id (our ExternalId). Flush to the DB every
+        // 25 pages so a late timeout cannot throw away the whole catalog.
         var gamesByExternalId = new Dictionary<string, Game>();
+        var pending = new List<Game>();
+        var added = 0;
 
         for (var page = 1; page <= PagesToFetch; page++)
         {
@@ -35,7 +38,17 @@ public class GameSyncService(
                 await Task.Delay(RequestDelay, cancellationToken);
             }
 
-            var results = await rawg.GetTopGamesAsync(page, cancellationToken);
+            IReadOnlyList<RawgGame> results;
+            try
+            {
+                results = await rawg.GetTopGamesAsync(page, cancellationToken);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                logger.LogWarning(ex, "RAWG page {Page} failed; continuing.", page);
+                continue;
+            }
+
             if (results.Count == 0)
             {
                 logger.LogInformation("RAWG ran out of games at page {Page}; stopping early.", page);
@@ -45,32 +58,35 @@ public class GameSyncService(
             foreach (var rawgGame in results)
             {
                 if (string.IsNullOrWhiteSpace(rawgGame.Name)) continue;
-                gamesByExternalId.TryAdd(rawgGame.Id.ToString(), MapToGame(rawgGame));
+                var game = MapToGame(rawgGame);
+                if (gamesByExternalId.TryAdd(rawgGame.Id.ToString(), game))
+                {
+                    pending.Add(game);
+                }
             }
 
             if (page % 25 == 0)
             {
+                added += await FlushPendingAsync(pending, cancellationToken);
                 logger.LogInformation(
                     "RAWG sync progress: {Pages}/{Total} pages fetched, {Unique} unique games so far.",
                     page, PagesToFetch, gamesByExternalId.Count);
             }
         }
 
-        var games = gamesByExternalId.Values.ToList();
+        added += await FlushPendingAsync(pending, cancellationToken);
 
-        if (games.Count == 0)
+        if (gamesByExternalId.Count == 0)
         {
             logger.LogWarning("RAWG returned no games; keeping the existing catalog.");
             return new GameSyncResult(0, 0);
         }
 
-        var added = await gameRepository.UpsertGamesAsync(games, cancellationToken);
-
         logger.LogInformation(
             "RAWG sync complete: {Total} games processed, {Added} newly added.",
-            games.Count, added);
+            gamesByExternalId.Count, added);
 
-        return new GameSyncResult(games.Count, added);
+        return new GameSyncResult(gamesByExternalId.Count, added);
     }
 
     private static Game MapToGame(RawgGame rawgGame) => new()
@@ -85,4 +101,12 @@ public class GameSyncService(
             ? Math.Clamp(rawgGame.Metacritic.Value, 1, 100)
             : DefaultDifficulty
     };
+
+    private async Task<int> FlushPendingAsync(List<Game> pending, CancellationToken cancellationToken)
+    {
+        if (pending.Count == 0) return 0;
+        var added = await gameRepository.UpsertGamesAsync(pending, cancellationToken);
+        pending.Clear();
+        return added;
+    }
 }

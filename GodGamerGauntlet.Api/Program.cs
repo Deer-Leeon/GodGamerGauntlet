@@ -31,9 +31,17 @@ builder.Services.AddCors(options =>
 builder.Services.AddHttpClient<RawgClient>(client =>
 {
     client.BaseAddress = new Uri("https://api.rawg.io/");
-    client.Timeout = TimeSpan.FromSeconds(30);
+    client.Timeout = TimeSpan.FromMinutes(2);
     client.DefaultRequestHeaders.UserAgent.ParseAdd("GodGamerGauntlet/1.0 (godgamergauntlet.com)");
-}).AddStandardResilienceHandler();
+}).AddStandardResilienceHandler(options =>
+{
+    // RAWG pages sometimes take >10s; the default attempt timeout cancelled
+    // those calls and a circuit-break could abort the whole 500-page ingest.
+    options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(30);
+    options.TotalRequestTimeout.Timeout = TimeSpan.FromMinutes(2);
+    options.Retry.MaxRetryAttempts = 5;
+    options.CircuitBreaker.SamplingDuration = TimeSpan.FromMinutes(2);
+});
 
 builder.Services.AddScoped<IGameSyncService, GameSyncService>();
 builder.Services.AddHostedService<GameSyncBackgroundService>();
