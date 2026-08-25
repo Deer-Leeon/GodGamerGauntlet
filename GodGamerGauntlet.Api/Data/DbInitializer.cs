@@ -7,24 +7,41 @@ public static class DbInitializer
 {
     /// <summary>
     /// Competitive staples that must head the draft catalog regardless of what
-    /// RAWG's most-added ordering says. Titles match RAWG's naming so the sync
-    /// merges into these rows (by case-insensitive title) instead of duplicating
-    /// them; difficulties reflect how punishing each is to actually beat/rank up in.
+    /// RAWG's most-added ordering says. RAWG titles match RAWG's naming so the
+    /// sync merges into those rows; web-native titles use a synthetic ExternalId
+    /// so restarts upsert instead of inserting a second row.
     /// </summary>
-    private static readonly (string Title, int BaseDifficulty)[] FeaturedGames =
+    private static readonly (
+        string Title,
+        int BaseDifficulty,
+        string? ExternalId,
+        string? Thumb
+    )[] FeaturedGames =
     [
-        ("Counter-Strike 2", 92),
-        ("League of Legends", 90),
-        ("Dota 2", 95),
-        ("VALORANT", 88),
-        ("Tekken 7", 85),
-        ("Super Smash Bros. Melee", 93),
-        ("Street Fighter 6", 84),
-        ("Rocket League", 80),
-        ("Overwatch 2", 78),
-        ("Apex Legends", 82),
-        ("Fortnite", 76),
-        ("StarCraft II", 94)
+        ("Counter-Strike 2", 92, null, null),
+        ("League of Legends", 90, null, null),
+        ("Dota 2", 95, null, null),
+        ("VALORANT", 88, null, null),
+        ("Tekken 7", 85, null, null),
+        ("Super Smash Bros. Melee", 93, null, null),
+        ("Street Fighter 6", 84, null, null),
+        ("Rocket League", 80, null, null),
+        ("Overwatch 2", 78, null, null),
+        ("Apex Legends", 82, null, null),
+        ("Fortnite", 76, null, null),
+        ("StarCraft II", 94, null, null),
+        (
+            "Chess.com",
+            95,
+            "web-chess-com",
+            "https://images.chesscomfiles.com/uploads/v1/images_users/tiny_mce/SamCopeland/phpvd9y9P.png"
+        ),
+        (
+            "GeoGuessr",
+            85,
+            "web-geoguessr",
+            "https://www.geoguessr.com/images/auto/1200/630/ce/0/plain/static/hero-image.jpg"
+        )
     ];
 
     public static async Task InitializeAsync(AppDbContext context)
@@ -55,36 +72,65 @@ public static class DbInitializer
 
     /// <summary>
     /// Pins the curated staples at <c>IsFeatured = true</c> and
-    /// <c>PopularityRank = 0</c>. Promotes the existing row when RAWG already
-    /// ingested the title, so re-running never duplicates a game.
+    /// <c>PopularityRank = 0</c>. Matches by ExternalId first, then
+    /// case-insensitive title — the same keys as <c>UpsertGamesAsync</c> — so
+    /// re-running never duplicates a game.
     /// </summary>
     private static async Task SeedFeaturedGamesAsync(AppDbContext context)
     {
         var titles = FeaturedGames.Select(g => g.Title).ToList();
+        var externalIds = FeaturedGames
+            .Select(g => g.ExternalId)
+            .Where(id => id is not null)
+            .Cast<string>()
+            .ToList();
+
         var existing = await context.Games
-            .Where(g => titles.Contains(g.Title))
+            .Where(g =>
+                titles.Contains(g.Title)
+                || (g.ExternalId != null && externalIds.Contains(g.ExternalId)))
             .ToListAsync();
         var byTitle = existing
             .GroupBy(g => g.Title.ToLowerInvariant())
             .ToDictionary(g => g.Key, g => g.First());
+        var byExternalId = existing
+            .Where(g => g.ExternalId is not null)
+            .ToDictionary(g => g.ExternalId!);
 
-        foreach (var (title, baseDifficulty) in FeaturedGames)
+        foreach (var (title, baseDifficulty, externalId, thumb) in FeaturedGames)
         {
-            if (byTitle.TryGetValue(title.ToLowerInvariant(), out var game))
+            var match =
+                (externalId is not null
+                    && byExternalId.TryGetValue(externalId, out var byId)
+                    ? byId
+                    : null)
+                ?? byTitle.GetValueOrDefault(title.ToLowerInvariant());
+
+            if (match is not null)
             {
-                game.IsFeatured = true;
-                game.PopularityRank = 0;
+                match.IsFeatured = true;
+                match.PopularityRank = 0;
+                match.ExternalId ??= externalId;
+                match.Thumb ??= thumb;
                 continue;
             }
 
-            context.Games.Add(new Game
+            var inserted = new Game
             {
                 Id = Guid.NewGuid(),
                 Title = title,
                 BaseDifficulty = baseDifficulty,
+                ExternalId = externalId,
+                Thumb = thumb,
                 IsFeatured = true,
                 PopularityRank = 0
-            });
+            };
+            context.Games.Add(inserted);
+            byTitle[title.ToLowerInvariant()] = inserted;
+            if (externalId is not null)
+            {
+                byExternalId[externalId] = inserted;
+            }
         }
 
         await context.SaveChangesAsync();
