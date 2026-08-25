@@ -21,6 +21,8 @@ interface SpeedrunTimerProps {
   /** performance.now() at the moment of the last sync. */
   syncedAt: number;
   className?: string;
+  /** Stream keeps a hard outline for OBS; site matches the feed clock. */
+  tone?: "stream" | "site";
 }
 
 /**
@@ -32,6 +34,7 @@ export default function SpeedrunTimer({
   timerStatus,
   syncedAt,
   className = "",
+  tone = "stream",
 }: SpeedrunTimerProps) {
   // The interval only records the current tick; the displayed value is derived
   // during render, keeping the component pure for the react-hooks lint rules.
@@ -48,33 +51,34 @@ export default function SpeedrunTimer({
       ? elapsedMs + (tickNow - syncedAt)
       : elapsedMs;
 
-  // 1px black outline keeps digits readable without a soft glow bloom.
-  const looks: Record<TimerStatus, { classes: string; outline: string }> = {
-    running: {
-      classes: "text-[#00ff66]",
-      outline: "0 1px 0 #000, 0 -1px 0 #000, 1px 0 0 #000, -1px 0 0 #000",
-    },
-    paused: {
-      classes: "text-[#facc15]",
-      outline: "0 1px 0 #000, 0 -1px 0 #000, 1px 0 0 #000, -1px 0 0 #000",
-    },
-    finished: {
-      classes: "text-accent-streak",
-      outline: "0 1px 0 #000, 0 -1px 0 #000, 1px 0 0 #000, -1px 0 0 #000",
-    },
-    idle: {
-      classes: "text-[#00ff66]",
-      outline: "0 1px 0 #000, 0 -1px 0 #000, 1px 0 0 #000, -1px 0 0 #000",
-    },
-  };
-  const look = looks[timerStatus];
-
   const [mainTime, centis] = formatSpeedrunTime(displayMs).split(".");
+
+  if (tone === "site") {
+    return (
+      <div
+        className={`font-mono font-medium tabular-nums leading-none ${
+          timerStatus === "paused" ? "text-gray-500" : "text-ink"
+        } ${className}`}
+      >
+        <span>{mainTime}</span>
+        <span className="text-[0.45em] font-normal text-gray-500">.{centis}</span>
+      </div>
+    );
+  }
+
+  // 1px black outline keeps digits readable on a transparent OBS capture.
+  const looks: Record<TimerStatus, string> = {
+    running: "text-white",
+    paused: "text-gray-300",
+    finished: "text-white",
+    idle: "text-white",
+  };
+  const outline = "0 1px 0 #000, 0 -1px 0 #000, 1px 0 0 #000, -1px 0 0 #000";
 
   return (
     <div
-      className={`font-mono font-black tabular-nums leading-none ${look.classes} ${className}`}
-      style={{ textShadow: look.outline }}
+      className={`font-mono font-black tabular-nums leading-none ${looks[timerStatus]} ${className}`}
+      style={{ textShadow: outline }}
     >
       <span>{mainTime}</span>
       <span className="text-[24px] font-bold">.{centis}</span>

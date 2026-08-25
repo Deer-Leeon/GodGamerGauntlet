@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono, Space_Grotesk } from "next/font/google";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import { AuthProvider } from "@/lib/auth";
 import SiteNav from "@/components/SiteNav";
 import ControlRail from "@/components/ControlRail";
@@ -7,11 +7,6 @@ import "./globals.css";
 
 const inter = Inter({
   variable: "--font-inter",
-  subsets: ["latin"],
-});
-
-const spaceGrotesk = Space_Grotesk({
-  variable: "--font-space-grotesk",
   subsets: ["latin"],
 });
 
@@ -30,9 +25,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} antialiased`}
+      className={`${inter.variable} ${jetbrainsMono.variable} antialiased`}
     >
-      <body className="bg-dark text-gray-100">
+      <body className="bg-dark text-muted">
         <AuthProvider>
           <div className="site-shell">
             <SiteNav />

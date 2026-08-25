@@ -85,14 +85,14 @@ export default function FeedPage() {
     <main className="feed-page mx-auto w-full max-w-3xl flex-1 px-4 py-10 sm:px-6">
       <header className="flex flex-wrap items-end justify-between gap-3 border-b border-white/12 pb-5">
         <div>
-          <h1 className="text-2xl font-semibold text-[#ecece8]">Feed</h1>
+          <h1 className="text-2xl font-semibold text-ink">Feed</h1>
           <p className="mt-1 max-w-md text-sm text-gray-500">
             Finished gauntlets from the community.
           </p>
         </div>
         <Link
           href="/draft"
-          className="border border-white/20 px-3 py-1.5 text-sm text-[#ecece8] transition hover:border-white/40 hover:bg-white/5"
+          className="border border-white/20 px-3 py-1.5 text-sm text-ink transition hover:border-white/40 hover:bg-white/5"
         >
           Draft a run
         </Link>
@@ -111,7 +111,7 @@ export default function FeedPage() {
             onClick={() => changeSort(s.id)}
             className={`-mb-px border-b-2 pb-2 transition ${
               sort === s.id
-                ? "border-[#ecece8] text-[#ecece8]"
+                ? "border-ink text-ink"
                 : "border-transparent text-gray-500 hover:text-gray-300"
             }`}
           >
@@ -132,7 +132,7 @@ export default function FeedPage() {
         {!loading && !error && posts.length === 0 && (
           <p className="py-12 text-sm text-gray-500">
             No finished runs yet.{" "}
-            <Link href="/draft" className="text-[#ecece8] underline underline-offset-2">
+            <Link href="/draft" className="text-ink underline underline-offset-2">
               Draft a gauntlet
             </Link>
             .
@@ -188,7 +188,7 @@ function PostCard({
 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-[13px]">
-            <span className="font-medium text-[#ecece8]">{post.streamerName}</span>
+            <span className="font-medium text-ink">{post.streamerName}</span>
             <span className="text-gray-600">·</span>
             <span className="text-gray-500">{timeAgo(post.endTime)}</span>
             <span className="text-gray-600">·</span>
@@ -208,7 +208,7 @@ function PostCard({
             className="mt-2 block outline-none"
           >
             <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-              <p className="text-[15px] leading-snug text-[#d8d8d4]">
+              <p className="text-[15px] leading-snug text-muted">
                 {completed
                   ? `${post.totalSlots}/${post.totalSlots} games`
                   : `Stopped on game ${post.slotsCompleted + 1} of ${post.totalSlots}`}

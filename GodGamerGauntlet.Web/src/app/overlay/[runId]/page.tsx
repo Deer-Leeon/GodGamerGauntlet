@@ -84,7 +84,7 @@ function OverlayView() {
       style={{ width: OVERLAY_W, height: OVERLAY_H, zoom: scale }}
     >
       {aspectOff && (
-        <div className="rounded bg-accent-death px-2 py-1 font-heading text-[11px] font-bold leading-tight text-white">
+        <div className="bg-black px-2 py-1 text-[11px] leading-tight text-white">
           Wrong source shape. Double-click the Browser source and set Height to{" "}
           {Math.round(OVERLAY_H * scale)} (keep Width as is). Recommended: 840 ×
           680.
@@ -98,22 +98,15 @@ function OverlayView() {
       />
 
       <div
-        className="mt-auto w-full rounded-lg border border-white/20 px-4 py-2"
-        style={{ background: "rgba(8,11,22,0.96)" }}
+        className="mt-auto w-full border border-white/25 px-4 py-2"
+        style={{ background: "rgba(8,8,10,0.96)" }}
       >
         <div className="flex items-center justify-between">
-          <span className="flex items-center gap-1.5 font-heading text-[11px] font-bold uppercase tracking-[0.2em] text-gray-400">
-            Gauntlet Time
-            {isLite && (
-              <span
-                className="rounded px-1.5 py-px text-[10px] tracking-[0.12em] text-[#00e5ff]"
-                style={{ background: "rgba(0,229,255,0.16)" }}
-              >
-                Lite
-              </span>
-            )}
+          <span className="flex items-center gap-1.5 text-[11px] text-gray-400">
+            Time
+            {isLite && <span className="text-gray-500">· Lite</span>}
           </span>
-          <span className="font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-gray-400">
+          <span className="font-mono text-[11px] tabular-nums text-gray-400">
             {beatenCount}/{totalCount} clear
           </span>
         </div>
@@ -125,19 +118,16 @@ function OverlayView() {
           className="mt-1 text-center text-[48px]"
         />
 
-        <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-white/15">
+        <div className="mt-2 h-px w-full bg-white/20">
           <div
-            className="h-full rounded-full"
-            style={{
-              width: `${(beatenCount / totalCount) * 100}%`,
-              background: "#00ff66",
-            }}
+            className="h-px bg-white"
+            style={{ width: `${(beatenCount / totalCount) * 100}%` }}
           />
         </div>
       </div>
 
       {resetArmed && (
-        <div className="absolute bottom-2 left-2 right-2 rounded bg-accent-death px-3 py-1 text-center font-heading text-xs font-bold uppercase tracking-widest text-white">
+        <div className="absolute bottom-2 left-2 right-2 bg-black px-3 py-1 text-center text-xs text-white">
           Press R again to reset
         </div>
       )}
@@ -170,10 +160,10 @@ function HelperButton({
   return (
     <button
       onClick={onClick}
-      className={`rounded border px-2 py-1 font-heading text-xs font-bold uppercase tracking-wider ${
+      className={`border px-2 py-1 text-xs ${
         danger
-          ? "border-accent-death/60 bg-black/80 text-accent-death"
-          : "border-accent-win/40 bg-black/80 text-accent-win"
+          ? "border-white/40 bg-black/80 text-white"
+          : "border-white/40 bg-black/80 text-white"
       }`}
     >
       {children}
@@ -221,7 +211,7 @@ function Thumb({ src, size }: { src: string | null; size: number }) {
   if (!src) {
     return (
       <div
-        className="shrink-0 rounded bg-white/10"
+        className="shrink-0 bg-white/10"
         style={{ width: size, height: size }}
       />
     );
@@ -235,7 +225,7 @@ function Thumb({ src, size }: { src: string | null; size: number }) {
       width={size}
       height={size}
       draggable={false}
-      className="shrink-0 rounded object-cover"
+      className="shrink-0 object-cover"
       style={{ width: size, height: size }}
     />
   );
@@ -256,18 +246,18 @@ function WheelPill({
 
   return (
     <div
-      className={`relative flex w-full shrink-0 items-center gap-3 overflow-hidden rounded-lg border px-3 py-2 ${
-        isActive ? "border-[#00e5ff]" : "border-white/25"
+      className={`relative flex w-full shrink-0 items-center gap-3 overflow-hidden border px-3 py-2 ${
+        isActive ? "border-white/50" : "border-white/25"
       }`}
-      style={{ background: isActive ? "rgba(10,16,32,0.96)" : "rgba(10,14,26,0.94)" }}
+      style={{ background: isActive ? "rgba(10,10,12,0.96)" : "rgba(10,10,12,0.92)" }}
     >
       {isActive && (
-        <div className="absolute inset-y-0 left-0 w-[3px] bg-[#00e5ff]" />
+        <div className="absolute inset-y-0 left-0 w-[2px] bg-white" />
       )}
 
       <span
-        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded font-mono text-sm font-black ${
-          isActive ? "bg-[#00e5ff]/15 text-[#00e5ff]" : "text-gray-200"
+        className={`flex h-8 w-8 shrink-0 items-center justify-center font-mono text-sm ${
+          isActive ? "text-white" : "text-gray-300"
         }`}
       >
         {game.slotNumber}
@@ -276,22 +266,18 @@ function WheelPill({
       <Thumb src={game.thumb} size={isActive ? 48 : 44} />
 
       <div className="min-w-0 flex-1">
-        <p
-          className={`font-heading text-[11px] font-bold uppercase tracking-[0.2em] ${
-            isActive ? "text-[#00e5ff]" : "text-gray-400"
-          }`}
-        >
-          {isActive ? "Now Playing" : variant === "next" ? "Up Next" : "Then"}
+        <p className={`text-[11px] ${isActive ? "text-gray-300" : "text-gray-400"}`}>
+          {isActive ? "Now" : variant === "next" ? "Next" : "Then"}
         </p>
-        <p className="truncate font-heading text-lg font-extrabold leading-tight text-white">
+        <p className="truncate text-lg font-semibold leading-tight text-white">
           {game.title}
         </p>
       </div>
 
       {isActive && (
         <div className="shrink-0 text-right font-mono leading-none">
-          <span className="text-[26px] font-black text-[#00e5ff]">{currentSlot}</span>
-          <span className="text-sm font-bold text-gray-400">/{totalSlots}</span>
+          <span className="text-[26px] font-medium text-white">{currentSlot}</span>
+          <span className="text-sm text-gray-400">/{totalSlots}</span>
         </div>
       )}
     </div>

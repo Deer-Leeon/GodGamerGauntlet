@@ -1,43 +1,68 @@
 @import "tailwindcss";
 
 /*
- * High-Stakes Dark Mode design tokens.
- * Tailwind v4 is CSS-first: tokens declared in @theme generate utilities
- * (e.g. --color-dark -> bg-dark / text-dark / border-dark).
+ * Site language: a results wire. Hairlines, sentence-case type, numbers
+ * in the margin. Accents stay available for the OBS overlay; site chrome
+ * should not use them as fill.
  */
 @theme {
-  /* Backgrounds */
-  --color-dark: #0a0e1a;
-  --color-surface: #0f111a;
+  --color-dark: #0c0c0e;
+  --color-surface: #0c0c0e;
+  --color-ink: #ecece8;
+  --color-muted: #c8c8c4;
 
-  /* Accents */
-  --color-accent-streak: #ffc000;
-  --color-accent-win: #00e5ff;
-  --color-accent-death: #ff3366;
+  --color-accent-streak: #ecece8;
+  --color-accent-win: #ecece8;
+  --color-accent-death: #c45c5c;
 
-  /* Typography (variables provided by next/font in layout.tsx) */
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  --font-heading: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-jetbrains-mono), ui-monospace, monospace;
 }
 
-/* Frosted panel surface: bg-panel = rgba(255,255,255,0.04) + border-white/10 */
 @utility panel {
-  background-color: rgb(255 255 255 / 0.04);
-  border: 1px solid rgb(255 255 255 / 0.1);
+  background-color: transparent;
+  border: 1px solid rgb(255 255 255 / 0.12);
 }
 
 body {
   background-color: var(--color-dark);
-  color: var(--color-gray-100);
+  color: var(--color-muted);
   font-family: var(--font-sans);
 }
 
-/* Site pages fill the viewport; the overlay unwraps this so it can be content-sized. */
 .site-shell {
   display: flex;
   min-height: 100dvh;
   flex-direction: column;
+}
+
+.site-shell h1,
+.site-shell h2 {
+  font-family: var(--font-sans);
+  letter-spacing: -0.02em;
+  color: var(--color-ink);
+}
+
+.site-shell a:focus-visible,
+.site-shell button:focus-visible,
+.site-shell input:focus-visible,
+.site-shell select:focus-visible,
+.site-shell textarea:focus-visible {
+  outline: 1px solid var(--color-ink);
+  outline-offset: 3px;
+}
+
+.feed-list {
+  border-top: 1px solid rgb(255 255 255 / 0.12);
+}
+
+.feed-row {
+  border-bottom: 1px solid rgb(255 255 255 / 0.12);
+}
+
+.feed-row:hover {
+  background: rgb(255 255 255 / 0.02);
 }
 
 /*
@@ -69,14 +94,12 @@ html:has(.obs-overlay-root) .site-shell {
   min-height: 0;
 }
 
-/* Grayscale AA (not subpixel) so glyphs stay sharp over a transparent capture. */
 .obs-overlay-root {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: geometricPrecision;
 }
 
-/* Control deck dock: one screen, no page scroll, keys go to the page. */
 html:has(.obs-control-root),
 html:has(.obs-control-root) body {
   overflow: hidden !important;
@@ -94,58 +117,8 @@ html:has(.obs-control-root) .site-nav {
   display: none !important;
 }
 
-/* Live-controls sidebar on the rest of the site (lg and up). */
 @media (min-width: 1024px) {
   html.ggg-has-control-rail .site-shell {
     padding-right: 20rem;
   }
-}
-
-/*
- * Feed-only skin. Kept off the design tokens so Draft / Overlay / Control
- * stay as they are until this direction is approved.
- *
- * Goal: a results wire, not a dashboard. Hairlines instead of glass cards,
- * sentence-case type instead of tracked badges, numbers in the margin.
- */
-.feed-page {
-  color: #c8c8c4;
-}
-
-.feed-page h1,
-.feed-page h2 {
-  font-family: var(--font-sans);
-  letter-spacing: -0.02em;
-  color: #ecece8;
-}
-
-.feed-page a:focus-visible,
-.feed-page button:focus-visible {
-  outline: 1px solid #ecece8;
-  outline-offset: 3px;
-}
-
-.feed-page .feed-list {
-  border-top: 1px solid rgb(255 255 255 / 0.12);
-}
-
-.feed-page .feed-row {
-  border-bottom: 1px solid rgb(255 255 255 / 0.12);
-}
-
-.feed-page .feed-row:hover {
-  background: rgb(255 255 255 / 0.02);
-}
-
-.feed-page .panel {
-  background: transparent;
-  border-radius: 0;
-}
-
-.feed-page input,
-.feed-page textarea,
-.feed-page .feed-list button.rounded-xl,
-.feed-page .feed-list button.rounded-lg,
-.feed-page .feed-list button.rounded-full {
-  border-radius: 0;
 }

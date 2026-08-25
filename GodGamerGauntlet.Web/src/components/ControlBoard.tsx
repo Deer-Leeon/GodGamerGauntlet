@@ -6,7 +6,6 @@ import { useEffect, useRef } from "react";
 import { slotsForRunType } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { pinControlRun } from "@/lib/controlSession";
-import { RunTypeBadge } from "@/components/RunTypeBadge";
 import { useOverlayRun } from "@/lib/useOverlayRun";
 import { useOverlayHotkeys } from "@/lib/useOverlayHotkeys";
 import SpeedrunTimer, { formatSpeedrunTime } from "@/components/SpeedrunTimer";
@@ -99,23 +98,30 @@ export default function ControlBoard({
 
   const body = (
     <>
-      <header className="flex shrink-0 items-center justify-between gap-2">
-        <h1 className="flex items-center gap-2 font-heading text-xs font-bold uppercase tracking-[0.2em] text-accent-streak">
-          Control Deck
-          <RunTypeBadge runType={state.runType} size="sm" />
+      <header className="flex shrink-0 items-baseline justify-between gap-2">
+        <h1 className="text-sm font-medium text-ink">
+          Control deck
+          {state.runType === "Lite" ? (
+            <span className="ml-2 font-normal text-gray-500">Lite</span>
+          ) : null}
         </h1>
-        <p className="truncate font-mono text-[11px] uppercase tracking-widest text-gray-400">
-          {state.runStatus} · {slotLabel}
+        <p className="truncate font-mono text-[12px] tabular-nums text-gray-500">
+          {state.runStatus === "Completed"
+            ? "Clear"
+            : state.runStatus === "Failed"
+              ? "DNF"
+              : "Live"}{" "}
+          · {slotLabel}
         </p>
       </header>
 
       {!authLoading && !isOwner && (
-        <div className="shrink-0 rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-center text-xs text-amber-200">
+        <div className="shrink-0 border border-white/15 px-3 py-2 text-center text-xs text-gray-400">
           {user ? (
             "You are not the owner of this run — controls are disabled."
           ) : (
             <>
-              <Link href="/login" className="font-bold underline">
+              <Link href="/login" className="text-ink underline underline-offset-2">
                 Sign in
               </Link>{" "}
               as the run owner to use the controls.
@@ -124,14 +130,15 @@ export default function ControlBoard({
         </div>
       )}
 
-      <div className="panel flex shrink-0 flex-col items-center rounded-xl py-2">
+      <div className="flex shrink-0 flex-col items-center border-y border-white/12 py-3">
         <SpeedrunTimer
           elapsedMs={state.elapsedMs}
           timerStatus={state.timerStatus}
           syncedAt={syncedAt}
-          className={dock ? "text-[42px]" : "text-[36px]"}
+          tone="site"
+          className={dock ? "text-[40px]" : "text-[34px]"}
         />
-        <span className="font-mono text-[10px] uppercase tracking-widest text-gray-500">
+        <span className="mt-1 text-[11px] text-gray-500">
           {resetArmed ? "Press R again to reset" : state.timerStatus}
         </span>
       </div>
@@ -141,13 +148,13 @@ export default function ControlBoard({
           type="button"
           onClick={togglePlayPause}
           disabled={!isOwner || state.timerStatus === "finished"}
-          className={`col-span-2 rounded-xl py-3 font-heading text-lg font-black uppercase tracking-wider text-dark disabled:opacity-40 ${
+          className={`col-span-2 py-2.5 text-sm disabled:opacity-40 ${
             running
-              ? "bg-amber-400 hover:brightness-110"
-              : "bg-[#00ff66] hover:brightness-110"
+              ? "border border-white/20 text-ink hover:bg-white/5"
+              : "bg-ink text-dark hover:bg-white"
           }`}
         >
-          {running ? "❚❚ Pause" : "▶ Play"}
+          {running ? "Pause" : "Play"}
           <KeyHint>Space</KeyHint>
         </button>
 
@@ -155,9 +162,9 @@ export default function ControlBoard({
           type="button"
           onClick={split}
           disabled={!isOwner || state.runStatus !== "Active"}
-          className="col-span-2 rounded-xl bg-accent-win py-3 font-heading text-base font-black uppercase tracking-wider text-dark hover:brightness-110 disabled:opacity-40"
+          className="col-span-2 border border-white/20 py-2.5 text-sm text-ink hover:bg-white/5 disabled:opacity-40"
         >
-          Game Beaten — Next ▸
+          Game beaten — next
           <KeyHint>Enter</KeyHint>
         </button>
 
@@ -165,9 +172,9 @@ export default function ControlBoard({
           type="button"
           onClick={previousGame}
           disabled={!isOwner}
-          className="rounded-xl border border-white/15 bg-white/5 py-2.5 font-heading text-sm font-bold uppercase tracking-wider text-gray-300 hover:bg-white/10 disabled:opacity-40"
+          className="border border-white/15 py-2 text-sm text-gray-400 hover:text-ink disabled:opacity-40"
         >
-          ◂ Undo
+          Undo
           <KeyHint>P</KeyHint>
         </button>
 
@@ -175,10 +182,10 @@ export default function ControlBoard({
           type="button"
           onClick={requestReset}
           disabled={!isOwner}
-          className={`rounded-xl py-2.5 font-heading text-sm font-bold uppercase tracking-wider disabled:opacity-40 ${
+          className={`py-2 text-sm disabled:opacity-40 ${
             resetArmed
-              ? "bg-accent-death text-white"
-              : "border border-accent-death/50 bg-accent-death/10 text-accent-death hover:bg-accent-death/20"
+              ? "border border-red-400/50 text-red-400"
+              : "border border-white/15 text-gray-400 hover:text-red-400/80"
           }`}
         >
           {resetArmed ? "Confirm reset?" : "Reset"}
@@ -193,9 +200,7 @@ export default function ControlBoard({
       )}
 
       <section
-        className={`panel min-h-0 rounded-xl p-2.5 ${
-          dock ? "flex-1 overflow-y-auto" : ""
-        }`}
+        className={`min-h-0 ${dock ? "flex-1 overflow-y-auto" : ""}`}
       >
         {active && <GameRow game={active} label="Now" highlight />}
         {upcoming.map((game, index) => (
@@ -206,43 +211,43 @@ export default function ControlBoard({
           />
         ))}
         {beaten.length > 0 && (
-          <div className="mt-2 border-t border-white/10 pt-2">
-            <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-gray-500">
-              Splits
-            </p>
-            <div className="flex flex-col gap-0.5">
-              {beaten.map((game) => (
-                <div
+          <table className="mt-3 w-full border-collapse border-t border-white/12 pt-2 text-[12px]">
+            <caption className="sr-only">Splits</caption>
+            <tbody>
+              {beaten.map((game, i) => (
+                <tr
                   key={game.gameId}
-                  className="flex items-center justify-between gap-2 text-[11px]"
+                  className="border-t border-white/8 text-gray-500 first:border-t-0"
                 >
-                  <span className="truncate text-gray-400">
-                    <span className="mr-1.5 font-mono text-[#00ff66]">✓</span>
+                  <td className="w-6 py-0.5 pr-2 font-mono tabular-nums text-gray-600">
+                    {i + 1}
+                  </td>
+                  <td className="max-w-0 truncate py-0.5 pr-3 text-gray-400">
                     {game.title}
-                  </span>
-                  <span className="shrink-0 font-mono text-[#00ff66]">
+                  </td>
+                  <td className="py-0.5 text-right font-mono tabular-nums">
                     {game.splitTimeMs !== null
                       ? formatSpeedrunTime(game.splitTimeMs)
                       : "—"}
-                  </span>
-                </div>
+                  </td>
+                </tr>
               ))}
-            </div>
-          </div>
+            </tbody>
+          </table>
         )}
       </section>
 
       {showSetup && isOwner && (
-        <details className="panel shrink-0 rounded-xl px-2.5 py-1.5 text-xs text-gray-400">
-          <summary className="cursor-pointer font-heading text-[10px] font-bold uppercase tracking-widest text-accent-streak">
+        <details className="shrink-0 border-t border-white/12 pt-2 text-xs text-gray-500">
+          <summary className="cursor-pointer text-[12px] text-gray-400">
             OBS setup / copy URLs
           </summary>
-          <ol className="mt-2 list-decimal space-y-1.5 pl-4 text-gray-300">
+          <ol className="mt-2 list-decimal space-y-1.5 pl-4">
             <li>
               Stream overlay: Sources → Browser. Width{" "}
-              <span className="font-mono text-accent-win">840</span> × Height{" "}
-              <span className="font-mono text-accent-win">680</span>, then
-              Transform → Reset Transform.
+              <span className="font-mono text-ink">840</span> × Height{" "}
+              <span className="font-mono text-ink">680</span>, then Transform →
+              Reset Transform.
             </li>
             <li>
               OBS buttons: Docks → Custom Browser Docks, paste the dock URL
@@ -254,14 +259,14 @@ export default function ControlBoard({
             <button
               type="button"
               onClick={() => void copyUrl("overlay")}
-              className="flex-1 rounded-lg border border-accent-streak/50 py-1.5 font-heading text-[10px] font-bold uppercase tracking-wider text-accent-streak"
+              className="flex-1 border border-white/20 py-1.5 text-[11px] text-ink hover:bg-white/5"
             >
               Copy overlay URL
             </button>
             <button
               type="button"
               onClick={() => void copyUrl("dock")}
-              className="flex-1 rounded-lg border border-white/15 py-1.5 font-heading text-[10px] font-bold uppercase tracking-wider text-gray-300"
+              className="flex-1 border border-white/15 py-1.5 text-[11px] text-gray-400 hover:text-ink"
             >
               Copy dock URL
             </button>
@@ -302,9 +307,7 @@ export default function ControlBoard({
 
 function KeyHint({ children }: { children: string }) {
   return (
-    <span className="ml-2 font-mono text-[10px] font-bold tracking-widest opacity-70">
-      {children}
-    </span>
+    <span className="ml-2 font-mono text-[10px] text-gray-500">{children}</span>
   );
 }
 
@@ -324,9 +327,7 @@ function GameRow({
 }) {
   return (
     <div className="flex items-center gap-2 py-0.5">
-      <span className="w-9 shrink-0 font-mono text-[9px] font-bold uppercase tracking-widest text-gray-500">
-        {label}
-      </span>
+      <span className="w-9 shrink-0 text-[11px] text-gray-500">{label}</span>
       {game.thumb ? (
         <Image
           src={game.thumb}
@@ -334,14 +335,14 @@ function GameRow({
           width={28}
           height={28}
           unoptimized
-          className="h-7 w-7 shrink-0 rounded object-cover"
+          className="h-7 w-7 shrink-0 object-cover"
         />
       ) : (
-        <div className="h-7 w-7 shrink-0 rounded bg-white/10" />
+        <div className="h-7 w-7 shrink-0 bg-white/10" />
       )}
       <p
-        className={`min-w-0 flex-1 truncate text-sm font-heading font-bold ${
-          highlight ? "text-accent-win" : "text-gray-300"
+        className={`min-w-0 flex-1 truncate text-sm ${
+          highlight ? "text-ink" : "text-gray-400"
         }`}
       >
         {game.title}

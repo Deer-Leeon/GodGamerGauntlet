@@ -35,7 +35,6 @@ export function VoteColumn({
   post,
   signedIn,
   onPatch,
-  compact = false,
 }: {
   post: FeedPost;
   signedIn: boolean;
@@ -58,36 +57,20 @@ export function VoteColumn({
   }
 
   return (
-    <div className={`flex flex-col items-center ${compact ? "gap-0" : "gap-1"}`}>
+    <div className="flex flex-col items-center gap-0">
       <VoteArrow
         direction={1}
         active={post.myVote === 1}
         disabled={!signedIn}
-        compact={compact}
         onClick={() => castVote(1)}
       />
-      <span
-        className={`tabular-nums text-sm ${
-          compact
-            ? "font-medium text-gray-300"
-            : "font-mono font-bold"
-        } ${
-          compact
-            ? ""
-            : post.voteScore > 0
-              ? "text-accent-win"
-              : post.voteScore < 0
-                ? "text-accent-death"
-                : "text-gray-400"
-        }`}
-      >
+      <span className="text-sm font-medium tabular-nums text-gray-300">
         {post.voteScore}
       </span>
       <VoteArrow
         direction={-1}
         active={post.myVote === -1}
         disabled={!signedIn}
-        compact={compact}
         onClick={() => castVote(-1)}
       />
     </div>
@@ -98,13 +81,11 @@ function VoteArrow({
   direction,
   active,
   disabled,
-  compact,
   onClick,
 }: {
   direction: 1 | -1;
   active: boolean;
   disabled: boolean;
-  compact?: boolean;
   onClick: () => void;
 }) {
   const up = direction === 1;
@@ -113,18 +94,8 @@ function VoteArrow({
       onClick={onClick}
       disabled={disabled}
       title={disabled ? "Sign in to vote" : up ? "Upvote" : "Downvote"}
-      className={`leading-none transition disabled:cursor-not-allowed disabled:opacity-40 ${
-        compact
-          ? `px-1 py-0.5 text-xs ${
-              active ? "text-gray-100" : "text-gray-600 hover:text-gray-300"
-            }`
-          : `rounded-md px-2 py-0.5 text-lg ${
-              active
-                ? up
-                  ? "text-accent-win"
-                  : "text-accent-death"
-                : "text-gray-500 hover:text-gray-200"
-            }`
+      className={`px-1 py-0.5 text-xs leading-none transition disabled:cursor-not-allowed disabled:opacity-40 ${
+        active ? "text-gray-100" : "text-gray-600 hover:text-gray-300"
       }`}
     >
       {up ? "▲" : "▼"}
@@ -138,7 +109,6 @@ export function ReactionBar({
   commentsOpen,
   onToggleComments,
   onPatch,
-  compact = false,
 }: {
   post: FeedPost;
   currentUserId: string | null;
@@ -160,7 +130,7 @@ export function ReactionBar({
   }
 
   return (
-    <div className={`flex flex-wrap items-center ${compact ? "gap-x-4 gap-y-1" : "gap-2"}`}>
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
       {REACTIONS.map(({ type, emoji, title }) => {
         const count = post.reactions[type] ?? 0;
         const mine = post.myReactions.includes(type);
@@ -170,23 +140,13 @@ export function ReactionBar({
             onClick={() => onToggleReaction(type)}
             disabled={!signedIn}
             title={signedIn ? title : "Sign in to react"}
-            className={
-              compact
-                ? `text-[13px] transition disabled:cursor-not-allowed disabled:opacity-40 ${
-                    mine ? "text-gray-100" : "text-gray-500 hover:text-gray-300"
-                  }`
-                : `flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm transition disabled:cursor-not-allowed ${
-                    mine
-                      ? "border-accent-win/60 bg-accent-win/10 text-accent-win"
-                      : "border-white/10 text-gray-400 hover:border-white/25 hover:text-gray-200"
-                  }`
-            }
+            className={`text-[13px] transition disabled:cursor-not-allowed disabled:opacity-40 ${
+              mine ? "text-gray-100" : "text-gray-500 hover:text-gray-300"
+            }`}
           >
             <span>{emoji}</span>
             {count > 0 && (
-              <span className={compact ? "ml-1 tabular-nums" : "font-mono text-xs"}>
-                {count}
-              </span>
+              <span className="ml-1 tabular-nums">{count}</span>
             )}
           </button>
         );
@@ -195,26 +155,11 @@ export function ReactionBar({
       {onToggleComments && (
         <button
           onClick={onToggleComments}
-          className={
-            compact
-              ? `ml-auto text-[13px] transition ${
-                  commentsOpen ? "text-gray-100" : "text-gray-500 hover:text-gray-300"
-                }`
-              : `ml-auto flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm transition ${
-                  commentsOpen
-                    ? "border-accent-win/40 text-accent-win"
-                    : "border-white/10 text-gray-400 hover:border-white/25 hover:text-gray-200"
-                }`
-          }
+          className={`ml-auto text-[13px] transition ${
+            commentsOpen ? "text-gray-100" : "text-gray-500 hover:text-gray-300"
+          }`}
         >
-          {compact ? (
-            <>Comments {post.commentCount}</>
-          ) : (
-            <>
-              💬
-              <span className="font-mono text-xs">{post.commentCount}</span>
-            </>
-          )}
+          Comments {post.commentCount}
         </button>
       )}
     </div>
@@ -294,19 +239,19 @@ export function CommentThread({
             onChange={(e) => setDraft(e.target.value)}
             maxLength={1000}
             placeholder="Add a comment…"
-            className="panel min-w-0 flex-1 rounded-xl px-4 py-2 text-sm text-gray-100 outline-none transition focus:border-accent-win/60"
+            className="panel min-w-0 flex-1 px-3 py-2 text-sm text-ink outline-none"
           />
           <button
             type="submit"
             disabled={posting || !draft.trim()}
-            className="rounded-xl bg-accent-win/15 px-4 py-2 text-sm font-semibold text-accent-win transition hover:bg-accent-win/25 disabled:cursor-not-allowed disabled:opacity-40"
+            className="border border-white/20 px-4 py-2 text-sm text-ink transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {posting ? "…" : "Post"}
           </button>
         </form>
       ) : (
         <p className="mt-4 text-sm text-gray-500">
-          <Link href="/login" className="text-accent-win hover:underline">
+          <Link href="/login" className="text-ink underline underline-offset-2">
             Sign in
           </Link>{" "}
           to join the conversation.
@@ -369,7 +314,7 @@ function CommentItem({
   return (
     <li className="text-sm">
       <div className="flex flex-wrap items-baseline gap-2">
-        <span className="font-heading font-bold text-gray-200">
+        <span className="font-medium text-ink">
           {comment.username}
         </span>
         <span className="text-xs text-gray-500">
@@ -384,7 +329,7 @@ function CommentItem({
                 setEditing(true);
                 setError(null);
               }}
-              className="text-gray-500 transition hover:text-accent-win"
+              className="text-gray-500 transition hover:text-ink"
             >
               Edit
             </button>
@@ -408,13 +353,13 @@ function CommentItem({
             maxLength={1000}
             rows={3}
             autoFocus
-            className="panel w-full rounded-xl px-3 py-2 text-sm text-gray-100 outline-none transition focus:border-accent-win/60"
+            className="panel w-full px-3 py-2 text-sm text-ink outline-none"
           />
           <div className="flex gap-2">
             <button
               type="submit"
               disabled={saving || !draft.trim()}
-              className="rounded-lg bg-accent-win/15 px-3 py-1 text-xs font-semibold text-accent-win transition hover:bg-accent-win/25 disabled:opacity-40"
+              className="border border-white/20 px-3 py-1 text-xs text-ink transition hover:bg-white/5 disabled:opacity-40"
             >
               {saving ? "Saving…" : "Save"}
             </button>
@@ -425,7 +370,7 @@ function CommentItem({
                 setDraft(comment.body);
                 setError(null);
               }}
-              className="rounded-lg px-3 py-1 text-xs text-gray-400 transition hover:text-gray-200"
+              className="px-3 py-1 text-xs text-gray-400 transition hover:text-gray-200"
             >
               Cancel
             </button>

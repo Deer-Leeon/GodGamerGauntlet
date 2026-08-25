@@ -19,38 +19,38 @@ export default function SiteNav() {
   if (pathname?.startsWith("/overlay/")) return null;
 
   return (
-    <header className="site-nav sticky top-0 z-40 border-b border-white/10 bg-surface/90 backdrop-blur">
-      <nav className="mx-auto flex w-full max-w-5xl items-center gap-6 px-6 py-3">
-        <Link
-          href="/"
-          className="font-heading text-sm font-bold uppercase tracking-[0.25em] text-accent-streak"
-        >
+    <header className="site-nav sticky top-0 z-40 border-b border-white/12 bg-dark">
+      <nav className="mx-auto flex w-full max-w-6xl items-center gap-6 px-6 py-3">
+        <Link href="/" className="text-sm font-semibold text-ink">
           GGG
         </Link>
 
-        <div className="flex items-center gap-4 text-sm">
-          {links.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={
-                pathname === link.href
-                  ? "font-semibold text-accent-win"
-                  : "text-gray-400 transition hover:text-gray-100"
-              }
-            >
-              {link.label}
-            </Link>
-          ))}
+        <div className="flex items-center gap-5 text-sm">
+          {links.map((link) => {
+            const active = pathname === link.href;
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={
+                  active
+                    ? "-mb-px border-b-2 border-ink pb-0.5 text-ink"
+                    : "text-gray-500 transition hover:text-gray-300"
+                }
+              >
+                {link.label}
+              </Link>
+            );
+          })}
         </div>
 
         <div className="ml-auto flex items-center gap-3 text-sm">
           {loading ? null : user ? (
             <>
-              <span className="font-mono text-accent-win">{user.username}</span>
+              <span className="text-gray-500">{user.username}</span>
               <button
                 onClick={logout}
-                className="rounded-lg border border-white/10 px-3 py-1.5 text-gray-400 transition hover:border-accent-death/50 hover:text-accent-death"
+                className="border border-white/20 px-3 py-1.5 text-gray-400 transition hover:border-white/40 hover:text-ink"
               >
                 Log out
               </button>
@@ -58,7 +58,7 @@ export default function SiteNav() {
           ) : (
             <Link
               href="/login"
-              className="rounded-lg bg-accent-streak px-4 py-1.5 font-heading font-bold text-dark transition hover:brightness-110"
+              className="border border-white/20 px-3 py-1.5 text-ink transition hover:border-white/40 hover:bg-white/5"
             >
               Sign in
             </Link>

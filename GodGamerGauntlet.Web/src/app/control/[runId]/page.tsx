@@ -51,16 +51,14 @@ function ControlStudio({ runId }: { runId: string }) {
       </aside>
 
       <div className="min-w-0 flex-1">
-        <p className="text-xs uppercase tracking-widest text-gray-500">
-          Control room
-        </p>
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="font-heading text-3xl font-bold">
+        <p className="text-sm text-gray-500">Control room</p>
+        <div className="flex flex-wrap items-baseline gap-2">
+          <h1 className="text-2xl font-semibold">
             {state?.streamerName ?? "Gauntlet"}
           </h1>
           <RunTypeBadge runType={state?.runType} />
         </div>
-        <p className="mt-1 text-sm text-gray-400">
+        <p className="mt-1 text-sm text-gray-500">
           Play, split, and reset from the sidebar — or keep those controls
           while you browse the rest of the site. The OBS popup uses a compact
           dock URL so it still fits on one panel.
@@ -69,28 +67,26 @@ function ControlStudio({ runId }: { runId: string }) {
         <div className="mt-4 flex flex-wrap gap-3">
           <Link
             href={`/run/${runId}`}
-            className="rounded-lg border border-white/15 px-3 py-1.5 text-sm text-gray-300 transition hover:border-accent-win/50 hover:text-accent-win"
+            className="border border-white/20 px-3 py-1.5 text-sm text-ink transition hover:bg-white/5"
           >
             Open run tracker
           </Link>
         </div>
 
         {state && (
-          <section className="panel mt-8 rounded-2xl p-5">
-            <h2 className="mb-3 font-heading text-sm font-bold uppercase tracking-widest text-gray-400">
+          <section className="mt-8 border-t border-white/12 pt-5">
+            <h2 className="mb-3 text-sm text-gray-500">
               Lineup ({state.games.length} games)
             </h2>
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col">
               {state.games.map((game, index) => {
                 const now = index === state.currentSlotIndex;
                 return (
                   <div
                     key={game.gameId}
-                    className={`flex items-center gap-3 rounded-xl px-2 py-1.5 ${
-                      now ? "bg-accent-win/10" : ""
-                    }`}
+                    className="flex items-center gap-3 border-b border-white/8 py-2"
                   >
-                    <span className="w-6 shrink-0 font-mono text-xs text-gray-500">
+                    <span className="w-6 shrink-0 font-mono text-xs tabular-nums text-gray-500">
                       {game.slotNumber}
                     </span>
                     {game.thumb ? (
@@ -100,19 +96,19 @@ function ControlStudio({ runId }: { runId: string }) {
                         width={40}
                         height={40}
                         unoptimized
-                        className="h-10 w-10 shrink-0 rounded-lg object-cover"
+                        className="h-10 w-10 shrink-0 object-cover"
                       />
                     ) : (
-                      <div className="h-10 w-10 shrink-0 rounded-lg bg-white/10" />
+                      <div className="h-10 w-10 shrink-0 bg-white/10" />
                     )}
                     <p
-                      className={`min-w-0 flex-1 truncate font-heading font-bold ${
-                        now ? "text-accent-win" : "text-gray-200"
+                      className={`min-w-0 flex-1 truncate text-sm ${
+                        now ? "text-ink" : "text-gray-400"
                       }`}
                     >
                       {game.title}
                     </p>
-                    <span className="shrink-0 font-mono text-xs text-gray-500">
+                    <span className="shrink-0 font-mono text-xs tabular-nums text-gray-500">
                       {game.completed
                         ? game.splitTimeMs !== null
                           ? formatSpeedrunTime(game.splitTimeMs)
@@ -157,21 +153,19 @@ function ObsSetup({
   };
 
   return (
-    <section className="panel mt-8 rounded-2xl p-5 text-sm text-gray-300">
-      <h2 className="mb-3 font-heading text-sm font-bold uppercase tracking-widest text-accent-streak">
-        OBS setup
-      </h2>
+    <section className="mt-8 border-t border-white/12 pt-5 text-sm text-gray-400">
+      <h2 className="mb-3 text-sm text-gray-500">OBS setup</h2>
       <ol className="list-decimal space-y-2 pl-5">
         <li>
           On the stream: Sources → Browser. Paste the overlay URL. Width{" "}
-          <span className="font-mono text-accent-win">840</span> × Height{" "}
-          <span className="font-mono text-accent-win">680</span>, then
-          Transform → Reset Transform.
+          <span className="font-mono text-ink">840</span> × Height{" "}
+          <span className="font-mono text-ink">680</span>, then Transform →
+          Reset Transform.
         </li>
         <li>
           For buttons inside OBS: Docks → Custom Browser Docks. Paste the{" "}
-          <span className="font-semibold text-white">dock URL</span> (it ends
-          with <span className="font-mono">?dock=1</span>). That panel stays
+          <span className="text-ink">dock URL</span> (it ends with{" "}
+          <span className="font-mono">?dock=1</span>). That panel stays
           compact; this page stays the full control room.
         </li>
       </ol>
@@ -179,16 +173,16 @@ function ObsSetup({
         <button
           type="button"
           onClick={() => void copy("overlay")}
-          className="rounded-xl border border-accent-streak/50 bg-accent-streak/10 px-4 py-2 font-heading text-xs font-bold uppercase tracking-wider text-accent-streak hover:bg-accent-streak/20"
+          className="border border-white/20 px-3 py-1.5 text-sm text-ink hover:bg-white/5"
         >
-          {copied === "overlay" ? "Copied!" : "Copy overlay URL"}
+          {copied === "overlay" ? "Copied" : "Copy overlay URL"}
         </button>
         <button
           type="button"
           onClick={() => void copy("dock")}
-          className="rounded-xl border border-white/15 bg-white/5 px-4 py-2 font-heading text-xs font-bold uppercase tracking-wider text-gray-300 hover:bg-white/10"
+          className="border border-white/15 px-3 py-1.5 text-sm text-gray-400 hover:text-ink"
         >
-          {copied === "dock" ? "Copied!" : "Copy OBS dock URL"}
+          {copied === "dock" ? "Copied" : "Copy OBS dock URL"}
         </button>
       </div>
     </section>

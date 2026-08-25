@@ -25,13 +25,13 @@ import {
 const MODES: { id: RunType; label: string; blurb: string }[] = [
   {
     id: "Standard",
-    label: "Standard · 10 games",
-    blurb: "The full gauntlet. Later slots multiply the pain.",
+    label: "Standard",
+    blurb: "Ten games. Later slots multiply the score.",
   },
   {
     id: "Lite",
-    label: "Lite · 5 games",
-    blurb: "A shorter run for tighter streams. Ranked on its own board.",
+    label: "Lite",
+    blurb: "Five games. Ranked on its own board.",
   },
 ];
 
@@ -55,16 +55,16 @@ function GamePrice({ game }: { game: Game }) {
     game.salePrice > 0 &&
     game.salePrice < game.normalPrice;
   return (
-    <p className="font-mono text-xs">
+    <p className="font-mono text-xs tabular-nums text-gray-500">
       {discounted ? (
         <>
-          <span className="text-accent-win">${game.salePrice!.toFixed(2)}</span>{" "}
-          <span className="text-gray-500 line-through">
+          <span className="text-ink">${game.salePrice!.toFixed(2)}</span>{" "}
+          <span className="text-gray-600 line-through">
             ${game.normalPrice.toFixed(2)}
           </span>
         </>
       ) : (
-        <span className="text-gray-400">${game.normalPrice.toFixed(2)}</span>
+        <span>${game.normalPrice.toFixed(2)}</span>
       )}
     </p>
   );
@@ -76,7 +76,7 @@ function GameThumb({ game }: { game: Game }) {
     return (
       <span
         aria-hidden
-        className="flex h-12 w-16 shrink-0 items-center justify-center rounded-lg bg-white/5 font-heading text-lg font-bold text-gray-600"
+        className="flex h-12 w-16 shrink-0 items-center justify-center bg-white/5 text-lg font-semibold text-gray-600"
       >
         {game.title.charAt(0)}
       </span>
@@ -90,7 +90,7 @@ function GameThumb({ game }: { game: Game }) {
       height={48}
       unoptimized
       onError={() => setBroken(true)}
-      className="h-12 w-16 shrink-0 rounded-lg border border-white/10 object-cover"
+      className="h-12 w-16 shrink-0 object-cover"
     />
   );
 }
@@ -264,151 +264,119 @@ export default function DraftRoomPage() {
 
   if (createdRun) {
     return (
-      <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col items-center justify-center gap-6 px-6 py-16 text-center">
-        <p className="font-heading text-sm uppercase tracking-[0.3em] text-accent-win">
-          Gauntlet Initialized
-        </p>
-        <h1 className="font-heading text-4xl font-bold">The stakes are set.</h1>
-        <RunTypeBadge runType={createdRun.runType} />
-        <div className="panel w-full rounded-2xl p-6 text-left">
-          <dl className="space-y-4">
-            <div>
-              <dt className="text-xs uppercase tracking-widest text-gray-400">
-                Run ID
-              </dt>
-              <dd className="font-mono text-sm text-accent-win">
-                {createdRun.id}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs uppercase tracking-widest text-gray-400">
-                Total Difficulty Score
-              </dt>
-              <dd className="font-mono text-3xl font-bold text-accent-streak">
-                {formatScore(createdRun.totalDifficultyScore)}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs uppercase tracking-widest text-gray-400">
-                Status
-              </dt>
-              <dd className="font-mono text-sm">
-                {createdRun.status} · {createdRun.runType} (
-                {createdRun.totalSlots} games)
-              </dd>
-            </div>
-          </dl>
+      <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col justify-center px-6 py-16">
+        <p className="text-sm text-gray-500">Run ready</p>
+        <div className="flex flex-wrap items-baseline gap-2">
+          <h1 className="text-2xl font-semibold">Lineup locked</h1>
+          <RunTypeBadge runType={createdRun.runType} />
         </div>
+        <dl className="mt-6 border-t border-white/12">
+          <div className="flex items-baseline justify-between gap-4 border-b border-white/12 py-3">
+            <dt className="text-sm text-gray-500">Run ID</dt>
+            <dd className="truncate font-mono text-sm text-ink">
+              {createdRun.id}
+            </dd>
+          </div>
+          <div className="flex items-baseline justify-between gap-4 border-b border-white/12 py-3">
+            <dt className="text-sm text-gray-500">Projected score</dt>
+            <dd className="font-mono text-xl tabular-nums text-ink">
+              {formatScore(createdRun.totalDifficultyScore)}
+            </dd>
+          </div>
+          <div className="flex items-baseline justify-between gap-4 border-b border-white/12 py-3">
+            <dt className="text-sm text-gray-500">Status</dt>
+            <dd className="text-sm text-ink">
+              {createdRun.status} · {createdRun.totalSlots} games
+            </dd>
+          </div>
+        </dl>
         <Link
           href={`/run/${createdRun.id}`}
-          className="rounded-xl bg-accent-win px-8 py-3 font-heading text-lg font-bold text-dark transition hover:brightness-110"
+          className="mt-8 self-start border border-white/20 px-4 py-2 text-sm text-ink transition hover:bg-white/5"
         >
-          Proceed to Live Run Tracker →
+          Open run tracker
         </Link>
       </main>
     );
   }
 
   return (
-    <main className="mx-auto w-full max-w-7xl flex-1 px-6 py-8">
-      {/* Live Score Header */}
-      <header className="panel sticky top-4 z-10 mb-8 flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-surface/90 px-6 py-4 backdrop-blur">
+    <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-10">
+      <header className="flex flex-wrap items-end justify-between gap-3 border-b border-white/12 pb-5">
         <div>
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="font-heading text-2xl font-bold">The Draft Room</h1>
-            <RunTypeBadge runType={runType} />
-          </div>
-          <p className="text-sm text-gray-400">
-            Build your {slotCount}-game gauntlet. Later slots multiply the pain.
+          <h1 className="text-2xl font-semibold">Draft Room</h1>
+          <p className="mt-1 text-sm text-gray-500">
+            Build a {slotCount}-game gauntlet. Later slots multiply the score.
           </p>
-          <Link
-            href="/leaderboard"
-            className="mt-1 inline-block font-heading text-sm font-semibold text-accent-win transition hover:brightness-125"
-          >
-            View Global Leaderboard →
-          </Link>
         </div>
         <div className="text-right">
-          <p className="text-xs uppercase tracking-widest text-gray-400">
-            Total Projected Score
-          </p>
-          <p className="font-mono text-4xl font-bold text-accent-streak">
+          <p className="text-xs text-gray-500">Projected</p>
+          <p className="font-mono text-2xl tabular-nums text-ink">
             {formatScore(totalProjectedScore)}
           </p>
-          <p className="font-mono text-xs text-gray-500">
-            {filledCount}/{slotCount} slots drafted
+          <p className="font-mono text-xs tabular-nums text-gray-500">
+            {filledCount}/{slotCount} slots
           </p>
         </div>
       </header>
 
-      {/* Run length: switching resizes the board, keeping picks in order. */}
-      <section className="panel mb-8 flex flex-wrap items-center justify-between gap-4 rounded-2xl px-6 py-4">
-        <div>
-          <p className="text-xs uppercase tracking-widest text-gray-400">
-            Gauntlet Mode
-          </p>
-          <p className="mt-1 text-sm text-gray-400">{activeMode.blurb}</p>
-        </div>
-        <div
-          role="radiogroup"
-          aria-label="Gauntlet mode"
-          className="flex items-center gap-2 rounded-xl bg-white/3 p-1"
-        >
-          {MODES.map((mode) => (
-            <button
-              key={mode.id}
-              role="radio"
-              aria-checked={runType === mode.id}
-              onClick={() => changeMode(mode.id)}
-              className={`rounded-lg px-4 py-2 font-heading text-sm font-bold transition ${
-                runType === mode.id
-                  ? "bg-accent-win/15 text-accent-win"
-                  : "text-gray-400 hover:text-gray-100"
-              }`}
-            >
-              {mode.label}
-            </button>
-          ))}
-        </div>
-      </section>
+      <div
+        role="radiogroup"
+        aria-label="Gauntlet mode"
+        className="mt-5 flex gap-5 border-b border-white/12 text-sm"
+      >
+        {MODES.map((mode) => (
+          <button
+            key={mode.id}
+            role="radio"
+            aria-checked={runType === mode.id}
+            onClick={() => changeMode(mode.id)}
+            className={`-mb-px border-b-2 pb-2 transition ${
+              runType === mode.id
+                ? "border-ink text-ink"
+                : "border-transparent text-gray-500 hover:text-gray-300"
+            }`}
+          >
+            {mode.label}
+            <span className="ml-1.5 text-gray-600">
+              {RUN_TYPE_SLOTS[mode.id]}
+            </span>
+          </button>
+        ))}
+      </div>
+      <p className="mt-3 text-sm text-gray-500">{activeMode.blurb}</p>
 
       {loadError && (
-        <div className="panel mb-8 rounded-xl border-accent-death/40 p-4 text-sm text-accent-death">
+        <p className="mt-4 text-sm text-red-400/90">
           Could not load draft data: {loadError}
-        </div>
+        </p>
       )}
 
-      {/* Streamer identity comes from the logged-in account */}
       {!authLoading && !user && (
-        <div className="panel mb-8 flex flex-wrap items-center justify-between gap-4 rounded-xl border-accent-streak/40 px-6 py-4">
-          <p className="text-sm text-gray-300">
-            You need an account to launch a gauntlet — the run is posted to the
-            community feed under your name.
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border border-white/12 px-4 py-3">
+          <p className="text-sm text-gray-400">
+            Sign in to launch a gauntlet — the run is posted under your name.
           </p>
           <Link
             href="/login"
-            className="rounded-lg bg-accent-streak px-5 py-2 font-heading text-sm font-bold text-dark transition hover:brightness-110"
+            className="border border-white/20 px-3 py-1.5 text-sm text-ink transition hover:bg-white/5"
           >
             Sign in
           </Link>
         </div>
       )}
       {user && (
-        <p className="mb-8 text-sm text-gray-400">
-          Drafting as{" "}
-          <span className="font-mono text-accent-win">{user.username}</span>
+        <p className="mt-4 text-sm text-gray-500">
+          Drafting as <span className="text-ink">{user.username}</span>
         </p>
       )}
 
-      <div className="grid gap-8 lg:grid-cols-[1fr_1.2fr]">
-        {/* Available Games Catalog */}
+      <div className="mt-8 grid gap-10 lg:grid-cols-[1fr_20rem] xl:grid-cols-[1fr_24rem]">
         <section ref={catalogRef}>
           <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
             <div>
-              <h2 className="font-heading text-lg font-bold uppercase tracking-wide text-gray-300">
-                Game Catalog
-              </h2>
-              <p className="mt-1 text-xs text-gray-500" aria-live="polite">
+              <h2 className="text-sm text-gray-500">Catalog</h2>
+              <p className="mt-1 text-xs text-gray-600" aria-live="polite">
                 {loading
                   ? "Loading catalog…"
                   : rankedGames.length === games.length
@@ -425,8 +393,8 @@ export default function DraftRoomPage() {
             <label className="sr-only" htmlFor="catalog-search">
               Search games
             </label>
-            <div className="panel relative flex items-center rounded-xl focus-within:border-accent-win/60">
-              <span aria-hidden className="pl-4 text-gray-500">
+            <div className="relative flex items-center border border-white/12">
+              <span aria-hidden className="pl-3 text-gray-500">
                 ⌕
               </span>
               <input
@@ -438,18 +406,18 @@ export default function DraftRoomPage() {
                 placeholder="Search titles, or try sale  <$10  >80"
                 autoComplete="off"
                 spellCheck={false}
-                className="w-full bg-transparent px-3 py-3 font-heading text-sm outline-none placeholder:text-gray-600"
+                className="w-full bg-transparent px-3 py-2.5 text-sm text-ink outline-none placeholder:text-gray-600"
               />
               {query ? (
                 <button
                   type="button"
                   onClick={() => updateQuery("")}
-                  className="mr-2 rounded-md px-2 py-1 text-xs text-gray-400 transition hover:text-accent-win"
+                  className="mr-2 px-2 py-1 text-xs text-gray-400 transition hover:text-ink"
                 >
                   Clear
                 </button>
               ) : (
-                <kbd className="mr-3 hidden rounded border border-white/10 px-1.5 py-0.5 font-mono text-[10px] text-gray-500 sm:inline">
+                <kbd className="mr-3 hidden border border-white/10 px-1.5 py-0.5 font-mono text-[10px] text-gray-500 sm:inline">
                   /
                 </kbd>
               )}
@@ -468,7 +436,7 @@ export default function DraftRoomPage() {
                   setSort(event.target.value as CatalogSort);
                   setPage(1);
                 }}
-                className="panel rounded-lg bg-surface px-3 py-1.5 font-heading text-xs outline-none focus:border-accent-win/60"
+                className="border border-white/12 bg-dark px-3 py-1.5 text-xs text-ink outline-none"
                 aria-label="Sort catalog"
               >
                 <option value="featured">Featured &amp; popular</option>
@@ -481,24 +449,24 @@ export default function DraftRoomPage() {
             </div>
           </div>
 
-          <ul className="grid gap-3 sm:grid-cols-2">
+          <ul className="feed-list">
             {loading &&
-              Array.from({ length: 6 }).map((_, i) => (
+              Array.from({ length: 8 }).map((_, i) => (
                 <li
                   key={i}
-                  className="panel h-24 animate-pulse rounded-xl"
+                  className="h-16 animate-pulse border-b border-white/8"
                   aria-hidden
                 />
               ))}
             {!loading && games.length === 0 && (
-              <li className="panel col-span-full rounded-xl p-6 text-sm text-gray-400">
+              <li className="py-8 text-sm text-gray-500">
                 Catalog is empty. Games show up here after RAWG sync finishes.
               </li>
             )}
             {!loading && games.length > 0 && pagedGames.length === 0 && (
-              <li className="panel col-span-full rounded-xl p-6 text-sm text-gray-400">
+              <li className="py-8 text-sm text-gray-500">
                 No games match{" "}
-                <span className="font-mono text-accent-win">{query}</span>. Try a
+                <span className="font-mono text-ink">{query}</span>. Try a
                 shorter title, or drop filters like{" "}
                 <span className="font-mono">sale</span>.
               </li>
@@ -506,41 +474,36 @@ export default function DraftRoomPage() {
             {pagedGames.map(({ game }) => {
               const drafted = draftedIds.has(game.id);
               return (
-                <li
-                  key={game.id}
-                  className="panel flex flex-col justify-between gap-3 rounded-xl p-4"
-                >
-                  <div className="flex items-start gap-3">
-                    <GameThumb game={game} />
-                    <div className="min-w-0 flex-1">
-                      <span className="block truncate font-heading font-semibold">
-                        {highlightTitle(game.title, highlightTokens).map(
-                          (part, index) =>
-                            part.hit ? (
-                              <mark
-                                key={index}
-                                className="rounded-sm bg-accent-streak/20 text-accent-streak"
-                              >
-                                {part.text}
-                              </mark>
-                            ) : (
-                              <span key={index}>{part.text}</span>
-                            ),
-                        )}
-                      </span>
-                      <GamePrice game={game} />
-                    </div>
-                    <span className="font-mono text-sm text-accent-streak">
-                      {game.baseDifficulty}
+                <li key={game.id} className="feed-row flex items-center gap-3 py-3">
+                  <GameThumb game={game} />
+                  <div className="min-w-0 flex-1">
+                    <span className="block truncate text-sm text-ink">
+                      {highlightTitle(game.title, highlightTokens).map(
+                        (part, index) =>
+                          part.hit ? (
+                            <mark
+                              key={index}
+                              className="bg-white/10 text-ink"
+                            >
+                              {part.text}
+                            </mark>
+                          ) : (
+                            <span key={index}>{part.text}</span>
+                          ),
+                      )}
                     </span>
+                    <GamePrice game={game} />
                   </div>
+                  <span className="shrink-0 font-mono text-sm tabular-nums text-gray-500">
+                    {game.baseDifficulty}
+                  </span>
                   <button
                     type="button"
                     onClick={() => addGame(game)}
                     disabled={drafted || boardFull}
-                    className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm font-semibold transition enabled:hover:border-accent-win/60 enabled:hover:text-accent-win disabled:cursor-not-allowed disabled:opacity-40"
+                    className="shrink-0 border border-white/15 px-2.5 py-1 text-xs text-gray-400 transition enabled:hover:border-white/30 enabled:hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
                   >
-                    {drafted ? "Drafted" : "Add to Draft"}
+                    {drafted ? "Drafted" : "Add"}
                   </button>
                 </li>
               );
@@ -557,42 +520,35 @@ export default function DraftRoomPage() {
           />
         </section>
 
-        {/* The gauntlet board: 10 slots for Standard, 5 for Lite */}
         <section>
-          <h2 className="mb-4 flex flex-wrap items-center gap-3 font-heading text-lg font-bold uppercase tracking-wide text-gray-300">
-            Gauntlet Board
-            <span className="font-mono text-sm font-normal normal-case tracking-normal text-gray-500">
+          <h2 className="mb-3 flex flex-wrap items-baseline gap-2 text-sm text-gray-500">
+            Lineup
+            <span className="font-mono tabular-nums text-gray-600">
               {slotCount} slots
             </span>
-            <RunTypeBadge runType={runType} size="sm" />
+            <RunTypeBadge runType={runType} />
           </h2>
-          <ol className="space-y-2">
+          <ol className="feed-list">
             {slots.map((game, index) => {
               const position = index + 1;
               const multiplier = 1 + 0.1 * Math.pow(position - 1, 2);
               return (
                 <li
                   key={position}
-                  className={`panel flex items-center gap-4 rounded-xl px-4 py-3 ${
-                    game ? "" : "border-dashed opacity-70"
+                  className={`feed-row flex items-center gap-3 py-2.5 ${
+                    game ? "" : "opacity-50"
                   }`}
                 >
-                  <span className="font-mono text-lg font-bold text-gray-500">
-                    {String(position).padStart(2, "0")}
+                  <span className="w-6 shrink-0 font-mono text-sm tabular-nums text-gray-500">
+                    {position}
                   </span>
                   {game ? (
                     <>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate font-heading font-semibold">
-                          {game.title}
-                        </p>
-                        <p className="font-mono text-xs text-gray-400">
+                        <p className="truncate text-sm text-ink">{game.title}</p>
+                        <p className="font-mono text-xs tabular-nums text-gray-500">
                           {game.baseDifficulty} × {multiplier.toFixed(1)} ={" "}
-                          <span className="text-accent-win">
-                            {formatScore(
-                              slotScore(game.baseDifficulty, position),
-                            )}
-                          </span>
+                          {formatScore(slotScore(game.baseDifficulty, position))}
                         </p>
                       </div>
                       <div className="flex items-center gap-1">
@@ -601,7 +557,7 @@ export default function DraftRoomPage() {
                           onClick={() => moveSlot(index, -1)}
                           disabled={index === 0}
                           aria-label={`Move ${game.title} up`}
-                          className="rounded-md border border-white/10 px-2 py-1 text-xs transition enabled:hover:text-accent-win disabled:opacity-30"
+                          className="px-1.5 py-0.5 text-xs text-gray-500 transition enabled:hover:text-ink disabled:opacity-30"
                         >
                           ↑
                         </button>
@@ -610,7 +566,7 @@ export default function DraftRoomPage() {
                           onClick={() => moveSlot(index, 1)}
                           disabled={index === slots.length - 1}
                           aria-label={`Move ${game.title} down`}
-                          className="rounded-md border border-white/10 px-2 py-1 text-xs transition enabled:hover:text-accent-win disabled:opacity-30"
+                          className="px-1.5 py-0.5 text-xs text-gray-500 transition enabled:hover:text-ink disabled:opacity-30"
                         >
                           ↓
                         </button>
@@ -618,15 +574,15 @@ export default function DraftRoomPage() {
                           type="button"
                           onClick={() => removeSlot(index)}
                           aria-label={`Remove ${game.title}`}
-                          className="rounded-md border border-white/10 px-2 py-1 text-xs text-accent-death transition hover:border-accent-death/60"
+                          className="px-1.5 py-0.5 text-xs text-gray-500 transition hover:text-red-400/80"
                         >
                           ✕
                         </button>
                       </div>
                     </>
                   ) : (
-                    <span className="flex-1 text-sm text-gray-500">
-                      Empty slot — multiplier {multiplier.toFixed(1)}×
+                    <span className="flex-1 text-sm text-gray-600">
+                      Empty — {multiplier.toFixed(1)}×
                     </span>
                   )}
                 </li>
@@ -634,26 +590,29 @@ export default function DraftRoomPage() {
             })}
           </ol>
 
-          {/* Launch */}
           <div className="mt-6 space-y-3">
             {launchError && (
-              <p className="text-sm text-accent-death">{launchError}</p>
+              <p className="text-sm text-red-400/90">{launchError}</p>
             )}
             <button
               type="button"
               onClick={launchGauntlet}
               disabled={!boardFull || !user || launching}
-              className="w-full rounded-xl bg-accent-streak py-4 font-heading text-lg font-bold text-dark transition enabled:hover:brightness-110 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-gray-500"
+              className={`w-full py-2.5 text-sm transition disabled:cursor-not-allowed disabled:opacity-40 ${
+                boardFull && user
+                  ? "bg-ink text-dark hover:bg-white"
+                  : "border border-white/15 text-gray-400"
+              }`}
             >
               {launching
-                ? "Initializing…"
+                ? "Starting…"
                 : !user
                   ? "Sign in to launch"
                   : boardFull
                     ? runType === "Lite"
-                      ? "Launch Gauntlet Lite"
-                      : "Launch Gauntlet"
-                    : `Fill all ${slotCount} slots to launch (${filledCount}/${slotCount})`}
+                      ? "Launch Lite run"
+                      : "Launch run"
+                    : `Fill all ${slotCount} slots (${filledCount}/${slotCount})`}
             </button>
           </div>
         </section>
@@ -684,7 +643,7 @@ function CatalogPager({
         type="button"
         onClick={() => onPage(page - 1)}
         disabled={page <= 1}
-        className="rounded-lg border border-white/10 px-3 py-1.5 font-heading text-xs transition enabled:hover:border-accent-win/60 enabled:hover:text-accent-win disabled:opacity-30"
+        className="border border-white/15 px-3 py-1.5 text-xs text-gray-400 transition enabled:hover:text-ink disabled:opacity-30"
       >
         Prev
       </button>
@@ -699,10 +658,10 @@ function CatalogPager({
             type="button"
             onClick={() => onPage(item)}
             aria-current={item === page ? "page" : undefined}
-            className={`min-w-8 rounded-lg px-2.5 py-1.5 font-mono text-xs transition ${
+            className={`min-w-8 px-2.5 py-1.5 font-mono text-xs tabular-nums transition ${
               item === page
-                ? "bg-accent-streak font-bold text-dark"
-                : "border border-white/10 hover:border-accent-win/60 hover:text-accent-win"
+                ? "bg-ink text-dark"
+                : "border border-white/15 text-gray-400 hover:text-ink"
             }`}
           >
             {item}
@@ -713,7 +672,7 @@ function CatalogPager({
         type="button"
         onClick={() => onPage(page + 1)}
         disabled={page >= pageCount}
-        className="rounded-lg border border-white/10 px-3 py-1.5 font-heading text-xs transition enabled:hover:border-accent-win/60 enabled:hover:text-accent-win disabled:opacity-30"
+        className="border border-white/15 px-3 py-1.5 text-xs text-gray-400 transition enabled:hover:text-ink disabled:opacity-30"
       >
         Next
       </button>
