@@ -48,20 +48,36 @@ export default function SpeedrunTimer({
       ? elapsedMs + (tickNow - syncedAt)
       : elapsedMs;
 
-  const statusStyle =
-    timerStatus === "running"
-      ? "text-[#00ff66] drop-shadow-[0_0_14px_rgba(0,255,102,0.55)]"
-      : timerStatus === "paused"
-        ? "animate-pulse text-[#facc15] drop-shadow-[0_0_12px_rgba(250,204,21,0.45)]"
-        : timerStatus === "finished"
-          ? "text-accent-streak drop-shadow-[0_0_14px_rgba(255,192,0,0.55)]"
-          : "text-[#00ff66]/50";
+  // Layered glow: a tight halo for crispness plus a wide soft bloom.
+  const looks: Record<TimerStatus, { classes: string; glow: string }> = {
+    running: {
+      classes: "text-[#00ff66]",
+      glow: "drop-shadow(0 0 4px rgba(0,255,102,0.85)) drop-shadow(0 0 20px rgba(0,255,102,0.35))",
+    },
+    paused: {
+      classes: "animate-pulse text-[#facc15]",
+      glow: "drop-shadow(0 0 4px rgba(250,204,21,0.8)) drop-shadow(0 0 18px rgba(250,204,21,0.3))",
+    },
+    finished: {
+      classes: "text-accent-streak",
+      glow: "drop-shadow(0 0 4px rgba(255,192,0,0.85)) drop-shadow(0 0 20px rgba(255,192,0,0.35))",
+    },
+    idle: {
+      classes: "text-[#00ff66]/70",
+      glow: "drop-shadow(0 0 10px rgba(0,255,102,0.25))",
+    },
+  };
+  const look = looks[timerStatus];
+
+  const [mainTime, centis] = formatSpeedrunTime(displayMs).split(".");
 
   return (
     <div
-      className={`font-mono font-black tracking-tight tabular-nums transition-colors duration-300 ${statusStyle} ${className}`}
+      className={`font-mono font-black tabular-nums leading-none transition-colors duration-300 ${look.classes} ${className}`}
+      style={{ filter: look.glow }}
     >
-      {formatSpeedrunTime(displayMs)}
+      <span className="tracking-[-0.04em]">{mainTime}</span>
+      <span className="text-[0.52em] font-bold opacity-90">.{centis}</span>
     </div>
   );
 }
