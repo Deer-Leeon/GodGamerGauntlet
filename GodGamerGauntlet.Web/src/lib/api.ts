@@ -40,11 +40,15 @@ export interface RunSlot {
   gameId: string;
   position: number;
   status: RunSlotStatus;
+  title: string;
+  thumb: string | null;
+  baseDifficulty: number;
 }
 
 export interface Run {
   id: string;
   userId: string;
+  streamerName: string;
   startTime: string;
   endTime: string | null;
   status: RunStatus;
@@ -166,6 +170,8 @@ export interface FeedPost {
   totalScore: number;
   slotsCompleted: number;
   slotStatuses: RunSlotStatus[];
+  slotTitles: string[];
+  slotThumbs: (string | null)[];
   voteScore: number;
   myVote: number;
   commentCount: number;
@@ -181,6 +187,10 @@ export interface FeedPage {
 
 export function getFeed(sort: FeedSort, page: number): Promise<FeedPage> {
   return request<FeedPage>(`/api/feed?sort=${sort}&page=${page}`);
+}
+
+export function getFeedPost(runId: string): Promise<FeedPost> {
+  return request<FeedPost>(`/api/runs/${runId}/post`);
 }
 
 export interface VoteResult {

@@ -108,6 +108,21 @@ public class FeedController(AppDbContext context) : ControllerBase
         return Ok(new FeedPageDto(posts, page, hasMore));
     }
 
+    /// <summary>One finished run as a feed post — used by the run detail page.</summary>
+    [HttpGet("runs/{id:guid}/post")]
+    [ProducesResponseType(typeof(FeedPostDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetPost(Guid id, CancellationToken cancellationToken)
+    {
+        if (!await FinishedRunExistsAsync(id, cancellationToken))
+        {
+            return NotFound("Run not found or not finished yet.");
+        }
+
+        var posts = await BuildPostsAsync([id], cancellationToken);
+        return posts.Count == 0 ? NotFound() : Ok(posts[0]);
+    }
+
     [HttpPut("runs/{id:guid}/vote")]
     [Authorize]
     [ProducesResponseType(typeof(VoteResponse), StatusCodes.Status200OK)]
@@ -395,6 +410,8 @@ public class FeedController(AppDbContext context) : ControllerBase
                 Math.Round(earnedScore, 1),
                 slots.Count(s => s.Status == RunSlotStatus.Won),
                 slots.Select(s => s.Status.ToString()).ToList(),
+                slots.Select(s => s.Game?.Title ?? "Unknown game").ToList(),
+                slots.Select(s => s.Game?.Thumb).ToList(),
                 runVotes.Sum(v => v.Value),
                 viewerId is null ? 0 : runVotes.FirstOrDefault(v => v.UserId == viewerId)?.Value ?? 0,
                 commentCounts.GetValueOrDefault(runId),

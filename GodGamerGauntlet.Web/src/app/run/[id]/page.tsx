@@ -1,23 +1,38 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import {
-  getGames,
+  getFeedPost,
   getRun,
-  getUsers,
   reportSlotMatch,
-  type Game,
+  type FeedPost,
   type Run,
+  type RunSlot,
   type RunStatus,
-  type User,
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import {
+  CommentThread,
+  ReactionBar,
+  VoteColumn,
+} from "@/components/RunSocial";
 
 /** Slot score: BaseDifficulty * (1 + 0.1 * (Position - 1)^2) */
 function slotScore(baseDifficulty: number, position: number): number {
   return baseDifficulty * (1 + 0.1 * Math.pow(position - 1, 2));
+}
+
+function formatWhen(iso: string | null): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
 function formatScore(value: number): string {
@@ -27,33 +42,75 @@ function formatScore(value: number): string {
   });
 }
 
+function formatDuration(startIso: string, endIso: string | null): string | null {
+  if (!endIso) return null;
+  const ms = new Date(endIso).getTime() - new Date(startIso).getTime();
+  if (ms < 0) return null;
+  const totalMinutes = Math.floor(ms / 60000);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours === 0 && minutes === 0) return "under a minute";
+  if (hours === 0) return `${minutes}m`;
+  if (minutes === 0) return `${hours}h`;
+  return `${hours}h ${minutes}m`;
+}
+
 const STATUS_STYLES: Record<RunStatus, string> = {
   Active: "border-accent-win/60 text-accent-win",
   Failed: "border-accent-death/60 text-accent-death",
   Completed: "border-accent-streak/60 text-accent-streak",
 };
 
+function GameThumb({ slot }: { slot: RunSlot }) {
+  if (!slot.thumb) {
+    return (
+      <span
+        aria-hidden
+        className="flex h-12 w-16 shrink-0 items-center justify-center rounded-lg bg-white/5 font-heading text-lg font-bold text-gray-600"
+      >
+        {slot.title.charAt(0)}
+      </span>
+    );
+  }
+  return (
+    <Image
+      src={slot.thumb}
+      alt=""
+      width={64}
+      height={48}
+      unoptimized
+      className="h-12 w-16 shrink-0 rounded-lg border border-white/10 object-cover"
+    />
+  );
+}
+
 export default function LiveRunTrackerPage() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
 
   const [run, setRun] = useState<Run | null>(null);
-  const [gamesById, setGamesById] = useState<Map<string, Game>>(new Map());
-  const [streamer, setStreamer] = useState<User | null>(null);
+  const [post, setPost] = useState<FeedPost | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [reporting, setReporting] = useState(false);
   const [reportError, setReportError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
 
-    Promise.all([getRun(id), getGames(), getUsers()])
-      .then(([fetchedRun, games, users]) => {
+    getRun(id)
+      .then(async (fetchedRun) => {
         if (cancelled) return;
         setRun(fetchedRun);
-        setGamesById(new Map(games.map((g) => [g.id, g])));
-        setStreamer(users.find((u) => u.id === fetchedRun.userId) ?? null);
+        if (fetchedRun.status !== "Active") {
+          try {
+            const feedPost = await getFeedPost(fetchedRun.id);
+            if (!cancelled) setPost(feedPost);
+          } catch {
+            if (!cancelled) setPost(null);
+          }
+        }
       })
       .catch((error: unknown) => {
         if (cancelled) return;
@@ -75,6 +132,14 @@ export default function LiveRunTrackerPage() {
   const orderedSlots = useMemo(
     () => (run ? [...run.slots].sort((a, b) => a.position - b.position) : []),
     [run],
+  );
+
+  const earnedScore = useMemo(
+    () =>
+      orderedSlots
+        .filter((s) => s.status === "Won")
+        .reduce((sum, s) => sum + slotScore(s.baseDifficulty, s.position), 0),
+    [orderedSlots],
   );
 
   // The active slot is the first Pending one — but only while the run is Active.
@@ -120,10 +185,10 @@ export default function LiveRunTrackerPage() {
         </h1>
         <p className="text-sm text-gray-400">{loadError}</p>
         <Link
-          href="/draft"
+          href="/"
           className="rounded-xl bg-accent-streak px-8 py-3 font-heading font-bold text-dark transition hover:brightness-110"
         >
-          Back to the Draft Room
+          Back to the Feed
         </Link>
       </main>
     );
@@ -132,20 +197,63 @@ export default function LiveRunTrackerPage() {
   const isOver = run.status === "Failed" || run.status === "Completed";
   // Only the streamer who owns the run can report results.
   const isOwner = user?.id === run.userId;
+  const duration = formatDuration(run.startTime, run.endTime);
+  const streamerName = run.streamerName;
+
+  async function copyLink() {
+    const url = window.location.href;
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: `${streamerName}'s Gauntlet`,
+          url,
+        });
+        return;
+      }
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      try {
+        await navigator.clipboard.writeText(url);
+        setCopied(true);
+        window.setTimeout(() => setCopied(false), 2000);
+      } catch {
+        // ignore cancelled share sheets
+      }
+    }
+  }
 
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-8">
+      <Link
+        href="/"
+        className="mb-4 inline-block text-sm text-gray-500 transition hover:text-accent-win"
+      >
+        ← Back to feed
+      </Link>
+
       {/* Header */}
       <header className="panel mb-8 flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-surface/90 px-6 py-4">
         <div>
           <p className="text-xs uppercase tracking-widest text-gray-400">
-            Live Run Tracker
+            {isOver ? "Gauntlet lineup" : "Live Run Tracker"}
           </p>
-          <h1 className="font-heading text-2xl font-bold">
-            {streamer?.username ?? "Unknown Streamer"}
-          </h1>
+          <h1 className="font-heading text-2xl font-bold">{run.streamerName}</h1>
+          <p className="mt-1 font-mono text-xs text-gray-500">
+            Started {formatWhen(run.startTime)}
+            {run.endTime ? ` · Finished ${formatWhen(run.endTime)}` : ""}
+            {duration ? ` · ${duration}` : ""}
+          </p>
         </div>
-        <div className="flex items-center gap-6">
+        <div className="flex flex-wrap items-center gap-4">
+          <button
+            type="button"
+            onClick={copyLink}
+            className="rounded-lg border border-white/10 px-3 py-1.5 text-xs font-semibold text-gray-300 transition hover:border-accent-win/50 hover:text-accent-win"
+          >
+            {copied ? "Copied" : "Share"}
+          </button>
           <span
             className={`rounded-lg border px-3 py-1 font-mono text-sm font-bold uppercase tracking-widest ${STATUS_STYLES[run.status]}`}
           >
@@ -153,11 +261,16 @@ export default function LiveRunTrackerPage() {
           </span>
           <div className="text-right">
             <p className="text-xs uppercase tracking-widest text-gray-400">
-              Total Score
+              {isOver ? "Earned" : "Projected total"}
             </p>
             <p className="font-mono text-3xl font-bold text-accent-streak">
-              {formatScore(run.totalDifficultyScore)}
+              {formatScore(isOver ? earnedScore : run.totalDifficultyScore)}
             </p>
+            {isOver && (
+              <p className="font-mono text-xs text-gray-500">
+                {formatScore(run.totalDifficultyScore)} projected
+              </p>
+            )}
           </div>
         </div>
       </header>
@@ -171,14 +284,12 @@ export default function LiveRunTrackerPage() {
       {/* The Gauntlet Board */}
       <ol className="space-y-2">
         {orderedSlots.map((slot) => {
-          const game = gamesById.get(slot.gameId);
-          const title = game?.title ?? "Unknown game";
-          const base = game?.baseDifficulty ?? 0;
+          const title = slot.title;
+          const base = slot.baseDifficulty;
           const multiplier = 1 + 0.1 * Math.pow(slot.position - 1, 2);
           const score = slotScore(base, slot.position);
           const isActive = slot.position === activePosition;
-          const isFuture =
-            slot.status === "Pending" && !isActive;
+          const isFuture = slot.status === "Pending" && !isActive;
 
           if (slot.status === "Won") {
             return (
@@ -189,12 +300,13 @@ export default function LiveRunTrackerPage() {
                 <span className="font-mono text-lg font-bold text-gray-500">
                   {String(slot.position).padStart(2, "0")}
                 </span>
+                <GameThumb slot={slot} />
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-heading font-semibold text-accent-win">
                     {title}
                   </p>
                   <p className="font-mono text-xs text-gray-400">
-                    +{formatScore(score)} earned
+                    {base} × {multiplier.toFixed(1)} = +{formatScore(score)} earned
                   </p>
                 </div>
                 <span
@@ -216,12 +328,13 @@ export default function LiveRunTrackerPage() {
                 <span className="font-mono text-lg font-bold text-accent-death">
                   {String(slot.position).padStart(2, "0")}
                 </span>
+                <GameThumb slot={slot} />
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-heading font-semibold text-accent-death">
                     {title}
                   </p>
                   <p className="font-mono text-xs text-accent-death/80">
-                    Run ended here — {formatScore(score)} lost
+                    Run ended here — {formatScore(score)} at stake
                   </p>
                 </div>
                 <span
@@ -245,6 +358,7 @@ export default function LiveRunTrackerPage() {
                   <span className="font-mono text-lg font-bold text-accent-win">
                     {String(slot.position).padStart(2, "0")}
                   </span>
+                  <GameThumb slot={slot} />
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-heading text-lg font-bold">
                       {title}
@@ -278,8 +392,7 @@ export default function LiveRunTrackerPage() {
                   </div>
                 ) : (
                   <p className="mt-4 rounded-xl bg-white/5 px-4 py-3 text-center font-mono text-xs text-gray-400">
-                    Spectating — only{" "}
-                    {streamer?.username ?? "the run owner"} can record results.
+                    Spectating — only {run.streamerName} can record results.
                   </p>
                 )}
               </li>
@@ -296,6 +409,7 @@ export default function LiveRunTrackerPage() {
               <span className="font-mono text-lg font-bold text-gray-600">
                 {String(slot.position).padStart(2, "0")}
               </span>
+              <GameThumb slot={slot} />
               <div className="min-w-0 flex-1">
                 <p className="truncate font-heading font-semibold text-gray-400">
                   {title}
@@ -308,6 +422,37 @@ export default function LiveRunTrackerPage() {
           );
         })}
       </ol>
+
+      {isOver && post && (
+        <section className="panel mt-8 flex gap-4 rounded-2xl p-5">
+          <VoteColumn
+            post={post}
+            signedIn={!!user}
+            onPatch={(patch) => setPost((current) => (current ? { ...current, ...patch } : current))}
+          />
+          <div className="min-w-0 flex-1">
+            <p className="mb-3 text-xs uppercase tracking-widest text-gray-500">
+              Community
+            </p>
+            <ReactionBar
+              post={post}
+              currentUserId={user?.id ?? null}
+              onPatch={(patch) =>
+                setPost((current) => (current ? { ...current, ...patch } : current))
+              }
+            />
+            <CommentThread
+              runId={run.id}
+              currentUserId={user?.id ?? null}
+              onCountChange={(count) =>
+                setPost((current) =>
+                  current ? { ...current, commentCount: count } : current,
+                )
+              }
+            />
+          </div>
+        </section>
+      )}
 
       {/* End-of-run navigation */}
       {isOver && (

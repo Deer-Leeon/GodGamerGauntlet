@@ -119,8 +119,12 @@ export default function LeaderboardPage() {
             return (
               <li
                 key={entry.runId}
-                className="grid grid-cols-[3rem_1fr_6rem_6rem_7rem] items-center gap-2 border-b border-white/5 px-4 py-3 last:border-b-0 sm:grid-cols-[3rem_1fr_7rem_7rem_7rem_9rem]"
+                className="border-b border-white/5 last:border-b-0"
               >
+                <Link
+                  href={`/run/${entry.runId}`}
+                  className="grid grid-cols-[3rem_1fr_6rem_6rem_7rem] items-center gap-2 px-4 py-3 transition hover:bg-white/[0.04] sm:grid-cols-[3rem_1fr_7rem_7rem_7rem_9rem]"
+                >
                 <span
                   className="font-mono text-lg font-bold"
                   style={medal ? { color: medal } : undefined}
@@ -153,6 +157,7 @@ export default function LeaderboardPage() {
                 <span className="hidden text-right font-mono text-xs text-gray-500 sm:block">
                   {formatDate(entry.endTime)}
                 </span>
+                </Link>
               </li>
             );
           })}

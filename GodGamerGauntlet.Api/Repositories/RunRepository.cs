@@ -40,6 +40,7 @@ public class RunRepository(AppDbContext context) : IRunRepository
     {
         return await context.Runs
             .AsNoTracking()
+            .Include(r => r.User)
             .Include(r => r.Slots.OrderBy(s => s.Position))
             .ThenInclude(s => s.Game)
             .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
@@ -48,7 +49,9 @@ public class RunRepository(AppDbContext context) : IRunRepository
     public async Task<Run?> GetByIdTrackedAsync(Guid id, CancellationToken cancellationToken = default)
     {
         return await context.Runs
+            .Include(r => r.User)
             .Include(r => r.Slots.OrderBy(s => s.Position))
+            .ThenInclude(s => s.Game)
             .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
     }
 

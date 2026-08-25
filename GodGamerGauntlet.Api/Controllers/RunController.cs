@@ -65,7 +65,8 @@ public class RunController(IRunRepository runRepository, IGameRepository gameRep
                 RunId = run.Id,
                 GameId = game.Id,
                 Position = position,
-                Status = RunSlotStatus.Pending
+                Status = RunSlotStatus.Pending,
+                Game = game
             });
         }
 
@@ -73,7 +74,10 @@ public class RunController(IRunRepository runRepository, IGameRepository gameRep
 
         await runRepository.AddAsync(run, cancellationToken);
 
-        return CreatedAtAction(nameof(GetById), new { id = run.Id }, RunResponse.FromEntity(run));
+        return CreatedAtAction(
+            nameof(GetById),
+            new { id = run.Id },
+            RunResponse.FromEntity(run, User.FindFirstValue(ClaimTypes.Name)));
     }
 
     [HttpGet("{id:guid}")]

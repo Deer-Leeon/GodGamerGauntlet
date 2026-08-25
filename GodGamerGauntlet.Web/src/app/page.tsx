@@ -1,20 +1,15 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import {
-  addComment,
-  deleteComment,
-  editComment,
-  getComments,
-  getFeed,
-  toggleReaction,
-  voteOnRun,
-  type FeedPost,
-  type FeedSort,
-  type ReactionType,
-  type RunComment,
-} from "@/lib/api";
+  CommentThread,
+  ReactionBar,
+  VoteColumn,
+  timeAgo,
+} from "@/components/RunSocial";
+import { getFeed, type FeedPost, type FeedSort } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
 const SORTS: { id: FeedSort; label: string }[] = [
@@ -22,22 +17,6 @@ const SORTS: { id: FeedSort; label: string }[] = [
   { id: "new", label: "New" },
   { id: "top", label: "Top" },
 ];
-
-const REACTIONS: { type: ReactionType; emoji: string; title: string }[] = [
-  { type: "fire", emoji: "🔥", title: "Fire run" },
-  { type: "skull", emoji: "💀", title: "Brutal death" },
-  { type: "crown", emoji: "👑", title: "God gamer" },
-  { type: "gg", emoji: "🫡", title: "GG" },
-];
-
-function timeAgo(iso: string | null): string {
-  if (!iso) return "";
-  const seconds = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
-  if (seconds < 60) return "just now";
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-  return `${Math.floor(seconds / 86400)}d ago`;
-}
 
 export default function FeedPage() {
   const { user } = useAuth();
@@ -199,51 +178,10 @@ function PostCard({
   const completed = post.status === "Completed";
   const signedIn = !!currentUserId;
 
-  async function castVote(direction: 1 | -1) {
-    if (!signedIn) return;
-    const next = post.myVote === direction ? 0 : direction;
-    // Optimistic update; reconcile with the server response.
-    onPatch({
-      myVote: next,
-      voteScore: post.voteScore - post.myVote + next,
-    });
-    try {
-      const result = await voteOnRun(post.runId, next as -1 | 0 | 1);
-      onPatch({ voteScore: result.voteScore, myVote: result.myVote });
-    } catch {
-      onPatch({ voteScore: post.voteScore, myVote: post.myVote });
-    }
-  }
-
   return (
     <article className="panel rounded-2xl p-5">
       <div className="flex gap-4">
-        {/* Vote column */}
-        <div className="flex flex-col items-center gap-1">
-          <VoteArrow
-            direction={1}
-            active={post.myVote === 1}
-            disabled={!signedIn}
-            onClick={() => castVote(1)}
-          />
-          <span
-            className={`font-mono text-sm font-bold ${
-              post.voteScore > 0
-                ? "text-accent-win"
-                : post.voteScore < 0
-                  ? "text-accent-death"
-                  : "text-gray-400"
-            }`}
-          >
-            {post.voteScore}
-          </span>
-          <VoteArrow
-            direction={-1}
-            active={post.myVote === -1}
-            disabled={!signedIn}
-            onClick={() => castVote(-1)}
-          />
-        </div>
+        <VoteColumn post={post} signedIn={signedIn} onPatch={onPatch} />
 
         {/* Body */}
         <div className="min-w-0 flex-1">
@@ -263,31 +201,56 @@ function PostCard({
             </span>
           </div>
 
-          <p className="mt-2 font-heading text-lg font-bold">
-            {completed
-              ? "Conquered the full gauntlet"
-              : `Died on game ${post.slotsCompleted + 1} of 10`}
-            <span className="ml-2 font-mono text-base text-accent-win">
-              {post.totalScore.toLocaleString()} pts
-            </span>
-          </p>
-
-          {/* Slot strip */}
-          <div className="mt-3 flex gap-1.5">
-            {post.slotStatuses.map((status, i) => (
-              <span
-                key={i}
-                title={`Slot ${i + 1}: ${status}`}
-                className={`h-2.5 flex-1 rounded-sm ${
+          <Link
+            href={`/run/${post.runId}`}
+            className="mt-2 block rounded-lg outline-none transition hover:opacity-90 focus-visible:ring-2 focus-visible:ring-accent-win/50"
+          >
+            <p className="font-heading text-lg font-bold">
+              {completed
+                ? "Conquered the full gauntlet"
+                : `Died on game ${post.slotsCompleted + 1} of 10`}
+              <span className="ml-2 font-mono text-base text-accent-win">
+                {post.totalScore.toLocaleString()} pts
+              </span>
+            </p>
+            <div className="mt-3 flex gap-1">
+              {post.slotStatuses.map((status, i) => {
+                const thumb = post.slotThumbs?.[i] ?? null;
+                const title = post.slotTitles?.[i] ?? `Slot ${i + 1}`;
+                const ring =
                   status === "Won"
-                    ? "bg-accent-win"
+                    ? "ring-accent-win"
                     : status === "Lost"
-                      ? "bg-accent-death"
-                      : "bg-white/10"
-                }`}
-              />
-            ))}
-          </div>
+                      ? "ring-accent-death"
+                      : "ring-white/15";
+                return (
+                  <span
+                    key={i}
+                    title={`${i + 1}. ${title} — ${status}`}
+                    className={`relative h-11 flex-1 overflow-hidden rounded-sm ring-1 ${ring} ${
+                      status === "Pending" ? "opacity-40" : ""
+                    }`}
+                  >
+                    {thumb ? (
+                      <Image
+                        src={thumb}
+                        alt=""
+                        fill
+                        unoptimized
+                        sizes="40px"
+                        className="object-cover"
+                      />
+                    ) : (
+                      <span className="flex h-full items-center justify-center bg-white/5 text-[10px] font-bold text-gray-500">
+                        {i + 1}
+                      </span>
+                    )}
+                  </span>
+                );
+              })}
+            </div>
+            <p className="mt-2 text-xs text-gray-500">View lineup →</p>
+          </Link>
 
           <FooterBar
             post={post}
@@ -297,36 +260,6 @@ function PostCard({
         </div>
       </div>
     </article>
-  );
-}
-
-function VoteArrow({
-  direction,
-  active,
-  disabled,
-  onClick,
-}: {
-  direction: 1 | -1;
-  active: boolean;
-  disabled: boolean;
-  onClick: () => void;
-}) {
-  const up = direction === 1;
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      title={disabled ? "Sign in to vote" : up ? "Upvote" : "Downvote"}
-      className={`rounded-md px-2 py-0.5 text-lg leading-none transition disabled:cursor-not-allowed disabled:opacity-40 ${
-        active
-          ? up
-            ? "text-accent-win"
-            : "text-accent-death"
-          : "text-gray-500 hover:text-gray-200"
-      }`}
-    >
-      {up ? "▲" : "▼"}
-    </button>
   );
 }
 
@@ -340,51 +273,16 @@ function FooterBar({
   onPatch: (patch: Partial<FeedPost>) => void;
 }) {
   const [showComments, setShowComments] = useState(false);
-  const signedIn = !!currentUserId;
-
-  async function onToggleReaction(type: ReactionType) {
-    if (!signedIn) return;
-    try {
-      const result = await toggleReaction(post.runId, type);
-      onPatch({ reactions: result.reactions, myReactions: result.myReactions });
-    } catch {
-      // leave state as-is
-    }
-  }
 
   return (
-    <>
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        {REACTIONS.map(({ type, emoji, title }) => {
-          const count = post.reactions[type] ?? 0;
-          const mine = post.myReactions.includes(type);
-          return (
-            <button
-              key={type}
-              onClick={() => onToggleReaction(type)}
-              disabled={!signedIn}
-              title={signedIn ? title : "Sign in to react"}
-              className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm transition disabled:cursor-not-allowed ${
-                mine
-                  ? "border-accent-win/60 bg-accent-win/10 text-accent-win"
-                  : "border-white/10 text-gray-400 hover:border-white/25 hover:text-gray-200"
-              }`}
-            >
-              <span>{emoji}</span>
-              {count > 0 && <span className="font-mono text-xs">{count}</span>}
-            </button>
-          );
-        })}
-
-        <button
-          onClick={() => setShowComments((v) => !v)}
-          className="ml-auto flex items-center gap-1.5 rounded-full border border-white/10 px-3 py-1 text-sm text-gray-400 transition hover:border-white/25 hover:text-gray-200"
-        >
-          💬
-          <span className="font-mono text-xs">{post.commentCount}</span>
-        </button>
-      </div>
-
+    <div className="mt-3">
+      <ReactionBar
+        post={post}
+        currentUserId={currentUserId}
+        commentsOpen={showComments}
+        onToggleComments={() => setShowComments((v) => !v)}
+        onPatch={onPatch}
+      />
       {showComments && (
         <CommentThread
           runId={post.runId}
@@ -392,225 +290,7 @@ function FooterBar({
           onCountChange={(count) => onPatch({ commentCount: count })}
         />
       )}
-    </>
-  );
-}
-
-function CommentThread({
-  runId,
-  currentUserId,
-  onCountChange,
-}: {
-  runId: string;
-  currentUserId: string | null;
-  onCountChange: (count: number) => void;
-}) {
-  const [comments, setComments] = useState<RunComment[] | null>(null);
-  const [draft, setDraft] = useState("");
-  const [posting, setPosting] = useState(false);
-  const signedIn = !!currentUserId;
-
-  useEffect(() => {
-    getComments(runId)
-      .then(setComments)
-      .catch(() => setComments([]));
-  }, [runId]);
-
-  async function submit(event: React.FormEvent) {
-    event.preventDefault();
-    const body = draft.trim();
-    if (!body) return;
-    setPosting(true);
-    try {
-      const created = await addComment(runId, body);
-      const next = [...(comments ?? []), created];
-      setComments(next);
-      onCountChange(next.length);
-      setDraft("");
-    } finally {
-      setPosting(false);
-    }
-  }
-
-  return (
-    <div className="mt-4 border-t border-white/10 pt-4">
-      {comments === null ? (
-        <p className="text-sm text-gray-500">Loading comments…</p>
-      ) : comments.length === 0 ? (
-        <p className="text-sm text-gray-500">No comments yet.</p>
-      ) : (
-        <ul className="flex flex-col gap-3">
-          {comments.map((comment) => (
-            <CommentItem
-              key={comment.id}
-              comment={comment}
-              isOwner={comment.userId === currentUserId}
-              onSaved={(updated) =>
-                setComments((prev) =>
-                  (prev ?? []).map((c) => (c.id === updated.id ? updated : c)),
-                )
-              }
-              onDeleted={() => {
-                const next = (comments ?? []).filter((c) => c.id !== comment.id);
-                setComments(next);
-                onCountChange(next.length);
-              }}
-              onEdit={async (body) => editComment(runId, comment.id, body)}
-              onDelete={() => deleteComment(runId, comment.id)}
-            />
-          ))}
-        </ul>
-      )}
-
-      {signedIn ? (
-        <form onSubmit={submit} className="mt-4 flex gap-2">
-          <input
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            maxLength={1000}
-            placeholder="Add a comment…"
-            className="panel min-w-0 flex-1 rounded-xl px-4 py-2 text-sm text-gray-100 outline-none transition focus:border-accent-win/60"
-          />
-          <button
-            type="submit"
-            disabled={posting || !draft.trim()}
-            className="rounded-xl bg-accent-win/15 px-4 py-2 text-sm font-semibold text-accent-win transition hover:bg-accent-win/25 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            {posting ? "…" : "Post"}
-          </button>
-        </form>
-      ) : (
-        <p className="mt-4 text-sm text-gray-500">
-          <Link href="/login" className="text-accent-win hover:underline">
-            Sign in
-          </Link>{" "}
-          to join the conversation.
-        </p>
-      )}
     </div>
   );
 }
 
-function CommentItem({
-  comment,
-  isOwner,
-  onSaved,
-  onDeleted,
-  onEdit,
-  onDelete,
-}: {
-  comment: RunComment;
-  isOwner: boolean;
-  onSaved: (updated: RunComment) => void;
-  onDeleted: () => void;
-  onEdit: (body: string) => Promise<RunComment>;
-  onDelete: () => Promise<void>;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(comment.body);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function save(event: React.FormEvent) {
-    event.preventDefault();
-    const body = draft.trim();
-    if (!body) return;
-    setSaving(true);
-    setError(null);
-    try {
-      const updated = await onEdit(body);
-      onSaved(updated);
-      setEditing(false);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Couldn't save.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function remove() {
-    if (!window.confirm("Delete this comment?")) return;
-    setSaving(true);
-    setError(null);
-    try {
-      await onDelete();
-      onDeleted();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Couldn't delete.");
-      setSaving(false);
-    }
-  }
-
-  return (
-    <li className="text-sm">
-      <div className="flex flex-wrap items-baseline gap-2">
-        <span className="font-heading font-bold text-gray-200">
-          {comment.username}
-        </span>
-        <span className="text-xs text-gray-500">{timeAgo(comment.createdAt)}</span>
-        {isOwner && !editing && (
-          <span className="ml-auto flex gap-2 text-xs">
-            <button
-              type="button"
-              onClick={() => {
-                setDraft(comment.body);
-                setEditing(true);
-                setError(null);
-              }}
-              className="text-gray-500 transition hover:text-accent-win"
-            >
-              Edit
-            </button>
-            <button
-              type="button"
-              onClick={remove}
-              disabled={saving}
-              className="text-gray-500 transition hover:text-accent-death disabled:opacity-40"
-            >
-              Delete
-            </button>
-          </span>
-        )}
-      </div>
-
-      {editing ? (
-        <form onSubmit={save} className="mt-2 flex flex-col gap-2">
-          <textarea
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            maxLength={1000}
-            rows={3}
-            autoFocus
-            className="panel w-full rounded-xl px-3 py-2 text-sm text-gray-100 outline-none transition focus:border-accent-win/60"
-          />
-          <div className="flex gap-2">
-            <button
-              type="submit"
-              disabled={saving || !draft.trim()}
-              className="rounded-lg bg-accent-win/15 px-3 py-1 text-xs font-semibold text-accent-win transition hover:bg-accent-win/25 disabled:opacity-40"
-            >
-              {saving ? "Saving…" : "Save"}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setEditing(false);
-                setDraft(comment.body);
-                setError(null);
-              }}
-              className="rounded-lg px-3 py-1 text-xs text-gray-400 transition hover:text-gray-200"
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
-      ) : (
-        <p className="mt-0.5 whitespace-pre-wrap break-words text-gray-300">
-          {comment.body}
-        </p>
-      )}
-
-      {error && <p className="mt-1 text-xs text-accent-death">{error}</p>}
-    </li>
-  );
-}

@@ -13,6 +13,8 @@ public record FeedPostDto(
     double TotalScore,
     int SlotsCompleted,
     IReadOnlyList<string> SlotStatuses,
+    IReadOnlyList<string> SlotTitles,
+    IReadOnlyList<string?> SlotThumbs,
     int VoteScore,
     int MyVote,
     int CommentCount,
