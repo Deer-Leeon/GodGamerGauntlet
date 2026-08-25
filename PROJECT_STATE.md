@@ -2,7 +2,7 @@
 
 > Living documentation for the godgamergauntlet.com backend. Update this file whenever the schema, API surface, or deployment story changes.
 >
-> **Last updated:** 2026-08-24 (Phase 7 — JWT accounts + community feed: votes, reactions, comments)
+> **Last updated:** 2026-08-24 (Phase 8 — OBS overlay & dual control system: 3D game wheel, speedrun timer, control deck)
 
 ---
 
@@ -29,13 +29,13 @@ Controller → Repository → `AppDbContext` → PostgreSQL. Controllers hold re
 
 ```
 GodGamerGauntlet.Api/
-├── Contracts/          # DTO records (Auth, Feed, Game, Run, User)
-├── Controllers/        # Auth, Feed, Game, Run, User, Admin, Leaderboard
+├── Contracts/          # DTO records (Auth, Feed, Game, Overlay, Run, User)
+├── Controllers/        # Auth, Feed, Game, Overlay, Run, User, Admin, Leaderboard
 ├── Data/               # AppDbContext, DbInitializer (auto-migrate + seed)
 ├── Migrations/         # EF Core migrations
 ├── Models/             # User, Game, Run, RunSlot, RunVote, RunComment, RunReaction + enums
 ├── Repositories/       # Interfaces + EF implementations
-├── Services/           # RawgClient, GameSync*, JwtTokenService
+├── Services/           # RawgClient, GameSync*, JwtTokenService, OverlayKeys
 ├── Program.cs          # DI, CORS, JWT auth, startup migration/seeding, pipeline
 └── appsettings.json    # ConnectionStrings:DefaultConnection, RawgApiKey, Jwt:Secret
 
@@ -43,17 +43,23 @@ GodGamerGauntlet.Web/
 ├── .env.local          # NEXT_PUBLIC_API_URL (gitignored; localhost:5000 or Railway URL)
 └── src/
     ├── app/
-    │   ├── globals.css      # Tailwind v4 @theme design tokens + panel utility
+    │   ├── globals.css      # Tailwind v4 @theme design tokens + panel utility + obs-overlay transparency
     │   ├── layout.tsx       # Fonts, metadata, AuthProvider + SiteNav wrap
     │   ├── page.tsx         # Community feed (Hot/New/Top, votes, reactions, comments)
     │   ├── login/page.tsx   # Sign in / create account
     │   ├── draft/page.tsx   # The Draft Room (client component)
     │   ├── run/[id]/        # Live run tracker
+    │   ├── overlay/[runId]/ # OBS browser-source overlay (3D wheel + speedrun timer + hotkeys)
+    │   ├── control/[runId]/ # Streamer control deck (Play/Pause, Split, Undo, Reset)
     │   └── leaderboard/     # Global leaderboard
-    ├── components/SiteNav.tsx  # Shared nav header with auth state
+    ├── components/
+    │   ├── SiteNav.tsx        # Shared nav header with auth state (hidden on /overlay)
+    │   ├── RunSocial.tsx      # Vote column, reaction bar, comment thread (feed + run page)
+    │   └── SpeedrunTimer.tsx  # Self-ticking H:MM:SS.cc timer display + formatter
     └── lib/
         ├── api.ts           # Typed API client + JWT storage/attachment
         ├── auth.tsx         # AuthProvider React context (login/register/logout)
+        ├── useOverlayRun.ts # Synced overlay state hook (2s polling + BroadcastChannel)
         └── catalogSearch.ts # Draft Room search/pagination helpers
 ```
 
@@ -101,6 +107,10 @@ All primary keys are `uuid` (Guid, generated in application code). Enums are sto
 | EndTime | timestamptz | NULL (set when run ends) |
 | Status | varchar(20) | NOT NULL, enum string: `Active` \| `Failed` \| `Completed` |
 | TotalDifficultyScore | double precision | NOT NULL |
+| TimerStatus | varchar(20) | NOT NULL, default `idle` — overlay speedrun timer: `idle` \| `running` \| `paused` \| `finished` (Phase 8) |
+| TimerElapsedMs | bigint | NOT NULL, default 0 — accumulated ms as of TimerUpdatedAt; extrapolated while running |
+| TimerUpdatedAt | timestamptz | NULL — when the timer last changed state |
+| OverlayKey | varchar(64) | NULL — per-run secret letting the OBS overlay control the run without a login; revealed only to the owner |
 
 ### RunSlots
 
@@ -111,6 +121,7 @@ All primary keys are `uuid` (Guid, generated in application code). Enums are sto
 | GameId | uuid | FK → Games.Id, **delete restricted** |
 | Position | int | NOT NULL, CHECK `1 ≤ Position ≤ 10` (`CK_RunSlots_Position`) |
 | Status | varchar(20) | NOT NULL, enum string: `Pending` \| `Won` \| `Lost` |
+| SplitTimeMs | bigint | NULL — overlay timer reading locked in when the slot was split as beaten (Phase 8) |
 
 **Unique index:** `(RunId, Position)` — a run can never have two slots at the same position.
 
@@ -165,6 +176,7 @@ All primary keys are `uuid` (Guid, generated in application code). Enums are sto
 | `20260824011412_AddCheapSharkGameFields` | Adds ExternalId/Thumb/NormalPrice/SalePrice to Games; auto-applied at startup |
 | `20260824043027_MakeGamePricesNullable` | NormalPrice/SalePrice → nullable numeric(10,2) for the RAWG era (no storefront pricing) |
 | `20260824232908_AddAuthAndCommunityFeed` | Adds `Users.PasswordHash`; creates RunVotes / RunComments / RunReactions with unique indexes and check constraint |
+| `20260825014653_AddOverlayTimerState` | Adds `Runs.TimerStatus/TimerElapsedMs/TimerUpdatedAt/OverlayKey` and `RunSlots.SplitTimeMs` for the OBS overlay |
 
 ---
 
@@ -254,6 +266,29 @@ Sorting — 20 posts per page:
 - `new`: latest `EndTime` first (SQL-side paging).
 - `top`: highest vote sum first (SQL-side paging), ties broken by `EndTime`.
 - `hot` (default): the **200 most recent** finished runs are ranked in memory by `voteScore / (hoursSinceEnd + 2)^1.5` — the classic gravity-decay curve — then paged. Older runs age out of Hot naturally.
+
+### OBS Overlay & Control Deck (Phase 8 — `OverlayController`)
+
+Synchronized run state shared by the OBS overlay and the streamer control deck. **Reads are public**; actions require either the **owner's JWT** (control deck) or the run's **overlay key** passed as `?key=` (the OBS browser source, which can't log in — the key is minted at run initialization, compared in constant time, and revealed only to the owner). Every action returns the fresh `OverlayState` so clients update instantly.
+
+| Method | Route | Auth | Success | Errors |
+|---|---|---|---|---|
+| GET | `/api/runs/{id}/overlay` | none (owner JWT additionally reveals `overlayKey`, lazily minting one for pre-Phase-8 runs) | `200` → OverlayState | `404` |
+| POST | `/api/runs/{id}/overlay/toggle` | owner JWT **or** `?key=` | `200` → OverlayState | `403` no valid auth, `404` |
+| POST | `/api/runs/{id}/overlay/split` | owner JWT **or** `?key=` | `200` → OverlayState | `400` run not Active / all beaten, `403`, `404` |
+| POST | `/api/runs/{id}/overlay/undo` | owner JWT **or** `?key=` | `200` → OverlayState | `400` nothing to undo, `403`, `404` |
+| POST | `/api/runs/{id}/overlay/reset` | owner JWT **or** `?key=` | `200` → OverlayState | `403`, `404` |
+
+OverlayState object: `{ runId, streamerName, runStatus, currentSlotIndex (0-9, first non-Won slot), timerStatus: "idle"|"running"|"paused"|"finished", elapsedMs (computed server-side at response time), games: [{ gameId, slotNumber, title, thumb, baseDifficulty, completed, splitTimeMs }] × 10, overlayKey (owner only, else null) }`
+
+Timer semantics (server is the source of truth; clients extrapolate locally while running):
+
+- **toggle** — idle/paused → `running` (stamps `TimerUpdatedAt`); running → `paused` (folds the running span into `TimerElapsedMs`); `finished` is a no-op (reset is the way back).
+- **split** — marks the first non-Won slot `Won` and locks `SplitTimeMs` to the current elapsed reading; the 10th split sets the run `Completed`, stamps `EndTime`, and freezes the timer as `finished`. Rejected unless the run is `Active`.
+- **undo** — reverts the last non-Pending slot to `Pending` (clearing its split). Reopens a `Completed`/`Failed` run back to `Active` (clearing `EndTime`; a `finished` timer becomes `paused`) — so it can also rescue a mis-reported loss from the tracker.
+- **reset** — all slots `Pending`, splits cleared, run `Active`, timer `idle` at 0 ms. A reset run leaves the feed/leaderboard until it finishes again.
+
+Note: overlay splits bypass the tracker's report state machine by design (they only ever mark slots `Won` in order); the `/run/[id]` tracker remains the place to record a Loss.
 
 ### Admin
 
@@ -415,7 +450,11 @@ Tailwind CSS v4 is configured CSS-first: design tokens are declared in `@theme` 
 
 ### API client (`src/lib/api.ts`)
 
-Typed wrappers over `fetch` against `NEXT_PUBLIC_API_URL`. The JWT lives in `localStorage` under `ggg_token` (`getToken`/`setToken`) and is attached as `Authorization: Bearer` on every request automatically. Function groups: auth (`register`, `login`, `getMe`), catalog/runs (`getGames`, `getUsers`, `initializeRun(gameIds)`, `getRun`, `reportSlotMatch`, `getLeaderboard`), feed (`getFeed(sort, page)`, `voteOnRun`, `toggleReaction`, `getComments`, `addComment`). Non-2xx responses throw with the response body as the message.
+Typed wrappers over `fetch` against `NEXT_PUBLIC_API_URL`. The JWT lives in `localStorage` under `ggg_token` (`getToken`/`setToken`) and is attached as `Authorization: Bearer` on every request automatically. Function groups: auth (`register`, `login`, `getMe`), catalog/runs (`getGames`, `getUsers`, `initializeRun(gameIds)`, `getRun`, `reportSlotMatch`, `getLeaderboard`), feed (`getFeed(sort, page)`, `voteOnRun`, `toggleReaction`, `getComments`, `addComment`), overlay (`getOverlayState(runId, key?)`, `sendOverlayAction(runId, action, key?)`). Non-2xx responses throw with the response body as the message.
+
+### Overlay state sync (`src/lib/useOverlayRun.ts`)
+
+Shared hook behind `/overlay/[runId]` and `/control/[runId]`. The server is the source of truth: every open view polls `GET .../overlay` every **2 s**, and successful actions broadcast the fresh state over a `BroadcastChannel` (`ggg-overlay-{runId}`) so same-browser tabs update instantly (the overlay key is stripped from broadcasts). `SpeedrunTimer` extrapolates the running clock locally between polls (33 ms tick, derived-in-render for React purity rules), so the display never depends on network latency.
 
 ### Auth state (`src/lib/auth.tsx` + `src/components/SiteNav.tsx`)
 
@@ -430,6 +469,8 @@ Typed wrappers over `fetch` against `NEXT_PUBLIC_API_URL`. The JWT lives in `loc
 | `/draft` | The Draft Room (below) — requires sign-in to launch |
 | `/run/[id]` | Live Run Tracker — header with streamer, status badge (cyan Active / red Failed / gold Completed) and total score; 10-slot board where won slots show earned score in cyan, the current slot glows with RECORD WIN / RECORD LOSS buttons (**shown only to the run owner** since Phase 7; spectators see a "Spectating" note), future slots are dimmed, and a lost slot shows the death state and locks the board; "Start a New Run" + "View Leaderboard" links when the run is over |
 | `/leaderboard` | Global Leaderboard — top-50 finished runs with rank (gold #FFD700 / silver #C0C0C0 / bronze #CD7F32 for the podium), streamer, earned score, slots survived (`n/10`), Completed/Failed badge, and finish time; "Draft a New Run" CTA. Linked from the home page, the Draft Room header, and the run tracker end state |
+| `/overlay/[runId]` | **OBS browser-source overlay** (Phase 8) — fully transparent background (`html.obs-overlay` CSS class), no scrollbars, ~420px wide. 3D cylindrical wheel of the 10 drafted games (`perspective: 1000px`, per-item `rotateX(offset × -32°) translateZ(168px)`, 0.45s `cubic-bezier(0.2,0.8,0.2,1)` rotation): active slot is a dark pill with cyan neon glow, cover, title, and `X/10` counter; adjacent slots angle back with reduced opacity; beaten slots show a green check + strikethrough. Neon-green `H:MM:SS.cc` timer below (amber pulse when paused, gold when finished). Hotkeys: **Space** play/pause, **Enter/NumpadEnter** split, **R×2** reset (armed for 1.5s with on-screen warning), **P** toggles hidden helper buttons. Actions authenticate via the `?key=` overlay key in the URL |
+| `/control/[runId]` | **Streamer control deck** (Phase 8) — mobile/OBS-dock-friendly: live mirrored timer + status, big tactile buttons (green ▶ Play / amber ❚❚ Pause, cyan "Game Beaten — Next", Undo Previous, two-step red Reset Gauntlet), now-playing card, up-next list, per-game split times, and one-click "Copy OBS Browser Source URL" (embeds the overlay key). Controls disabled for non-owners; state syncs via the shared `useOverlayRun` hook |
 
 ### The Draft Room (`/draft`)
 
@@ -526,3 +567,4 @@ cd GodGamerGauntlet.Web && npm run dev
 | 6 | **RAWG replaces CheapShark**: `CheapSharkClient`/`CheapSharkDeal` deleted; `RawgClient` (`api/games?ordering=-added`, `RawgApiKey` from config, graceful skip without key); 500-page × 40-game loop (20,000 games, 1.5 s spacing, ~13 min full sync); background cycle 4 h → **24 h** for the 20k/month request limit; prices → nullable (`MakeGamePricesNullable` migration) with frontend hiding null price tags; hard-reset now fires the sync in the background and returns instantly |
 | 6.1 | 15-game baseline seeding removed (catalog is RAWG-only, empty until first sync); serverless tuning: Npgsql `MinPoolSize=0` + 15 s idle lifetime, `SocketsHttpHandler` 15 s pooled-connection idle timeout so Railway Serverless can sleep |
 | 7 | **Accounts + community feed**: JWT auth (`AuthController` register/login/me, `PasswordHasher<User>`, `JwtTokenService`, 30-day HS256 tokens from `Jwt:Secret`); `POST /api/users` removed; run initialize/report locked to the authenticated owner; `RunVote`/`RunComment`/`RunReaction` tables (`AddAuthAndCommunityFeed` migration); `FeedController` (Hot/New/Top paged feed with gravity decay, vote upsert, reaction toggle, flat comments); frontend `AuthProvider` + `SiteNav` + `/login`; homepage replaced by the community feed; Draft Room drops the user dropdown; run tracker shows WIN/LOSS only to the owner |
+| 8 | **OBS overlay & dual control system**: server-side speedrun timer state on `Run` (`TimerStatus`/`TimerElapsedMs`/`TimerUpdatedAt`) + per-slot `SplitTimeMs` + per-run `OverlayKey` secret (`AddOverlayTimerState` migration); `OverlayController` (public GET state; toggle/split/undo/reset guarded by owner JWT or `?key=`); `/overlay/[runId]` OBS browser source (transparent, 3D cylindrical game wheel, neon `H:MM:SS.cc` timer, hotkeys Space/Enter/R×2/P); `/control/[runId]` control deck (Play/Pause, Split, Undo, two-step Reset, splits list, Copy OBS URL); `useOverlayRun` hook (2 s polling + BroadcastChannel fan-out) + `SpeedrunTimer` component; owner link to the deck from the run tracker. Also fixed run initialization 500 (`AsNoTracking` games attached to new slots made EF re-insert them → duplicate `PK_Games`) |

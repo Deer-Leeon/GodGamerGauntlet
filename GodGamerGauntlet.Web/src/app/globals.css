@@ -32,3 +32,10 @@ body {
   color: var(--color-gray-100);
   font-family: var(--font-sans);
 }
+
+/* OBS browser-source overlay: transparent capture surface, no scrollbars. */
+html.obs-overlay,
+html.obs-overlay body {
+  background: transparent !important;
+  overflow: hidden;
+}

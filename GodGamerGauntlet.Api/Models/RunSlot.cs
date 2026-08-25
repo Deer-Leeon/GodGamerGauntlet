@@ -18,4 +18,7 @@ public class RunSlot
     public int Position { get; set; }
 
     public RunSlotStatus Status { get; set; }
+
+    /// <summary>Overlay timer reading (ms) locked in when this slot was split as beaten.</summary>
+    public long? SplitTimeMs { get; set; }
 }

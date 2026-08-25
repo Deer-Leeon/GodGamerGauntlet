@@ -155,6 +155,56 @@ export function reportSlotMatch(
   });
 }
 
+// ---------- OBS overlay & control deck ----------
+
+export type TimerStatus = "idle" | "running" | "paused" | "finished";
+
+export interface OverlaySlot {
+  gameId: string;
+  slotNumber: number;
+  title: string;
+  thumb: string | null;
+  baseDifficulty: number;
+  completed: boolean;
+  splitTimeMs: number | null;
+}
+
+export interface OverlayState {
+  runId: string;
+  streamerName: string;
+  runStatus: RunStatus;
+  currentSlotIndex: number;
+  timerStatus: TimerStatus;
+  elapsedMs: number;
+  games: OverlaySlot[];
+  /** Only present when the caller is the run owner. */
+  overlayKey: string | null;
+}
+
+export type OverlayAction = "toggle" | "split" | "undo" | "reset";
+
+function overlayQuery(key?: string | null): string {
+  return key ? `?key=${encodeURIComponent(key)}` : "";
+}
+
+export function getOverlayState(
+  runId: string,
+  key?: string | null,
+): Promise<OverlayState> {
+  return request<OverlayState>(`/api/runs/${runId}/overlay${overlayQuery(key)}`);
+}
+
+export function sendOverlayAction(
+  runId: string,
+  action: OverlayAction,
+  key?: string | null,
+): Promise<OverlayState> {
+  return request<OverlayState>(
+    `/api/runs/${runId}/overlay/${action}${overlayQuery(key)}`,
+    { method: "POST" },
+  );
+}
+
 // ---------- Community feed ----------
 
 export type FeedSort = "hot" | "new" | "top";

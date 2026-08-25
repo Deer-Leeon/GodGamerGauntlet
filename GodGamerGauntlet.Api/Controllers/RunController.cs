@@ -47,7 +47,8 @@ public class RunController(IRunRepository runRepository, IGameRepository gameRep
             Id = Guid.NewGuid(),
             UserId = userId,
             StartTime = DateTime.UtcNow,
-            Status = RunStatus.Active
+            Status = RunStatus.Active,
+            OverlayKey = Services.OverlayKeys.Create()
         };
 
         double totalDifficultyScore = 0;
@@ -65,14 +66,21 @@ public class RunController(IRunRepository runRepository, IGameRepository gameRep
                 RunId = run.Id,
                 GameId = game.Id,
                 Position = position,
-                Status = RunSlotStatus.Pending,
-                Game = game
+                Status = RunSlotStatus.Pending
             });
         }
 
         run.TotalDifficultyScore = totalDifficultyScore;
 
         await runRepository.AddAsync(run, cancellationToken);
+
+        // Populate game navigations only after saving: the games were loaded
+        // without tracking, and attaching them before Add() would make EF try
+        // to re-insert them. Here they only feed the response DTO.
+        foreach (var slot in run.Slots)
+        {
+            slot.Game = gamesById[slot.GameId];
+        }
 
         return CreatedAtAction(
             nameof(GetById),

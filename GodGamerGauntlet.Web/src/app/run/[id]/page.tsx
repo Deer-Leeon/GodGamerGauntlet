@@ -247,6 +247,14 @@ export default function LiveRunTrackerPage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-4">
+          {isOwner && (
+            <Link
+              href={`/control/${run.id}`}
+              className="rounded-lg border border-accent-streak/50 px-3 py-1.5 text-xs font-semibold text-accent-streak transition hover:bg-accent-streak/10"
+            >
+              Stream Control Deck
+            </Link>
+          )}
           <button
             type="button"
             onClick={copyLink}

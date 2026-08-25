@@ -43,6 +43,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.Entity<Run>(entity =>
         {
             entity.Property(r => r.Status).HasConversion<string>().HasMaxLength(20);
+            entity.Property(r => r.TimerStatus).HasMaxLength(20);
+            entity.Property(r => r.OverlayKey).HasMaxLength(64);
 
             // A Run has up to 10 RunSlots.
             entity.HasMany(r => r.Slots)

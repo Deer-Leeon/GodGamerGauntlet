@@ -14,6 +14,9 @@ export default function SiteNav() {
   const pathname = usePathname();
   const { user, loading, logout } = useAuth();
 
+  // The OBS overlay must render nothing but the wheel and timer.
+  if (pathname?.startsWith("/overlay/")) return null;
+
   return (
     <header className="sticky top-0 z-40 border-b border-white/10 bg-surface/90 backdrop-blur">
       <nav className="mx-auto flex w-full max-w-5xl items-center gap-6 px-6 py-3">
