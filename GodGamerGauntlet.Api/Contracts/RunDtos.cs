@@ -24,7 +24,8 @@ public record RunSlotResponse(
     string Status,
     string Title,
     string? Thumb,
-    int BaseDifficulty)
+    int BaseDifficulty,
+    long? SplitTimeMs)
 {
     public static RunSlotResponse FromEntity(RunSlot slot) =>
         new(
@@ -34,7 +35,8 @@ public record RunSlotResponse(
             slot.Status.ToString(),
             slot.Game?.Title ?? "Unknown game",
             slot.Game?.Thumb,
-            slot.Game?.BaseDifficulty ?? 0);
+            slot.Game?.BaseDifficulty ?? 0,
+            slot.SplitTimeMs);
 }
 
 public record RunResponse(
@@ -48,6 +50,8 @@ public record RunResponse(
     // Games this run is made of: 10 for Standard, 5 for Lite.
     int TotalSlots,
     double TotalDifficultyScore,
+    // Frozen overlay clock; 0 when the run never used the speedrun timer.
+    long ElapsedMs,
     IReadOnlyList<RunSlotResponse> Slots)
 {
     public static RunResponse FromEntity(Run run, string? streamerName = null) =>
@@ -61,5 +65,6 @@ public record RunResponse(
             run.RunType.ToString(),
             run.RunType.SlotCount(),
             run.TotalDifficultyScore,
+            run.TimerElapsedMs,
             run.Slots.OrderBy(s => s.Position).Select(RunSlotResponse.FromEntity).ToList());
 }

@@ -19,6 +19,10 @@ public record FeedPostDto(
     IReadOnlyList<string> SlotStatuses,
     IReadOnlyList<string> SlotTitles,
     IReadOnlyList<string?> SlotThumbs,
+    // Overlay speedrun clock at finish (0 when the run never used the timer).
+    long ElapsedMs,
+    // Cumulative split clock per slot, parallel to SlotTitles. Null if unbeaten.
+    IReadOnlyList<long?> SlotSplitTimes,
     int VoteScore,
     int MyVote,
     int CommentCount,

@@ -267,7 +267,7 @@ Every **finished** run (Completed or Failed) is a feed post — there is no sepa
 | GET | `/api/runs/{id}/comments` | — | `200` → `Comment[]` (chronological) | — |
 | POST 🔒 | `/api/runs/{id}/comments` | `{ "body": "1-1000 chars" }` | `201` → Comment | `400`, `401`, `404` |
 
-FeedPost object: `{ runId, userId, streamerName, status, endTime, totalScore (earned, leaderboard formula), slotsCompleted, slotStatuses: ["Won"|"Lost"|"Pending" × 10], voteScore, myVote, commentCount, reactions: { type: count }, myReactions: [types] }`. `myVote`/`myReactions` are populated when a JWT is sent (the endpoint itself is public).
+FeedPost object: `{ runId, userId, streamerName, status, runType, endTime, totalScore (earned, leaderboard formula), slotsCompleted, totalSlots, slotStatuses, slotTitles, slotThumbs, elapsedMs (frozen overlay clock; 0 if the timer was never used), slotSplitTimes (cumulative ms per slot, null if unbeaten), voteScore, myVote, commentCount, reactions: { type: count }, myReactions: [types] }`. `myVote`/`myReactions` are populated when a JWT is sent (the endpoint itself is public). The feed card renders `elapsedMs` next to the score and a Splits list matching the control deck whenever any `slotSplitTimes` are present.
 
 Sorting — 20 posts per page:
 

@@ -22,6 +22,7 @@ import {
   VoteColumn,
 } from "@/components/RunSocial";
 import { RunTypeBadge } from "@/components/RunTypeBadge";
+import { formatSpeedrunTime } from "@/components/SpeedrunTimer";
 
 /** Slot score: BaseDifficulty * (1 + 0.1 * (Position - 1)^2) */
 function slotScore(baseDifficulty: number, position: number): number {
@@ -204,6 +205,13 @@ export default function LiveRunTrackerPage() {
   const isOwner = user?.id === run.userId;
   const duration = formatDuration(run.startTime, run.endTime);
   const streamerName = run.streamerName;
+  const runElapsedMs =
+    run.elapsedMs > 0
+      ? run.elapsedMs
+      : (orderedSlots
+          .map((s) => s.splitTimeMs)
+          .filter((t): t is number => t != null && t > 0)
+          .sort((a, b) => b - a)[0] ?? null);
 
   async function copyLink() {
     const url = window.location.href;
@@ -294,6 +302,11 @@ export default function LiveRunTrackerPage() {
             <p className="font-mono text-3xl font-bold text-accent-streak">
               {formatScore(isOver ? earnedScore : run.totalDifficultyScore)}
             </p>
+            {runElapsedMs !== null && (
+              <p className="font-mono text-sm font-bold text-accent-win">
+                {formatSpeedrunTime(runElapsedMs)}
+              </p>
+            )}
             {isOver && (
               <p className="font-mono text-xs text-gray-500">
                 {formatScore(run.totalDifficultyScore)} projected
@@ -337,6 +350,11 @@ export default function LiveRunTrackerPage() {
                     {base} × {multiplier.toFixed(1)} = +{formatScore(score)} earned
                   </p>
                 </div>
+                {slot.splitTimeMs != null && (
+                  <span className="shrink-0 font-mono text-sm font-bold text-[#00ff66]">
+                    {formatSpeedrunTime(slot.splitTimeMs)}
+                  </span>
+                )}
                 <span
                   className="rounded-full border border-accent-win/50 px-2.5 py-0.5 font-mono text-sm font-bold text-accent-win"
                   aria-label="Won"

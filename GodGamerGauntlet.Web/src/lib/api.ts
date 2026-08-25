@@ -60,6 +60,8 @@ export interface RunSlot {
   title: string;
   thumb: string | null;
   baseDifficulty: number;
+  /** Overlay clock (ms) locked in when this slot was split as beaten. */
+  splitTimeMs: number | null;
 }
 
 export interface Run {
@@ -73,6 +75,8 @@ export interface Run {
   /** Games in this run: 10 for Standard, 5 for Lite. */
   totalSlots: number;
   totalDifficultyScore: number;
+  /** Frozen overlay clock in ms; 0 when the run never used the timer. */
+  elapsedMs: number;
   slots: RunSlot[];
 }
 
@@ -255,6 +259,10 @@ export interface FeedPost {
   slotStatuses: RunSlotStatus[];
   slotTitles: string[];
   slotThumbs: (string | null)[];
+  /** Frozen overlay clock in ms; 0 when the run never used the timer. */
+  elapsedMs: number;
+  /** Cumulative split clock per slot, parallel to slotTitles. */
+  slotSplitTimes: (number | null)[];
   voteScore: number;
   myVote: number;
   commentCount: number;

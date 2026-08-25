@@ -414,6 +414,8 @@ public class FeedController(AppDbContext context) : ControllerBase
                 slots.Select(s => s.Status.ToString()).ToList(),
                 slots.Select(s => s.Game?.Title ?? "Unknown game").ToList(),
                 slots.Select(s => s.Game?.Thumb).ToList(),
+                run.TimerElapsedMs,
+                slots.Select(s => s.SplitTimeMs).ToList(),
                 runVotes.Sum(v => v.Value),
                 viewerId is null ? 0 : runVotes.FirstOrDefault(v => v.UserId == viewerId)?.Value ?? 0,
                 commentCounts.GetValueOrDefault(runId),

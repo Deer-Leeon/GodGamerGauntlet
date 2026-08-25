@@ -10,6 +10,7 @@ import {
   timeAgo,
 } from "@/components/RunSocial";
 import { RunTypeBadge } from "@/components/RunTypeBadge";
+import { formatSpeedrunTime } from "@/components/SpeedrunTimer";
 import { getFeed, type FeedPost, type FeedSort } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
@@ -178,6 +179,7 @@ function PostCard({
 }) {
   const completed = post.status === "Completed";
   const signedIn = !!currentUserId;
+  const elapsedMs = feedElapsedMs(post);
 
   return (
     <article className="panel rounded-2xl p-5">
@@ -209,11 +211,18 @@ function PostCard({
           >
             <p className="font-heading text-lg font-bold">
               {completed
-                ? "Conquered the full gauntlet"
+                ? post.runType === "Lite"
+                  ? "Conquered Gauntlet Lite"
+                  : "Conquered the full gauntlet"
                 : `Died on game ${post.slotsCompleted + 1} of ${post.totalSlots}`}
               <span className="ml-2 font-mono text-base text-accent-win">
                 {post.totalScore.toLocaleString()} pts
               </span>
+              {elapsedMs !== null && (
+                <span className="ml-2 font-mono text-base text-accent-streak">
+                  {formatSpeedrunTime(elapsedMs)}
+                </span>
+              )}
             </p>
             <div className="mt-3 flex gap-1">
               {post.slotStatuses.map((status, i) => {
@@ -251,6 +260,7 @@ function PostCard({
                 );
               })}
             </div>
+            <FeedSplits post={post} />
             <p className="mt-2 text-xs text-gray-500">View lineup →</p>
           </Link>
 
@@ -262,6 +272,75 @@ function PostCard({
         </div>
       </div>
     </article>
+  );
+}
+
+/** Frozen timer, or the last recorded split when the overlay clock was never stored. */
+function feedElapsedMs(post: FeedPost): number | null {
+  if (post.elapsedMs > 0) return post.elapsedMs;
+  const splits = (post.slotSplitTimes ?? []).filter(
+    (t): t is number => t != null && t > 0,
+  );
+  return splits.length > 0 ? Math.max(...splits) : null;
+}
+
+function FeedSplits({ post }: { post: FeedPost }) {
+  const splits = post.slotSplitTimes ?? [];
+  const titles = post.slotTitles ?? [];
+  const statuses = post.slotStatuses ?? [];
+  const hasAny = splits.some((t) => t != null);
+  if (!hasAny) return null;
+
+  return (
+    <div className="mt-3 border-t border-white/10 pt-2">
+      <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-gray-500">
+        Splits
+      </p>
+      <ol className="flex flex-col gap-0.5">
+        {titles.map((title, i) => {
+          const time = splits[i];
+          const status = statuses[i];
+          if (status === "Pending" && time == null) return null;
+          const beaten = status === "Won";
+          return (
+            <li
+              key={i}
+              className="flex items-center justify-between gap-2 text-[11px]"
+            >
+              <span
+                className={`min-w-0 truncate ${
+                  beaten
+                    ? "text-gray-400"
+                    : status === "Lost"
+                      ? "text-accent-death"
+                      : "text-gray-600"
+                }`}
+              >
+                <span
+                  className={`mr-1.5 font-mono ${
+                    beaten
+                      ? "text-[#00ff66]"
+                      : status === "Lost"
+                        ? "text-accent-death"
+                        : "text-gray-600"
+                  }`}
+                >
+                  {beaten ? "✓" : status === "Lost" ? "✕" : "·"}
+                </span>
+                {title}
+              </span>
+              <span
+                className={`shrink-0 font-mono ${
+                  beaten ? "text-[#00ff66]" : "text-gray-600"
+                }`}
+              >
+                {time != null ? formatSpeedrunTime(time) : "—"}
+              </span>
+            </li>
+          );
+        })}
+      </ol>
+    </div>
   );
 }
 
