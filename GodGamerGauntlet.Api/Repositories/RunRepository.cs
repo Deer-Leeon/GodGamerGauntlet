@@ -7,11 +7,16 @@ namespace GodGamerGauntlet.Api.Repositories;
 
 public class RunRepository(AppDbContext context) : IRunRepository
 {
-    public async Task<IReadOnlyList<LeaderboardEntryDto>> GetLeaderboardAsync(int limit, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<LeaderboardEntryDto>> GetLeaderboardAsync(
+        RunType runType,
+        int limit,
+        CancellationToken cancellationToken = default)
     {
         var entries = await context.Runs
             .AsNoTracking()
-            .Where(r => r.Status != RunStatus.Active)
+            // Standard and Lite runs are ranked separately: a 5-game run can
+            // never match a 10-game run's score, so mixing them is meaningless.
+            .Where(r => r.Status != RunStatus.Active && r.RunType == runType)
             .Select(r => new
             {
                 r.Id,
@@ -32,7 +37,14 @@ public class RunRepository(AppDbContext context) : IRunRepository
 
         return entries
             .Select(x => new LeaderboardEntryDto(
-                x.Id, x.StreamerName, x.TotalScore, x.Status.ToString(), x.SlotsCompleted, x.EndTime))
+                x.Id,
+                x.StreamerName,
+                x.TotalScore,
+                x.Status.ToString(),
+                runType.ToString(),
+                x.SlotsCompleted,
+                runType.SlotCount(),
+                x.EndTime))
             .ToList();
     }
 

@@ -2,7 +2,7 @@
 
 > Living documentation for the godgamergauntlet.com backend. Update this file whenever the schema, API surface, or deployment story changes.
 >
-> **Last updated:** 2026-08-25 (Phase 9 — hybrid catalog sorting: curated featured staples + RAWG popularity rank)
+> **Last updated:** 2026-08-25 (Phase 10 — Gauntlet Lite: 5-game run type with its own leaderboard)
 
 ---
 
@@ -101,6 +101,7 @@ All primary keys are `uuid` (Guid, generated in application code). Enums are sto
 
 Composite index `IX_Games_IsFeatured_PopularityRank` backs the default catalog ordering.
 
+
 ### Runs
 
 | Column | Type | Constraints |
@@ -110,6 +111,7 @@ Composite index `IX_Games_IsFeatured_PopularityRank` backs the default catalog o
 | StartTime | timestamptz | NOT NULL |
 | EndTime | timestamptz | NULL (set when run ends) |
 | Status | varchar(20) | NOT NULL, enum string: `Active` \| `Failed` \| `Completed` |
+| RunType | varchar(20) | NOT NULL, default `Standard` — enum string: `Standard` (10 games) \| `Lite` (5 games) (Phase 10) |
 | TotalDifficultyScore | double precision | NOT NULL |
 | TimerStatus | varchar(20) | NOT NULL, default `idle` — overlay speedrun timer: `idle` \| `running` \| `paused` \| `finished` (Phase 8) |
 | TimerElapsedMs | bigint | NOT NULL, default 0 — accumulated ms as of TimerUpdatedAt; extrapolated while running |
@@ -123,7 +125,7 @@ Composite index `IX_Games_IsFeatured_PopularityRank` backs the default catalog o
 | Id | uuid | PK |
 | RunId | uuid | FK → Runs.Id, **cascade delete** |
 | GameId | uuid | FK → Games.Id, **delete restricted** |
-| Position | int | NOT NULL, CHECK `1 ≤ Position ≤ 10` (`CK_RunSlots_Position`) |
+| Position | int | NOT NULL, CHECK `1 ≤ Position ≤ 10` (`CK_RunSlots_Position`) — the ceiling; a Lite run only fills 1–5 |
 | Status | varchar(20) | NOT NULL, enum string: `Pending` \| `Won` \| `Lost` |
 | SplitTimeMs | bigint | NULL — overlay timer reading locked in when the slot was split as beaten (Phase 8) |
 
@@ -221,9 +223,11 @@ Game object: `{ "id": "uuid", "title": "string", "baseDifficulty": int, "thumb":
 
 | Method | Route | Body | Success | Errors |
 |---|---|---|---|---|
-| POST 🔒 | `/api/runs/initialize` | `{ "gameIds": ["uuid" × 10, ordered by slot position] }` | `201` → Run object | `400` wrong count / unknown game ids, `401` |
+| POST 🔒 | `/api/runs/initialize` | `{ "gameIds": ["uuid" × N, ordered by slot position], "runType": "Standard" \| "Lite" }` | `201` → Run object | `400` wrong count for the run type / bad run type / unknown game ids, `401` |
 | GET | `/api/runs/{id}` | — | `200` → Run (ordered slots) | `404` not found |
-| POST 🔒 | `/api/runs/{id}/report` | `{ "slotPosition": 1-10, "result": "Won" \| "Lost" }` | `200` → updated Run | `400` state-machine violation (below), `401`, `403` not the run owner, `404` unknown run |
+| POST 🔒 | `/api/runs/{id}/report` | `{ "slotPosition": 1-N, "result": "Won" \| "Lost" }` | `200` → updated Run | `400` state-machine violation (below), `401`, `403` not the run owner, `404` unknown run |
+
+`N` is 10 for a Standard run and 5 for a Lite one (`RunTypes.SlotCount`). `runType` is optional and defaults to `Standard`, so pre-Phase-10 clients keep working unchanged. Run objects carry both `runType` and `totalSlots`.
 
 Since Phase 7 the run owner comes from the JWT claim — `userId` is no longer accepted in the initialize body, and only the owner can report results.
 
@@ -241,13 +245,13 @@ All rules enforced server-side; violations return `400` with a plain-text reason
 
 | Method | Route | Body | Success | Errors |
 |---|---|---|---|---|
-| GET | `/api/leaderboard` | — | `200` → `LeaderboardEntry[]` (top 50) | — |
+| GET | `/api/leaderboard` | `?runType=Standard\|Lite` (optional, default `Standard`) | `200` → `LeaderboardEntry[]` (top 50) | `400` unknown run type |
 
-Entry object: `{ "runId": "uuid", "streamerName": "string", "totalScore": double, "status": "Completed" | "Failed", "slotsCompleted": int, "endTime": "ISO-8601" | null }`
+Entry object: `{ "runId": "uuid", "streamerName": "string", "totalScore": double, "status": "Completed" | "Failed", "runType": "Standard" | "Lite", "slotsCompleted": int, "totalSlots": int, "endTime": "ISO-8601" | null }`
 
 Query semantics (single SQL query via EF projection in `RunRepository.GetLeaderboardAsync`):
 
-- Only finished runs (`Status != Active`).
+- Only finished runs (`Status != Active`) **of the requested run type** (Phase 10). Standard and Lite are ranked on separate boards — a 5-game run can never out-score a 10-game one, so mixing them would bury every Lite run.
 - `totalScore` is the **earned** score — the slot formula summed over `Won` slots only (a failed run keeps the points from slots it survived; this differs from the run's stored `TotalDifficultyScore`, which is the projected total for all 10 slots).
 - Ordering: earned score desc → `Completed` before `Failed` on ties → most recent `EndTime` first. Top 50 returned.
 
@@ -283,12 +287,12 @@ Synchronized run state shared by the OBS overlay and the streamer control deck. 
 | POST | `/api/runs/{id}/overlay/undo` | owner JWT **or** `?key=` | `200` → OverlayState | `400` nothing to undo, `403`, `404` |
 | POST | `/api/runs/{id}/overlay/reset` | owner JWT **or** `?key=` | `200` → OverlayState | `403`, `404` |
 
-OverlayState object: `{ runId, streamerName, runStatus, currentSlotIndex (0-9, first non-Won slot), timerStatus: "idle"|"running"|"paused"|"finished", elapsedMs (computed server-side at response time), games: [{ gameId, slotNumber, title, thumb, baseDifficulty, completed, splitTimeMs }] × 10, overlayKey (owner only, else null) }`
+OverlayState object: `{ runId, streamerName, runStatus, runType: "Standard"|"Lite", currentSlotIndex (0-based index of the first non-Won slot), timerStatus: "idle"|"running"|"paused"|"finished", elapsedMs (computed server-side at response time), games: [{ gameId, slotNumber, title, thumb, baseDifficulty, completed, splitTimeMs }] × N, overlayKey (owner only, else null) }`
 
 Timer semantics (server is the source of truth; clients extrapolate locally while running):
 
 - **toggle** — idle/paused → `running` (stamps `TimerUpdatedAt`); running → `paused` (folds the running span into `TimerElapsedMs`); `finished` is a no-op (reset is the way back).
-- **split** — marks the first non-Won slot `Won` and locks `SplitTimeMs` to the current elapsed reading; the 10th split sets the run `Completed`, stamps `EndTime`, and freezes the timer as `finished`. Rejected unless the run is `Active`.
+- **split** — marks the first non-Won slot `Won` and locks `SplitTimeMs` to the current elapsed reading; the split on the **last** slot (10th Standard, 5th Lite) sets the run `Completed`, stamps `EndTime`, and freezes the timer as `finished`. Rejected unless the run is `Active`.
 - **undo** — reverts the last non-Pending slot to `Pending` (clearing its split). Reopens a `Completed`/`Failed` run back to `Active` (clearing `EndTime`; a `finished` timer becomes `paused`) — so it can also rescue a mis-reported loss from the tracker.
 - **reset** — all slots `Pending`, splits cleared, run `Active`, timer `idle` at 0 ms. A reset run leaves the feed/leaderboard until it finishes again.
 
@@ -465,6 +469,49 @@ Seeded staples don't count as an ingested catalog; only RAWG rows do. (This repl
 
 ---
 
+## 5c. Gauntlet Lite (Phase 10 — `RunType`)
+
+A ten-game gauntlet is a multi-hour commitment. **Gauntlet Lite** is a five-game variant, tracked as a property of the run rather than a separate entity, so every existing code path (scoring, splits, feed, overlay) keeps working untouched.
+
+### The run type
+
+`Models/RunType.cs` defines the enum plus `RunTypes`, the **single source of truth for slot counts**:
+
+| Run type | Slots | Enum value |
+|---|---|---|
+| `Standard` | 10 | 0 |
+| `Lite` | 5 | 1 |
+
+`runType.SlotCount()` is the only place those numbers live on the backend; everything that validates a draft, decides a run is finished, or reports `totalSlots` calls it. `RunTypes.TryParse` handles client input — it defaults blank/absent values to `Standard` and, unlike a bare `Enum.TryParse`, rejects undefined values (`"99"` would otherwise parse into an out-of-range `RunType` and get persisted).
+
+Stored as a string like `RunStatus`, with `HasDefaultValue(RunType.Standard)` — so the `AddRunTypeToRuns` migration backfills every pre-existing run as `Standard` rather than leaving nulls. Indexed (`IX_Runs_RunType`) because the leaderboard filters on it.
+
+### What changed vs. what was already dynamic
+
+Most of the codebase never hardcoded 10 — slot loops, the score formula, the feed, and `OverlayController` all derive from the run's actual slots. The genuine 10-assumptions were:
+
+- `RunController.RequiredSlotCount = 10` — the initialize count check and the completion check. Both now use `run.RunType.SlotCount()`.
+- `InitializeRunRequest.GameIds` — `[MinLength(10), MaxLength(10)]` relaxed to the widest legal range (5–10); the *exact* count is validated against the run type in the controller, which is the only place that knows it.
+- Frontend `SLOT_COUNT = 10` in the Draft Room, `slotsCompleted/10` on the leaderboard, `of 10` in the feed.
+
+This also fixed a latent inconsistency: `OverlayController.Split` completed a run at its **max slot position**, while `RunController.Report` completed only at position **10**. A run with anything other than 10 slots could be finished via the overlay but never via `/report`. Both now agree.
+
+`CK_RunSlots_Position` (`1 ≤ Position ≤ 10`) is unchanged — a Lite run's five positions are a subset, so the constraint still holds without a risky migration.
+
+### Separate leaderboards
+
+`GET /api/leaderboard?runType=` filters on the run type and defaults to `Standard`. The boards are separate rather than merged because the score formula is `base × (1 + 0.1 × (position−1)²)`: slots 6–10 carry multipliers of 3.5× through 9.1×, so a perfect Lite run scores a fraction of a mediocre Standard one and would never surface on a shared board.
+
+### Frontend
+
+- `RUN_TYPE_SLOTS` / `slotsForRunType` in `lib/api.ts` mirror `RunTypes` for the client.
+- `components/RunTypeBadge.tsx` renders the **LITE MODE** pill and deliberately renders *nothing* for Standard — the full gauntlet is the default and doesn't need a label. Used on the Draft Room, run tracker, control deck, and feed posts.
+- **Draft Room** — Standard/Lite toggle; switching resizes the board and re-packs picks in order.
+- **Overlay** — the `x/N` counter and wheel slot numbers come from `games.length` (falling back to `slotsForRunType`), plus a compact `LITE` pill in the timer plate. Styled inline rather than with `RunTypeBadge` to match the overlay's OBS-tuned rendering rules (section 7).
+- **Leaderboard** — "Standard (10 Games)" / "Lite (5 Games)" tabs; the fetch effect keys on the selected type.
+
+---
+
 ## 6. CORS Policy
 
 Policy name: `AllowFrontend` (applied via `app.UseCors` before authorization/controllers).
@@ -535,9 +582,10 @@ Client component with this flow:
 
 1. **Identity** — the run belongs to the logged-in user (shown as "Drafting as _username_"); signed-out visitors get a sign-in banner and a disabled launch button. The Phase 2 user dropdown is gone.
 2. **Game catalog** — searchable, paginated grid of the live database catalog (RAWG-ingested + seeded games): rounded cover thumbnail (letter placeholder when absent), title with match highlighting, base difficulty, and price. **Price tags are hidden entirely when prices are `null`** (all RAWG-sourced games) so cards stay visually balanced; when present, the sale price shows in cyan with the normal price struck through. Instant client-side search ranks prefix/word/substring/fuzzy matches; operators `sale`, `free`, `>80`, `<$10` filter price and difficulty (price operators exclude games without pricing data; price sorts push them last). 24 games per page with compact pager. `/` or Ctrl/Cmd+K focuses the search box. "Add to Draft" fills the first empty slot; a game can be drafted only once.
-3. **Gauntlet board** — 10 numbered slots showing per-slot math (`base × multiplier = slot score`), with move up/down and remove controls.
-4. **Live score header** — sticky scoreboard recalculating `Total Projected Score` client-side with the same formula the API uses (section 4).
-5. **Launch Gauntlet** — enabled only at 10/10 slots; POSTs to `/api/runs/initialize`, then shows the returned Run ID, server-calculated score, and a link to `/run/{id}`.
+3. **Gauntlet mode** (Phase 10) — a Standard / Lite toggle above the board. Switching resizes the board and re-packs the picks in order, so shrinking to Lite keeps the first five and drops the rest; the board is never left over capacity.
+4. **Gauntlet board** — `slotCount` numbered slots (10 Standard, 5 Lite) showing per-slot math (`base × multiplier = slot score`), with move up/down and remove controls.
+5. **Live score header** — sticky scoreboard recalculating `Total Projected Score` client-side with the same formula the API uses (section 4), plus an `x/N` slot counter and a LITE MODE badge.
+6. **Launch Gauntlet** — enabled only at `N/N` slots; POSTs to `/api/runs/initialize` with the chosen `runType`, then shows the returned Run ID, server-calculated score, and a link to `/run/{id}`.
 
 ### Environment
 
@@ -626,3 +674,4 @@ cd GodGamerGauntlet.Web && npm run dev
 | 7 | **Accounts + community feed**: JWT auth (`AuthController` register/login/me, `PasswordHasher<User>`, `JwtTokenService`, 30-day HS256 tokens from `Jwt:Secret`); `POST /api/users` removed; run initialize/report locked to the authenticated owner; `RunVote`/`RunComment`/`RunReaction` tables (`AddAuthAndCommunityFeed` migration); `FeedController` (Hot/New/Top paged feed with gravity decay, vote upsert, reaction toggle, flat comments); frontend `AuthProvider` + `SiteNav` + `/login`; homepage replaced by the community feed; Draft Room drops the user dropdown; run tracker shows WIN/LOSS only to the owner |
 | 8 | **OBS overlay & dual control system**: server-side speedrun timer state on `Run` (`TimerStatus`/`TimerElapsedMs`/`TimerUpdatedAt`) + per-slot `SplitTimeMs` + per-run `OverlayKey` secret (`AddOverlayTimerState` migration); `OverlayController` (public GET state; toggle/split/undo/reset guarded by owner JWT or `?key=`); `/overlay/[runId]` OBS browser source (transparent, 3D cylindrical game wheel, neon `H:MM:SS.cc` timer, hotkeys Space/Enter/R×2/P); `/control/[runId]` control deck (Play/Pause, Split, Undo, two-step Reset, splits list, Copy OBS URL); `useOverlayRun` hook (2 s polling + BroadcastChannel fan-out) + `SpeedrunTimer` component; owner link to the deck from the run tracker. Also fixed run initialization 500 (`AsNoTracking` games attached to new slots made EF re-insert them → duplicate `PK_Games`) |
 | 9 | **Hybrid catalog sorting**: `Game.IsFeatured` + `Game.PopularityRank` (`AddGameSortingFields` migration, composite index, exposed on `GameResponse`); `DbInitializer` seeds 12 curated competitive staples at `IsFeatured = true` / rank 0, promoting the existing row when RAWG already ingested the title; the RAWG loop assigns each game its running most-added index as `PopularityRank`; `UpsertGamesAsync` refreshes rank but treats featured as a one-way promotion; `GetAllAsync` orders featured → rank → title. Sync guard changed from "any game exists" to `HasIngestedCatalogAsync` (any **non-featured** game) so the new seed can't permanently suppress ingestion. Frontend: `featured` catalog sort mirroring the server comparator, now the Draft Room default |
+| 10 | **Gauntlet Lite**: `RunType` enum (`Standard` = 10 games, `Lite` = 5) on `Run` (`AddRunTypeToRuns` migration, string-converted with a `Standard` default that backfills existing rows, `IX_Runs_RunType`); `RunTypes.SlotCount`/`TryParse` as the single source of truth, replacing `RunController.RequiredSlotCount = 10` in both the initialize count check and the completion check; `initialize` accepts an optional `runType`; `GET /api/leaderboard?runType=` ranks Standard and Lite separately (the positional multiplier makes a shared board meaningless); `runType`/`totalSlots` added to `RunResponse`, `LeaderboardEntryDto`, `OverlayStateDto`, and `FeedPostDto`. Frontend: Draft Room mode toggle that re-packs picks when resizing the board, `RunTypeBadge` (LITE MODE) on draft/tracker/deck/feed, dynamic `x/N` counters on the overlay and control deck, Standard/Lite leaderboard tabs. Also fixed a latent split: `OverlayController.Split` completed a run at its max slot position while `/report` completed only at position 10, so any non-10-slot run could finish on the overlay but never via the API |

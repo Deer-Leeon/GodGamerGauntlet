@@ -14,6 +14,9 @@ public class Run
 
     public RunStatus Status { get; set; }
 
+    /// <summary>Standard (10 games) or Lite (5). Drives slot limits and leaderboard split.</summary>
+    public RunType RunType { get; set; } = RunType.Standard;
+
     public double TotalDifficultyScore { get; set; }
 
     /// <summary>Speedrun timer state for the OBS overlay: idle | running | paused | finished.</summary>

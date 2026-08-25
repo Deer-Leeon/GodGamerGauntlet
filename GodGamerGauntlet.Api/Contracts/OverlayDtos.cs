@@ -19,6 +19,8 @@ public record OverlayStateDto(
     Guid RunId,
     string StreamerName,
     string RunStatus,
+    // "Standard" (10 games) or "Lite" (5).
+    string RunType,
     int CurrentSlotIndex,
     string TimerStatus,
     long ElapsedMs,

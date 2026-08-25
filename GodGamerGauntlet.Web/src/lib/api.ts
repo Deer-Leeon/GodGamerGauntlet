@@ -39,6 +39,19 @@ export interface Game {
 export type RunStatus = "Active" | "Failed" | "Completed";
 export type RunSlotStatus = "Pending" | "Won" | "Lost";
 
+/** Standard is the full 10-game gauntlet; Lite is the 5-game variant. */
+export type RunType = "Standard" | "Lite";
+
+export const RUN_TYPE_SLOTS: Record<RunType, number> = {
+  Standard: 10,
+  Lite: 5,
+};
+
+/** Slot count for a run type, tolerant of unknown values from older payloads. */
+export function slotsForRunType(runType: RunType | undefined | null): number {
+  return runType ? (RUN_TYPE_SLOTS[runType] ?? RUN_TYPE_SLOTS.Standard) : RUN_TYPE_SLOTS.Standard;
+}
+
 export interface RunSlot {
   id: string;
   gameId: string;
@@ -56,6 +69,9 @@ export interface Run {
   startTime: string;
   endTime: string | null;
   status: RunStatus;
+  runType: RunType;
+  /** Games in this run: 10 for Standard, 5 for Lite. */
+  totalSlots: number;
   totalDifficultyScore: number;
   slots: RunSlot[];
 }
@@ -124,10 +140,13 @@ export function getUsers(): Promise<User[]> {
 }
 
 /** The run is created for the authenticated user (JWT required). */
-export function initializeRun(gameIds: string[]): Promise<Run> {
+export function initializeRun(
+  gameIds: string[],
+  runType: RunType = "Standard",
+): Promise<Run> {
   return request<Run>("/api/runs/initialize", {
     method: "POST",
-    body: JSON.stringify({ gameIds }),
+    body: JSON.stringify({ gameIds, runType }),
   });
 }
 
@@ -136,12 +155,19 @@ export interface LeaderboardEntry {
   streamerName: string;
   totalScore: number;
   status: "Completed" | "Failed";
+  runType: RunType;
   slotsCompleted: number;
+  totalSlots: number;
   endTime: string | null;
 }
 
-export function getLeaderboard(): Promise<LeaderboardEntry[]> {
-  return request<LeaderboardEntry[]>("/api/leaderboard");
+/** Standard and Lite runs are ranked on separate boards. */
+export function getLeaderboard(
+  runType: RunType = "Standard",
+): Promise<LeaderboardEntry[]> {
+  return request<LeaderboardEntry[]>(
+    `/api/leaderboard?runType=${encodeURIComponent(runType)}`,
+  );
 }
 
 export function getRun(id: string): Promise<Run> {
@@ -177,6 +203,7 @@ export interface OverlayState {
   runId: string;
   streamerName: string;
   runStatus: RunStatus;
+  runType: RunType;
   currentSlotIndex: number;
   timerStatus: TimerStatus;
   elapsedMs: number;
@@ -220,9 +247,11 @@ export interface FeedPost {
   userId: string;
   streamerName: string;
   status: "Completed" | "Failed";
+  runType: RunType;
   endTime: string | null;
   totalScore: number;
   slotsCompleted: number;
+  totalSlots: number;
   slotStatuses: RunSlotStatus[];
   slotTitles: string[];
   slotThumbs: (string | null)[];

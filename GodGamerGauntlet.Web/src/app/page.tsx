@@ -9,6 +9,7 @@ import {
   VoteColumn,
   timeAgo,
 } from "@/components/RunSocial";
+import { RunTypeBadge } from "@/components/RunTypeBadge";
 import { getFeed, type FeedPost, type FeedSort } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
@@ -199,6 +200,7 @@ function PostCard({
             >
               {completed ? "Completed" : "Failed"}
             </span>
+            <RunTypeBadge runType={post.runType} size="sm" />
           </div>
 
           <Link
@@ -208,7 +210,7 @@ function PostCard({
             <p className="font-heading text-lg font-bold">
               {completed
                 ? "Conquered the full gauntlet"
-                : `Died on game ${post.slotsCompleted + 1} of 10`}
+                : `Died on game ${post.slotsCompleted + 1} of ${post.totalSlots}`}
               <span className="ml-2 font-mono text-base text-accent-win">
                 {post.totalScore.toLocaleString()} pts
               </span>

@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
-import type { OverlaySlot } from "@/lib/api";
+import { slotsForRunType, type OverlaySlot } from "@/lib/api";
 import { useOverlayRun } from "@/lib/useOverlayRun";
 import { useOverlayHotkeys } from "@/lib/useOverlayHotkeys";
 import SpeedrunTimer from "@/components/SpeedrunTimer";
@@ -75,7 +75,8 @@ function OverlayView() {
   }
 
   const beatenCount = state.games.filter((g) => g.completed).length;
-  const totalCount = state.games.length || 10;
+  const totalCount = state.games.length || slotsForRunType(state.runType);
+  const isLite = state.runType === "Lite";
 
   return (
     <main
@@ -90,15 +91,27 @@ function OverlayView() {
         </div>
       )}
 
-      <GameWheel games={state.games} currentIndex={state.currentSlotIndex} />
+      <GameWheel
+        games={state.games}
+        currentIndex={state.currentSlotIndex}
+        totalSlots={totalCount}
+      />
 
       <div
         className="mt-auto w-full rounded-lg border border-white/20 px-4 py-2"
         style={{ background: "rgba(8,11,22,0.96)" }}
       >
         <div className="flex items-center justify-between">
-          <span className="font-heading text-[11px] font-bold uppercase tracking-[0.2em] text-gray-400">
+          <span className="flex items-center gap-1.5 font-heading text-[11px] font-bold uppercase tracking-[0.2em] text-gray-400">
             Gauntlet Time
+            {isLite && (
+              <span
+                className="rounded px-1.5 py-px text-[10px] tracking-[0.12em] text-[#00e5ff]"
+                style={{ background: "rgba(0,229,255,0.16)" }}
+              >
+                Lite
+              </span>
+            )}
           </span>
           <span className="font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-gray-400">
             {beatenCount}/{totalCount} clear
@@ -173,9 +186,11 @@ function HelperButton({
 function GameWheel({
   games,
   currentIndex,
+  totalSlots,
 }: {
   games: OverlaySlot[];
   currentIndex: number;
+  totalSlots: number;
 }) {
   const active = games[currentIndex];
   const upcoming = games.slice(currentIndex + 1, currentIndex + 3);
@@ -187,7 +202,7 @@ function GameWheel({
         game={active}
         variant="active"
         currentSlot={currentIndex + 1}
-        totalSlots={games.length || 10}
+        totalSlots={totalSlots}
       />
       {upcoming.map((game, i) => (
         <WheelPill
@@ -195,7 +210,7 @@ function GameWheel({
           game={game}
           variant={i === 0 ? "next" : "later"}
           currentSlot={currentIndex + 1}
-          totalSlots={games.length || 10}
+          totalSlots={totalSlots}
         />
       ))}
     </div>

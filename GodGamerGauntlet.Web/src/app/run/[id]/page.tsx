@@ -8,6 +8,7 @@ import {
   getFeedPost,
   getRun,
   reportSlotMatch,
+  RUN_TYPE_SLOTS,
   type FeedPost,
   type Run,
   type RunSlot,
@@ -20,6 +21,7 @@ import {
   ReactionBar,
   VoteColumn,
 } from "@/components/RunSocial";
+import { RunTypeBadge } from "@/components/RunTypeBadge";
 
 /** Slot score: BaseDifficulty * (1 + 0.1 * (Position - 1)^2) */
 function slotScore(baseDifficulty: number, position: number): number {
@@ -143,6 +145,8 @@ export default function LiveRunTrackerPage() {
     [orderedSlots],
   );
 
+  const wonCount = orderedSlots.filter((s) => s.status === "Won").length;
+
   // The active slot is the first Pending one — but only while the run is Active.
   const activePosition =
     run?.status === "Active"
@@ -170,7 +174,7 @@ export default function LiveRunTrackerPage() {
       <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-10">
         <div className="panel h-24 animate-pulse rounded-2xl" />
         <div className="mt-6 space-y-2">
-          {Array.from({ length: 10 }).map((_, i) => (
+          {Array.from({ length: RUN_TYPE_SLOTS.Standard }).map((_, i) => (
             <div key={i} className="panel h-16 animate-pulse rounded-xl" />
           ))}
         </div>
@@ -240,9 +244,15 @@ export default function LiveRunTrackerPage() {
           <p className="text-xs uppercase tracking-widest text-gray-400">
             {isOver ? "Gauntlet lineup" : "Live Run Tracker"}
           </p>
-          <h1 className="font-heading text-2xl font-bold">{run.streamerName}</h1>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="font-heading text-2xl font-bold">
+              {run.streamerName}
+            </h1>
+            <RunTypeBadge runType={run.runType} />
+          </div>
           <p className="mt-1 font-mono text-xs text-gray-500">
-            Started {formatWhen(run.startTime)}
+            {wonCount}/{run.totalSlots} cleared · Started{" "}
+            {formatWhen(run.startTime)}
             {run.endTime ? ` · Finished ${formatWhen(run.endTime)}` : ""}
             {duration ? ` · ${duration}` : ""}
           </p>

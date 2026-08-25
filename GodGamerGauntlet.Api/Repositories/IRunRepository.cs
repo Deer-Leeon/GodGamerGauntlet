@@ -6,10 +6,14 @@ namespace GodGamerGauntlet.Api.Repositories;
 public interface IRunRepository
 {
     /// <summary>
-    /// Top finished runs ranked by earned score (sum of won-slot scores),
-    /// with Completed outranking Failed on ties, then most recent first.
+    /// Top finished runs of one <see cref="RunType"/>, ranked by earned score
+    /// (sum of won-slot scores), with Completed outranking Failed on ties, then
+    /// most recent first. Standard and Lite have separate boards.
     /// </summary>
-    Task<IReadOnlyList<LeaderboardEntryDto>> GetLeaderboardAsync(int limit, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<LeaderboardEntryDto>> GetLeaderboardAsync(
+        RunType runType,
+        int limit,
+        CancellationToken cancellationToken = default);
 
     Task<Run?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
 

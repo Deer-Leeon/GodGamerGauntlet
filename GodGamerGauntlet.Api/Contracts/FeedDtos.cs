@@ -9,9 +9,13 @@ public record FeedPostDto(
     Guid UserId,
     string StreamerName,
     string Status,
+    // "Standard" (10 games) or "Lite" (5).
+    string RunType,
     DateTime? EndTime,
     double TotalScore,
     int SlotsCompleted,
+    // Games in the run, so the feed can render "x of 5" for Lite runs.
+    int TotalSlots,
     IReadOnlyList<string> SlotStatuses,
     IReadOnlyList<string> SlotTitles,
     IReadOnlyList<string?> SlotThumbs,

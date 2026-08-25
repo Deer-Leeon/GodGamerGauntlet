@@ -11,8 +11,6 @@ namespace GodGamerGauntlet.Api.Controllers;
 [Route("api/runs")]
 public class RunController(IRunRepository runRepository, IGameRepository gameRepository) : ControllerBase
 {
-    private const int RequiredSlotCount = 10;
-
     private Guid CurrentUserId => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
     [HttpPost("initialize")]
@@ -22,9 +20,16 @@ public class RunController(IRunRepository runRepository, IGameRepository gameRep
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Initialize(InitializeRunRequest request, CancellationToken cancellationToken)
     {
-        if (request.GameIds.Count != RequiredSlotCount)
+        if (!RunTypes.TryParse(request.RunType, out var runType))
         {
-            return BadRequest($"Exactly {RequiredSlotCount} game ids are required, ordered by slot position.");
+            return BadRequest("runType must be 'Standard' or 'Lite'.");
+        }
+
+        var requiredSlotCount = runType.SlotCount();
+        if (request.GameIds.Count != requiredSlotCount)
+        {
+            return BadRequest(
+                $"A {runType} gauntlet needs exactly {requiredSlotCount} game ids, ordered by slot position.");
         }
 
         var userId = CurrentUserId;
@@ -48,6 +53,7 @@ public class RunController(IRunRepository runRepository, IGameRepository gameRep
             UserId = userId,
             StartTime = DateTime.UtcNow,
             Status = RunStatus.Active,
+            RunType = runType,
             OverlayKey = Services.OverlayKeys.Create()
         };
 
@@ -155,7 +161,7 @@ public class RunController(IRunRepository runRepository, IGameRepository gameRep
             run.Status = RunStatus.Failed;
             run.EndTime = DateTime.UtcNow;
         }
-        else if (request.SlotPosition == RequiredSlotCount)
+        else if (request.SlotPosition == run.RunType.SlotCount())
         {
             run.Status = RunStatus.Completed;
             run.EndTime = DateTime.UtcNow;

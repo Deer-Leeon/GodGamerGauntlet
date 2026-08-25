@@ -47,10 +47,16 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.Entity<Run>(entity =>
         {
             entity.Property(r => r.Status).HasConversion<string>().HasMaxLength(20);
+            entity.Property(r => r.RunType)
+                  .HasConversion<string>()
+                  .HasMaxLength(20)
+                  .HasDefaultValue(RunType.Standard);
             entity.Property(r => r.TimerStatus).HasMaxLength(20);
             entity.Property(r => r.OverlayKey).HasMaxLength(64);
+            // Leaderboards are ranked per run type.
+            entity.HasIndex(r => r.RunType);
 
-            // A Run has up to 10 RunSlots.
+            // A Run has 10 RunSlots (Standard) or 5 (Lite).
             entity.HasMany(r => r.Slots)
                   .WithOne(s => s.Run)
                   .HasForeignKey(s => s.RunId)

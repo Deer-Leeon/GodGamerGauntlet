@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import ControlBoard from "@/components/ControlBoard";
+import { RunTypeBadge } from "@/components/RunTypeBadge";
 import { useOverlayRun } from "@/lib/useOverlayRun";
 import { formatSpeedrunTime } from "@/components/SpeedrunTimer";
 
@@ -53,9 +54,12 @@ function ControlStudio({ runId }: { runId: string }) {
         <p className="text-xs uppercase tracking-widest text-gray-500">
           Control room
         </p>
-        <h1 className="font-heading text-3xl font-bold">
-          {state?.streamerName ?? "Gauntlet"}
-        </h1>
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="font-heading text-3xl font-bold">
+            {state?.streamerName ?? "Gauntlet"}
+          </h1>
+          <RunTypeBadge runType={state?.runType} />
+        </div>
         <p className="mt-1 text-sm text-gray-400">
           Play, split, and reset from the sidebar — or keep those controls
           while you browse the rest of the site. The OBS popup uses a compact
@@ -74,7 +78,7 @@ function ControlStudio({ runId }: { runId: string }) {
         {state && (
           <section className="panel mt-8 rounded-2xl p-5">
             <h2 className="mb-3 font-heading text-sm font-bold uppercase tracking-widest text-gray-400">
-              Lineup
+              Lineup ({state.games.length} games)
             </h2>
             <div className="flex flex-col gap-2">
               {state.games.map((game, index) => {

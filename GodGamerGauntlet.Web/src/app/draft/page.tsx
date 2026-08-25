@@ -3,8 +3,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { getGames, initializeRun, type Game, type Run } from "@/lib/api";
+import {
+  getGames,
+  initializeRun,
+  RUN_TYPE_SLOTS,
+  type Game,
+  type Run,
+  type RunType,
+} from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { RunTypeBadge } from "@/components/RunTypeBadge";
 import {
   PAGE_SIZE,
   highlightTitle,
@@ -14,7 +22,18 @@ import {
   type CatalogSort,
 } from "@/lib/catalogSearch";
 
-const SLOT_COUNT = 10;
+const MODES: { id: RunType; label: string; blurb: string }[] = [
+  {
+    id: "Standard",
+    label: "Standard · 10 games",
+    blurb: "The full gauntlet. Later slots multiply the pain.",
+  },
+  {
+    id: "Lite",
+    label: "Lite · 5 games",
+    blurb: "A shorter run for tighter streams. Ranked on its own board.",
+  },
+];
 
 /** Slot score: BaseDifficulty * (1 + 0.1 * (Position - 1)^2) */
 function slotScore(baseDifficulty: number, position: number): number {
@@ -79,8 +98,11 @@ function GameThumb({ game }: { game: Game }) {
 export default function DraftRoomPage() {
   const { user, loading: authLoading } = useAuth();
   const [games, setGames] = useState<Game[]>([]);
-  const [slots, setSlots] = useState<(Game | null)[]>(
-    Array(SLOT_COUNT).fill(null),
+  const [runType, setRunType] = useState<RunType>("Standard");
+  const slotCount = RUN_TYPE_SLOTS[runType];
+  const activeMode = MODES.find((m) => m.id === runType) ?? MODES[0];
+  const [slots, setSlots] = useState<(Game | null)[]>(() =>
+    Array(RUN_TYPE_SLOTS.Standard).fill(null),
   );
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -201,10 +223,25 @@ export default function DraftRoomPage() {
   function moveSlot(index: number, direction: -1 | 1) {
     setSlots((current) => {
       const target = index + direction;
-      if (target < 0 || target >= SLOT_COUNT) return current;
+      if (target < 0 || target >= current.length) return current;
       const next = [...current];
       [next[index], next[target]] = [next[target], next[index]];
       return next;
+    });
+  }
+
+  /**
+   * Resizes the board, keeping drafted picks in order. Shrinking to Lite drops
+   * anything past the fifth pick, so the board is never left over capacity.
+   */
+  function changeMode(next: RunType) {
+    if (next === runType) return;
+    const size = RUN_TYPE_SLOTS[next];
+    setRunType(next);
+    setLaunchError(null);
+    setSlots((current) => {
+      const drafted = current.filter((game): game is Game => game !== null);
+      return Array.from({ length: size }, (_, i) => drafted[i] ?? null);
     });
   }
 
@@ -214,7 +251,7 @@ export default function DraftRoomPage() {
     setLaunchError(null);
     try {
       const gameIds = slots.map((game) => game!.id);
-      const run = await initializeRun(gameIds);
+      const run = await initializeRun(gameIds, runType);
       setCreatedRun(run);
     } catch (error: unknown) {
       setLaunchError(
@@ -232,6 +269,7 @@ export default function DraftRoomPage() {
           Gauntlet Initialized
         </p>
         <h1 className="font-heading text-4xl font-bold">The stakes are set.</h1>
+        <RunTypeBadge runType={createdRun.runType} />
         <div className="panel w-full rounded-2xl p-6 text-left">
           <dl className="space-y-4">
             <div>
@@ -254,7 +292,10 @@ export default function DraftRoomPage() {
               <dt className="text-xs uppercase tracking-widest text-gray-400">
                 Status
               </dt>
-              <dd className="font-mono text-sm">{createdRun.status}</dd>
+              <dd className="font-mono text-sm">
+                {createdRun.status} · {createdRun.runType} (
+                {createdRun.totalSlots} games)
+              </dd>
             </div>
           </dl>
         </div>
@@ -273,9 +314,12 @@ export default function DraftRoomPage() {
       {/* Live Score Header */}
       <header className="panel sticky top-4 z-10 mb-8 flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-surface/90 px-6 py-4 backdrop-blur">
         <div>
-          <h1 className="font-heading text-2xl font-bold">The Draft Room</h1>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="font-heading text-2xl font-bold">The Draft Room</h1>
+            <RunTypeBadge runType={runType} />
+          </div>
           <p className="text-sm text-gray-400">
-            Build your 10-game gauntlet. Later slots multiply the pain.
+            Build your {slotCount}-game gauntlet. Later slots multiply the pain.
           </p>
           <Link
             href="/leaderboard"
@@ -292,10 +336,41 @@ export default function DraftRoomPage() {
             {formatScore(totalProjectedScore)}
           </p>
           <p className="font-mono text-xs text-gray-500">
-            {filledCount}/{SLOT_COUNT} slots drafted
+            {filledCount}/{slotCount} slots drafted
           </p>
         </div>
       </header>
+
+      {/* Run length: switching resizes the board, keeping picks in order. */}
+      <section className="panel mb-8 flex flex-wrap items-center justify-between gap-4 rounded-2xl px-6 py-4">
+        <div>
+          <p className="text-xs uppercase tracking-widest text-gray-400">
+            Gauntlet Mode
+          </p>
+          <p className="mt-1 text-sm text-gray-400">{activeMode.blurb}</p>
+        </div>
+        <div
+          role="radiogroup"
+          aria-label="Gauntlet mode"
+          className="flex items-center gap-2 rounded-xl bg-white/3 p-1"
+        >
+          {MODES.map((mode) => (
+            <button
+              key={mode.id}
+              role="radio"
+              aria-checked={runType === mode.id}
+              onClick={() => changeMode(mode.id)}
+              className={`rounded-lg px-4 py-2 font-heading text-sm font-bold transition ${
+                runType === mode.id
+                  ? "bg-accent-win/15 text-accent-win"
+                  : "text-gray-400 hover:text-gray-100"
+              }`}
+            >
+              {mode.label}
+            </button>
+          ))}
+        </div>
+      </section>
 
       {loadError && (
         <div className="panel mb-8 rounded-xl border-accent-death/40 p-4 text-sm text-accent-death">
@@ -482,10 +557,14 @@ export default function DraftRoomPage() {
           />
         </section>
 
-        {/* The 10-Slot Gauntlet Board */}
+        {/* The gauntlet board: 10 slots for Standard, 5 for Lite */}
         <section>
-          <h2 className="mb-4 font-heading text-lg font-bold uppercase tracking-wide text-gray-300">
+          <h2 className="mb-4 flex flex-wrap items-center gap-3 font-heading text-lg font-bold uppercase tracking-wide text-gray-300">
             Gauntlet Board
+            <span className="font-mono text-sm font-normal normal-case tracking-normal text-gray-500">
+              {slotCount} slots
+            </span>
+            <RunTypeBadge runType={runType} size="sm" />
           </h2>
           <ol className="space-y-2">
             {slots.map((game, index) => {
@@ -529,7 +608,7 @@ export default function DraftRoomPage() {
                         <button
                           type="button"
                           onClick={() => moveSlot(index, 1)}
-                          disabled={index === SLOT_COUNT - 1}
+                          disabled={index === slots.length - 1}
                           aria-label={`Move ${game.title} down`}
                           className="rounded-md border border-white/10 px-2 py-1 text-xs transition enabled:hover:text-accent-win disabled:opacity-30"
                         >
@@ -571,8 +650,10 @@ export default function DraftRoomPage() {
                 : !user
                   ? "Sign in to launch"
                   : boardFull
-                    ? "Launch Gauntlet"
-                    : `Fill all ${SLOT_COUNT} slots to launch (${filledCount}/${SLOT_COUNT})`}
+                    ? runType === "Lite"
+                      ? "Launch Gauntlet Lite"
+                      : "Launch Gauntlet"
+                    : `Fill all ${slotCount} slots to launch (${filledCount}/${slotCount})`}
             </button>
           </div>
         </section>

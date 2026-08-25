@@ -2,13 +2,23 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { getLeaderboard, type LeaderboardEntry } from "@/lib/api";
+import {
+  getLeaderboard,
+  RUN_TYPE_SLOTS,
+  type LeaderboardEntry,
+  type RunType,
+} from "@/lib/api";
 
 const MEDAL_COLORS: Record<number, string> = {
   1: "#FFD700",
   2: "#C0C0C0",
   3: "#CD7F32",
 };
+
+const BOARDS: { id: RunType; label: string }[] = [
+  { id: "Standard", label: `Standard (${RUN_TYPE_SLOTS.Standard} Games)` },
+  { id: "Lite", label: `Lite (${RUN_TYPE_SLOTS.Lite} Games)` },
+];
 
 function formatScore(value: number): string {
   return value.toLocaleString("en-US", {
@@ -28,14 +38,17 @@ function formatDate(iso: string | null): string {
 }
 
 export default function LeaderboardPage() {
+  const [runType, setRunType] = useState<RunType>("Standard");
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
+    setLoadError(null);
 
-    getLeaderboard()
+    getLeaderboard(runType)
       .then((fetched) => {
         if (!cancelled) setEntries(fetched);
       })
@@ -55,7 +68,7 @@ export default function LeaderboardPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [runType]);
 
   return (
     <main className="mx-auto w-full max-w-4xl flex-1 px-6 py-10">
@@ -76,6 +89,29 @@ export default function LeaderboardPage() {
           Draft a New Run
         </Link>
       </header>
+
+      {/* Standard and Lite runs are ranked on separate boards. */}
+      <div
+        role="tablist"
+        aria-label="Gauntlet mode"
+        className="mb-6 flex items-center gap-2"
+      >
+        {BOARDS.map((board) => (
+          <button
+            key={board.id}
+            role="tab"
+            aria-selected={runType === board.id}
+            onClick={() => setRunType(board.id)}
+            className={`rounded-lg px-4 py-1.5 text-sm font-semibold transition ${
+              runType === board.id
+                ? "bg-accent-win/15 text-accent-win"
+                : "text-gray-400 hover:text-gray-100"
+            }`}
+          >
+            {board.label}
+          </button>
+        ))}
+      </div>
 
       {loadError && (
         <div className="panel mb-6 rounded-xl border-accent-death/40 p-4 text-sm text-accent-death">
@@ -107,7 +143,9 @@ export default function LeaderboardPage() {
 
         {!loading && !loadError && entries.length === 0 && (
           <p className="px-4 py-10 text-center text-sm text-gray-500">
-            No finished runs yet. Be the first to survive the gauntlet.
+            No finished{" "}
+            {runType === "Lite" ? "Gauntlet Lite" : "Standard"} runs yet. Be the
+            first to survive it.
           </p>
         )}
 
@@ -141,7 +179,7 @@ export default function LeaderboardPage() {
                   {formatScore(entry.totalScore)}
                 </span>
                 <span className="text-center font-mono text-sm text-gray-300">
-                  {entry.slotsCompleted}/10
+                  {entry.slotsCompleted}/{entry.totalSlots}
                 </span>
                 <span className="flex justify-center">
                   <span

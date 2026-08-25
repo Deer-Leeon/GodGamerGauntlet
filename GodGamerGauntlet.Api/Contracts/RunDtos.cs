@@ -3,11 +3,18 @@ using GodGamerGauntlet.Api.Models;
 
 namespace GodGamerGauntlet.Api.Contracts;
 
+/// <summary>
+/// The exact slot count is validated against <see cref="RunType"/> in the
+/// controller; the attributes only bound the request to the widest legal range.
+/// </summary>
 public record InitializeRunRequest(
-    [Required, MinLength(10), MaxLength(10)] List<Guid> GameIds);
+    [Required, MinLength(RunTypes.LiteSlotCount), MaxLength(RunTypes.StandardSlotCount)]
+    List<Guid> GameIds,
+    // "Standard" or "Lite"; defaults to Standard when omitted.
+    string? RunType = null);
 
 public record ReportMatchRequest(
-    [Range(1, 10)] int SlotPosition,
+    [Range(1, RunTypes.StandardSlotCount)] int SlotPosition,
     [Required] string Result);
 
 public record RunSlotResponse(
@@ -37,6 +44,9 @@ public record RunResponse(
     DateTime StartTime,
     DateTime? EndTime,
     string Status,
+    string RunType,
+    // Games this run is made of: 10 for Standard, 5 for Lite.
+    int TotalSlots,
     double TotalDifficultyScore,
     IReadOnlyList<RunSlotResponse> Slots)
 {
@@ -48,6 +58,8 @@ public record RunResponse(
             run.StartTime,
             run.EndTime,
             run.Status.ToString(),
+            run.RunType.ToString(),
+            run.RunType.SlotCount(),
             run.TotalDifficultyScore,
             run.Slots.OrderBy(s => s.Position).Select(RunSlotResponse.FromEntity).ToList());
 }

@@ -3,8 +3,10 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef } from "react";
+import { slotsForRunType } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { pinControlRun } from "@/lib/controlSession";
+import { RunTypeBadge } from "@/components/RunTypeBadge";
 import { useOverlayRun } from "@/lib/useOverlayRun";
 import { useOverlayHotkeys } from "@/lib/useOverlayHotkeys";
 import SpeedrunTimer, { formatSpeedrunTime } from "@/components/SpeedrunTimer";
@@ -83,7 +85,8 @@ export default function ControlBoard({
   );
   const beaten = games.filter((g) => g.completed);
   const running = state.timerStatus === "running";
-  const slotLabel = `${Math.min(state.currentSlotIndex + 1, games.length)}/${games.length}`;
+  const totalSlots = games.length || slotsForRunType(state.runType);
+  const slotLabel = `${Math.min(state.currentSlotIndex + 1, totalSlots)}/${totalSlots}`;
 
   const copyUrl = async (which: "overlay" | "dock") => {
     const origin = window.location.origin;
@@ -96,9 +99,10 @@ export default function ControlBoard({
 
   const body = (
     <>
-      <header className="flex shrink-0 items-baseline justify-between gap-2">
-        <h1 className="font-heading text-xs font-bold uppercase tracking-[0.2em] text-accent-streak">
+      <header className="flex shrink-0 items-center justify-between gap-2">
+        <h1 className="flex items-center gap-2 font-heading text-xs font-bold uppercase tracking-[0.2em] text-accent-streak">
           Control Deck
+          <RunTypeBadge runType={state.runType} size="sm" />
         </h1>
         <p className="truncate font-mono text-[11px] uppercase tracking-widest text-gray-400">
           {state.runStatus} · {slotLabel}

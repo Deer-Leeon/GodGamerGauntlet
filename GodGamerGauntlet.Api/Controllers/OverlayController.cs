@@ -99,7 +99,7 @@ public class OverlayController(AppDbContext context) : ControllerBase
         var current = slots.FirstOrDefault(s => s.Status != RunSlotStatus.Won);
         if (current is null)
         {
-            return BadRequest("All ten games are already beaten.");
+            return BadRequest($"All {slots.Count} games are already beaten.");
         }
 
         var now = DateTime.UtcNow;
@@ -223,6 +223,7 @@ public class OverlayController(AppDbContext context) : ControllerBase
             run.Id,
             run.User?.Username ?? "unknown",
             run.Status.ToString(),
+            run.RunType.ToString(),
             currentIndex,
             run.TimerStatus,
             ComputeElapsedMs(run, DateTime.UtcNow),
