@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import {
   addComment,
+  deleteComment,
+  editComment,
   getComments,
   getFeed,
   toggleReaction,
@@ -166,7 +168,7 @@ export default function FeedPage() {
           <PostCard
             key={post.runId}
             post={post}
-            signedIn={!!user}
+            currentUserId={user?.id ?? null}
             onPatch={(patch) => patchPost(post.runId, patch)}
           />
         ))}
@@ -187,14 +189,15 @@ export default function FeedPage() {
 
 function PostCard({
   post,
-  signedIn,
+  currentUserId,
   onPatch,
 }: {
   post: FeedPost;
-  signedIn: boolean;
+  currentUserId: string | null;
   onPatch: (patch: Partial<FeedPost>) => void;
 }) {
   const completed = post.status === "Completed";
+  const signedIn = !!currentUserId;
 
   async function castVote(direction: 1 | -1) {
     if (!signedIn) return;
@@ -286,7 +289,11 @@ function PostCard({
             ))}
           </div>
 
-          <FooterBar post={post} signedIn={signedIn} onPatch={onPatch} />
+          <FooterBar
+            post={post}
+            currentUserId={currentUserId}
+            onPatch={onPatch}
+          />
         </div>
       </div>
     </article>
@@ -325,14 +332,15 @@ function VoteArrow({
 
 function FooterBar({
   post,
-  signedIn,
+  currentUserId,
   onPatch,
 }: {
   post: FeedPost;
-  signedIn: boolean;
+  currentUserId: string | null;
   onPatch: (patch: Partial<FeedPost>) => void;
 }) {
   const [showComments, setShowComments] = useState(false);
+  const signedIn = !!currentUserId;
 
   async function onToggleReaction(type: ReactionType) {
     if (!signedIn) return;
@@ -380,7 +388,7 @@ function FooterBar({
       {showComments && (
         <CommentThread
           runId={post.runId}
-          signedIn={signedIn}
+          currentUserId={currentUserId}
           onCountChange={(count) => onPatch({ commentCount: count })}
         />
       )}
@@ -390,16 +398,17 @@ function FooterBar({
 
 function CommentThread({
   runId,
-  signedIn,
+  currentUserId,
   onCountChange,
 }: {
   runId: string;
-  signedIn: boolean;
+  currentUserId: string | null;
   onCountChange: (count: number) => void;
 }) {
   const [comments, setComments] = useState<RunComment[] | null>(null);
   const [draft, setDraft] = useState("");
   const [posting, setPosting] = useState(false);
+  const signedIn = !!currentUserId;
 
   useEffect(() => {
     getComments(runId)
@@ -432,19 +441,23 @@ function CommentThread({
       ) : (
         <ul className="flex flex-col gap-3">
           {comments.map((comment) => (
-            <li key={comment.id} className="text-sm">
-              <div className="flex items-baseline gap-2">
-                <span className="font-heading font-bold text-gray-200">
-                  {comment.username}
-                </span>
-                <span className="text-xs text-gray-500">
-                  {timeAgo(comment.createdAt)}
-                </span>
-              </div>
-              <p className="mt-0.5 whitespace-pre-wrap break-words text-gray-300">
-                {comment.body}
-              </p>
-            </li>
+            <CommentItem
+              key={comment.id}
+              comment={comment}
+              isOwner={comment.userId === currentUserId}
+              onSaved={(updated) =>
+                setComments((prev) =>
+                  (prev ?? []).map((c) => (c.id === updated.id ? updated : c)),
+                )
+              }
+              onDeleted={() => {
+                const next = (comments ?? []).filter((c) => c.id !== comment.id);
+                setComments(next);
+                onCountChange(next.length);
+              }}
+              onEdit={async (body) => editComment(runId, comment.id, body)}
+              onDelete={() => deleteComment(runId, comment.id)}
+            />
           ))}
         </ul>
       )}
@@ -475,5 +488,129 @@ function CommentThread({
         </p>
       )}
     </div>
+  );
+}
+
+function CommentItem({
+  comment,
+  isOwner,
+  onSaved,
+  onDeleted,
+  onEdit,
+  onDelete,
+}: {
+  comment: RunComment;
+  isOwner: boolean;
+  onSaved: (updated: RunComment) => void;
+  onDeleted: () => void;
+  onEdit: (body: string) => Promise<RunComment>;
+  onDelete: () => Promise<void>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(comment.body);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function save(event: React.FormEvent) {
+    event.preventDefault();
+    const body = draft.trim();
+    if (!body) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const updated = await onEdit(body);
+      onSaved(updated);
+      setEditing(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't save.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function remove() {
+    if (!window.confirm("Delete this comment?")) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await onDelete();
+      onDeleted();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't delete.");
+      setSaving(false);
+    }
+  }
+
+  return (
+    <li className="text-sm">
+      <div className="flex flex-wrap items-baseline gap-2">
+        <span className="font-heading font-bold text-gray-200">
+          {comment.username}
+        </span>
+        <span className="text-xs text-gray-500">{timeAgo(comment.createdAt)}</span>
+        {isOwner && !editing && (
+          <span className="ml-auto flex gap-2 text-xs">
+            <button
+              type="button"
+              onClick={() => {
+                setDraft(comment.body);
+                setEditing(true);
+                setError(null);
+              }}
+              className="text-gray-500 transition hover:text-accent-win"
+            >
+              Edit
+            </button>
+            <button
+              type="button"
+              onClick={remove}
+              disabled={saving}
+              className="text-gray-500 transition hover:text-accent-death disabled:opacity-40"
+            >
+              Delete
+            </button>
+          </span>
+        )}
+      </div>
+
+      {editing ? (
+        <form onSubmit={save} className="mt-2 flex flex-col gap-2">
+          <textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            maxLength={1000}
+            rows={3}
+            autoFocus
+            className="panel w-full rounded-xl px-3 py-2 text-sm text-gray-100 outline-none transition focus:border-accent-win/60"
+          />
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              disabled={saving || !draft.trim()}
+              className="rounded-lg bg-accent-win/15 px-3 py-1 text-xs font-semibold text-accent-win transition hover:bg-accent-win/25 disabled:opacity-40"
+            >
+              {saving ? "Saving…" : "Save"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setEditing(false);
+                setDraft(comment.body);
+                setError(null);
+              }}
+              className="rounded-lg px-3 py-1 text-xs text-gray-400 transition hover:text-gray-200"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      ) : (
+        <p className="mt-0.5 whitespace-pre-wrap break-words text-gray-300">
+          {comment.body}
+        </p>
+      )}
+
+      {error && <p className="mt-1 text-xs text-accent-death">{error}</p>}
+    </li>
   );
 }

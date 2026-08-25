@@ -228,3 +228,35 @@ export function addComment(runId: string, body: string): Promise<RunComment> {
     body: JSON.stringify({ body }),
   });
 }
+
+export function editComment(
+  runId: string,
+  commentId: string,
+  body: string,
+): Promise<RunComment> {
+  return request<RunComment>(`/api/runs/${runId}/comments/${commentId}`, {
+    method: "PUT",
+    body: JSON.stringify({ body }),
+  });
+}
+
+export async function deleteComment(
+  runId: string,
+  commentId: string,
+): Promise<void> {
+  const token = getToken();
+  const response = await fetch(
+    `${API_URL}/api/runs/${runId}/comments/${commentId}`,
+    {
+      method: "DELETE",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    },
+  );
+
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(
+      body || `API request failed: ${response.status} ${response.statusText}`,
+    );
+  }
+}

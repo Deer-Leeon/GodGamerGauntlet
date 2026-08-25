@@ -270,6 +270,67 @@ public class FeedController(AppDbContext context) : ControllerBase
             new CommentDto(comment.Id, userId, username, comment.Body, comment.CreatedAt));
     }
 
+    [HttpPut("runs/{id:guid}/comments/{commentId:guid}")]
+    [Authorize]
+    [ProducesResponseType(typeof(CommentDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> EditComment(
+        Guid id, Guid commentId, CreateCommentRequest request, CancellationToken cancellationToken)
+    {
+        var body = request.Body.Trim();
+        if (body.Length == 0)
+        {
+            return BadRequest("Comment body cannot be empty.");
+        }
+
+        var comment = await context.RunComments
+            .Include(c => c.User)
+            .FirstOrDefaultAsync(c => c.Id == commentId && c.RunId == id, cancellationToken);
+
+        if (comment is null)
+        {
+            return NotFound("Comment not found.");
+        }
+
+        if (comment.UserId != CurrentUserId)
+        {
+            return Forbid();
+        }
+
+        comment.Body = body;
+        await context.SaveChangesAsync(cancellationToken);
+
+        return Ok(CommentDto.FromEntity(comment));
+    }
+
+    [HttpDelete("runs/{id:guid}/comments/{commentId:guid}")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DeleteComment(
+        Guid id, Guid commentId, CancellationToken cancellationToken)
+    {
+        var comment = await context.RunComments
+            .FirstOrDefaultAsync(c => c.Id == commentId && c.RunId == id, cancellationToken);
+
+        if (comment is null)
+        {
+            return NotFound("Comment not found.");
+        }
+
+        if (comment.UserId != CurrentUserId)
+        {
+            return Forbid();
+        }
+
+        context.RunComments.Remove(comment);
+        await context.SaveChangesAsync(cancellationToken);
+        return NoContent();
+    }
+
     private Task<bool> FinishedRunExistsAsync(Guid runId, CancellationToken cancellationToken) =>
         context.Runs.AnyAsync(r => r.Id == runId && r.Status != RunStatus.Active, cancellationToken);
 
