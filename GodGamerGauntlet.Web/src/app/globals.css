@@ -100,3 +100,52 @@ html:has(.obs-control-root) .site-nav {
     padding-right: 20rem;
   }
 }
+
+/*
+ * Feed-only skin. Kept off the design tokens so Draft / Overlay / Control
+ * stay as they are until this direction is approved.
+ *
+ * Goal: a results wire, not a dashboard. Hairlines instead of glass cards,
+ * sentence-case type instead of tracked badges, numbers in the margin.
+ */
+.feed-page {
+  color: #c8c8c4;
+}
+
+.feed-page h1,
+.feed-page h2 {
+  font-family: var(--font-sans);
+  letter-spacing: -0.02em;
+  color: #ecece8;
+}
+
+.feed-page a:focus-visible,
+.feed-page button:focus-visible {
+  outline: 1px solid #ecece8;
+  outline-offset: 3px;
+}
+
+.feed-page .feed-list {
+  border-top: 1px solid rgb(255 255 255 / 0.12);
+}
+
+.feed-page .feed-row {
+  border-bottom: 1px solid rgb(255 255 255 / 0.12);
+}
+
+.feed-page .feed-row:hover {
+  background: rgb(255 255 255 / 0.02);
+}
+
+.feed-page .panel {
+  background: transparent;
+  border-radius: 0;
+}
+
+.feed-page input,
+.feed-page textarea,
+.feed-page .feed-list button.rounded-xl,
+.feed-page .feed-list button.rounded-lg,
+.feed-page .feed-list button.rounded-full {
+  border-radius: 0;
+}

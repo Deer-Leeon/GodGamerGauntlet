@@ -9,7 +9,6 @@ import {
   VoteColumn,
   timeAgo,
 } from "@/components/RunSocial";
-import { RunTypeBadge } from "@/components/RunTypeBadge";
 import { formatSpeedrunTime } from "@/components/SpeedrunTimer";
 import { getFeed, type FeedPost, type FeedSort } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -83,37 +82,37 @@ export default function FeedPage() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-8 sm:px-6">
-      {/* Call to action for new visitors */}
-      <section className="panel flex flex-wrap items-center justify-between gap-4 rounded-2xl px-6 py-5">
+    <main className="feed-page mx-auto w-full max-w-3xl flex-1 px-4 py-10 sm:px-6">
+      <header className="flex flex-wrap items-end justify-between gap-3 border-b border-white/12 pb-5">
         <div>
-          <h1 className="font-heading text-xl font-bold">
-            Ten games. One run.{" "}
-            <span className="text-accent-win">Zero excuses.</span>
-          </h1>
-          <p className="mt-1 text-sm text-gray-400">
-            Draft a 10-game gauntlet — every finished run lands here for the
-            community to judge.
+          <h1 className="text-2xl font-semibold text-[#ecece8]">Feed</h1>
+          <p className="mt-1 max-w-md text-sm text-gray-500">
+            Finished gauntlets from the community.
           </p>
         </div>
         <Link
           href="/draft"
-          className="rounded-xl bg-accent-streak px-6 py-3 font-heading font-bold text-dark transition hover:brightness-110"
+          className="border border-white/20 px-3 py-1.5 text-sm text-[#ecece8] transition hover:border-white/40 hover:bg-white/5"
         >
-          Enter the Draft Room
+          Draft a run
         </Link>
-      </section>
+      </header>
 
-      {/* Sort tabs */}
-      <div className="mt-6 flex items-center gap-2">
+      <div
+        role="tablist"
+        aria-label="Sort feed"
+        className="mt-5 flex gap-5 border-b border-white/12 text-sm"
+      >
         {SORTS.map((s) => (
           <button
             key={s.id}
+            role="tab"
+            aria-selected={sort === s.id}
             onClick={() => changeSort(s.id)}
-            className={`rounded-lg px-4 py-1.5 text-sm font-semibold transition ${
+            className={`-mb-px border-b-2 pb-2 transition ${
               sort === s.id
-                ? "bg-accent-win/15 text-accent-win"
-                : "text-gray-400 hover:text-gray-100"
+                ? "border-[#ecece8] text-[#ecece8]"
+                : "border-transparent text-gray-500 hover:text-gray-300"
             }`}
           >
             {s.label}
@@ -121,28 +120,23 @@ export default function FeedPage() {
         ))}
       </div>
 
-      {/* Feed */}
-      <div className="mt-4 flex flex-col gap-4">
+      <div className="feed-list">
         {loading && (
-          <div className="panel rounded-2xl p-8 text-center text-sm text-gray-400">
-            Loading the feed…
-          </div>
+          <p className="py-12 text-sm text-gray-500">Loading the feed…</p>
         )}
 
         {!loading && error && (
-          <div className="panel rounded-2xl p-8 text-center text-sm text-accent-death">
-            {error}
-          </div>
+          <p className="py-12 text-sm text-red-400/90">{error}</p>
         )}
 
         {!loading && !error && posts.length === 0 && (
-          <div className="panel rounded-2xl p-8 text-center text-sm text-gray-400">
-            No finished runs yet. Be the first —{" "}
-            <Link href="/draft" className="text-accent-win hover:underline">
-              draft a gauntlet
-            </Link>{" "}
-            and make history.
-          </div>
+          <p className="py-12 text-sm text-gray-500">
+            No finished runs yet.{" "}
+            <Link href="/draft" className="text-[#ecece8] underline underline-offset-2">
+              Draft a gauntlet
+            </Link>
+            .
+          </p>
         )}
 
         {posts.map((post) => (
@@ -153,17 +147,17 @@ export default function FeedPage() {
             onPatch={(patch) => patchPost(post.runId, patch)}
           />
         ))}
-
-        {!loading && hasMore && (
-          <button
-            onClick={loadMore}
-            disabled={loadingMore}
-            className="panel rounded-xl px-6 py-3 text-sm font-semibold text-gray-300 transition hover:border-accent-win/40 disabled:opacity-50"
-          >
-            {loadingMore ? "Loading…" : "Load more"}
-          </button>
-        )}
       </div>
+
+      {!loading && hasMore && (
+        <button
+          onClick={loadMore}
+          disabled={loadingMore}
+          className="mt-6 w-full border border-white/15 py-2.5 text-sm text-gray-400 transition hover:border-white/30 hover:text-gray-200 disabled:opacity-50"
+        >
+          {loadingMore ? "Loading…" : "Load more"}
+        </button>
+      )}
     </main>
   );
 }
@@ -180,67 +174,67 @@ function PostCard({
   const completed = post.status === "Completed";
   const signedIn = !!currentUserId;
   const elapsedMs = feedElapsedMs(post);
+  const isLite = post.runType === "Lite";
 
   return (
-    <article className="panel rounded-2xl p-5">
+    <article className="feed-row py-5">
       <div className="flex gap-4">
-        <VoteColumn post={post} signedIn={signedIn} onPatch={onPatch} />
+        <VoteColumn
+          post={post}
+          signedIn={signedIn}
+          onPatch={onPatch}
+          compact
+        />
 
-        {/* Body */}
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-            <span className="font-heading font-bold text-gray-100">
-              {post.streamerName}
-            </span>
+          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-[13px]">
+            <span className="font-medium text-[#ecece8]">{post.streamerName}</span>
+            <span className="text-gray-600">·</span>
             <span className="text-gray-500">{timeAgo(post.endTime)}</span>
-            <span
-              className={`rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider ${
-                completed
-                  ? "bg-accent-streak/15 text-accent-streak"
-                  : "bg-accent-death/15 text-accent-death"
-              }`}
-            >
-              {completed ? "Completed" : "Failed"}
+            <span className="text-gray-600">·</span>
+            <span className={completed ? "text-gray-400" : "text-red-400/80"}>
+              {completed ? "Clear" : "DNF"}
             </span>
-            <RunTypeBadge runType={post.runType} size="sm" />
+            {isLite && (
+              <>
+                <span className="text-gray-600">·</span>
+                <span className="text-gray-500">Lite</span>
+              </>
+            )}
           </div>
 
           <Link
             href={`/run/${post.runId}`}
-            className="mt-2 block rounded-lg outline-none transition hover:opacity-90 focus-visible:ring-2 focus-visible:ring-accent-win/50"
+            className="mt-2 block outline-none"
           >
-            <p className="font-heading text-lg font-bold">
-              {completed
-                ? post.runType === "Lite"
-                  ? "Conquered Gauntlet Lite"
-                  : "Conquered the full gauntlet"
-                : `Died on game ${post.slotsCompleted + 1} of ${post.totalSlots}`}
-              <span className="ml-2 font-mono text-base text-accent-win">
-                {post.totalScore.toLocaleString()} pts
-              </span>
-              {elapsedMs !== null && (
-                <span className="ml-2 font-mono text-base text-accent-streak">
-                  {formatSpeedrunTime(elapsedMs)}
-                </span>
-              )}
-            </p>
-            <div className="mt-3 flex gap-1">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+              <p className="text-[15px] leading-snug text-[#d8d8d4]">
+                {completed
+                  ? `${post.totalSlots}/${post.totalSlots} games`
+                  : `Stopped on game ${post.slotsCompleted + 1} of ${post.totalSlots}`}
+              </p>
+              <p className="font-mono text-[13px] tabular-nums text-gray-400">
+                <span>{formatPts(post.totalScore)} pts</span>
+                {elapsedMs !== null && (
+                  <>
+                    <span className="mx-2 text-gray-700">/</span>
+                    <span>{formatSpeedrunTime(elapsedMs)}</span>
+                  </>
+                )}
+              </p>
+            </div>
+
+            <ol className="mt-3 flex flex-wrap gap-px">
               {post.slotStatuses.map((status, i) => {
                 const thumb = post.slotThumbs?.[i] ?? null;
                 const title = post.slotTitles?.[i] ?? `Slot ${i + 1}`;
-                const ring =
-                  status === "Won"
-                    ? "ring-accent-win"
-                    : status === "Lost"
-                      ? "ring-accent-death"
-                      : "ring-white/15";
                 return (
-                  <span
+                  <li
                     key={i}
                     title={`${i + 1}. ${title} — ${status}`}
-                    className={`relative h-11 flex-1 overflow-hidden rounded-sm ring-1 ${ring} ${
-                      status === "Pending" ? "opacity-40" : ""
-                    }`}
+                    className={`relative h-9 w-9 overflow-hidden bg-white/5 ${
+                      status === "Pending" ? "opacity-35" : ""
+                    } ${status === "Lost" ? "opacity-80" : ""}`}
                   >
                     {thumb ? (
                       <Image
@@ -248,20 +242,25 @@ function PostCard({
                         alt=""
                         fill
                         unoptimized
-                        sizes="40px"
+                        sizes="36px"
                         className="object-cover"
                       />
                     ) : (
-                      <span className="flex h-full items-center justify-center bg-white/5 text-[10px] font-bold text-gray-500">
+                      <span className="flex h-full items-center justify-center font-mono text-[10px] text-gray-500">
                         {i + 1}
                       </span>
                     )}
-                  </span>
+                    {status === "Lost" && (
+                      <span
+                        aria-hidden
+                        className="absolute inset-0 bg-red-950/45"
+                      />
+                    )}
+                  </li>
                 );
               })}
-            </div>
+            </ol>
             <FeedSplits post={post} />
-            <p className="mt-2 text-xs text-gray-500">View lineup →</p>
           </Link>
 
           <FooterBar
@@ -273,6 +272,13 @@ function PostCard({
       </div>
     </article>
   );
+}
+
+function formatPts(value: number): string {
+  return value.toLocaleString("en-US", {
+    minimumFractionDigits: value % 1 === 0 ? 0 : 1,
+    maximumFractionDigits: 1,
+  });
 }
 
 /** Frozen timer, or the last recorded split when the overlay clock was never stored. */
@@ -292,55 +298,36 @@ function FeedSplits({ post }: { post: FeedPost }) {
   if (!hasAny) return null;
 
   return (
-    <div className="mt-3 border-t border-white/10 pt-2">
-      <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-gray-500">
-        Splits
-      </p>
-      <ol className="flex flex-col gap-0.5">
+    <table className="mt-3 w-full border-collapse text-[12px]">
+      <caption className="sr-only">Splits</caption>
+      <tbody>
         {titles.map((title, i) => {
           const time = splits[i];
           const status = statuses[i];
           if (status === "Pending" && time == null) return null;
-          const beaten = status === "Won";
           return (
-            <li
+            <tr
               key={i}
-              className="flex items-center justify-between gap-2 text-[11px]"
+              className="border-t border-white/8 text-gray-500 first:border-t-0"
             >
-              <span
-                className={`min-w-0 truncate ${
-                  beaten
-                    ? "text-gray-400"
-                    : status === "Lost"
-                      ? "text-accent-death"
-                      : "text-gray-600"
+              <td className="w-6 py-0.5 pr-2 font-mono tabular-nums text-gray-600">
+                {i + 1}
+              </td>
+              <td
+                className={`max-w-0 truncate py-0.5 pr-3 ${
+                  status === "Lost" ? "text-red-400/70" : "text-gray-400"
                 }`}
               >
-                <span
-                  className={`mr-1.5 font-mono ${
-                    beaten
-                      ? "text-[#00ff66]"
-                      : status === "Lost"
-                        ? "text-accent-death"
-                        : "text-gray-600"
-                  }`}
-                >
-                  {beaten ? "✓" : status === "Lost" ? "✕" : "·"}
-                </span>
                 {title}
-              </span>
-              <span
-                className={`shrink-0 font-mono ${
-                  beaten ? "text-[#00ff66]" : "text-gray-600"
-                }`}
-              >
+              </td>
+              <td className="py-0.5 text-right font-mono tabular-nums text-gray-500">
                 {time != null ? formatSpeedrunTime(time) : "—"}
-              </span>
-            </li>
+              </td>
+            </tr>
           );
         })}
-      </ol>
-    </div>
+      </tbody>
+    </table>
   );
 }
 
@@ -363,6 +350,7 @@ function FooterBar({
         commentsOpen={showComments}
         onToggleComments={() => setShowComments((v) => !v)}
         onPatch={onPatch}
+        compact
       />
       {showComments && (
         <CommentThread
@@ -374,4 +362,3 @@ function FooterBar({
     </div>
   );
 }
-

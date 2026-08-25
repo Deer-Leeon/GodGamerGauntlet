@@ -35,10 +35,12 @@ export function VoteColumn({
   post,
   signedIn,
   onPatch,
+  compact = false,
 }: {
   post: FeedPost;
   signedIn: boolean;
   onPatch: (patch: Partial<FeedPost>) => void;
+  compact?: boolean;
 }) {
   async function castVote(direction: 1 | -1) {
     if (!signedIn) return;
@@ -56,20 +58,27 @@ export function VoteColumn({
   }
 
   return (
-    <div className="flex flex-col items-center gap-1">
+    <div className={`flex flex-col items-center ${compact ? "gap-0" : "gap-1"}`}>
       <VoteArrow
         direction={1}
         active={post.myVote === 1}
         disabled={!signedIn}
+        compact={compact}
         onClick={() => castVote(1)}
       />
       <span
-        className={`font-mono text-sm font-bold ${
-          post.voteScore > 0
-            ? "text-accent-win"
-            : post.voteScore < 0
-              ? "text-accent-death"
-              : "text-gray-400"
+        className={`tabular-nums text-sm ${
+          compact
+            ? "font-medium text-gray-300"
+            : "font-mono font-bold"
+        } ${
+          compact
+            ? ""
+            : post.voteScore > 0
+              ? "text-accent-win"
+              : post.voteScore < 0
+                ? "text-accent-death"
+                : "text-gray-400"
         }`}
       >
         {post.voteScore}
@@ -78,6 +87,7 @@ export function VoteColumn({
         direction={-1}
         active={post.myVote === -1}
         disabled={!signedIn}
+        compact={compact}
         onClick={() => castVote(-1)}
       />
     </div>
@@ -88,11 +98,13 @@ function VoteArrow({
   direction,
   active,
   disabled,
+  compact,
   onClick,
 }: {
   direction: 1 | -1;
   active: boolean;
   disabled: boolean;
+  compact?: boolean;
   onClick: () => void;
 }) {
   const up = direction === 1;
@@ -101,12 +113,18 @@ function VoteArrow({
       onClick={onClick}
       disabled={disabled}
       title={disabled ? "Sign in to vote" : up ? "Upvote" : "Downvote"}
-      className={`rounded-md px-2 py-0.5 text-lg leading-none transition disabled:cursor-not-allowed disabled:opacity-40 ${
-        active
-          ? up
-            ? "text-accent-win"
-            : "text-accent-death"
-          : "text-gray-500 hover:text-gray-200"
+      className={`leading-none transition disabled:cursor-not-allowed disabled:opacity-40 ${
+        compact
+          ? `px-1 py-0.5 text-xs ${
+              active ? "text-gray-100" : "text-gray-600 hover:text-gray-300"
+            }`
+          : `rounded-md px-2 py-0.5 text-lg ${
+              active
+                ? up
+                  ? "text-accent-win"
+                  : "text-accent-death"
+                : "text-gray-500 hover:text-gray-200"
+            }`
       }`}
     >
       {up ? "▲" : "▼"}
@@ -120,12 +138,14 @@ export function ReactionBar({
   commentsOpen,
   onToggleComments,
   onPatch,
+  compact = false,
 }: {
   post: FeedPost;
   currentUserId: string | null;
   commentsOpen?: boolean;
   onToggleComments?: () => void;
   onPatch: (patch: Partial<FeedPost>) => void;
+  compact?: boolean;
 }) {
   const signedIn = !!currentUserId;
 
@@ -140,7 +160,7 @@ export function ReactionBar({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className={`flex flex-wrap items-center ${compact ? "gap-x-4 gap-y-1" : "gap-2"}`}>
       {REACTIONS.map(({ type, emoji, title }) => {
         const count = post.reactions[type] ?? 0;
         const mine = post.myReactions.includes(type);
@@ -150,14 +170,24 @@ export function ReactionBar({
             onClick={() => onToggleReaction(type)}
             disabled={!signedIn}
             title={signedIn ? title : "Sign in to react"}
-            className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm transition disabled:cursor-not-allowed ${
-              mine
-                ? "border-accent-win/60 bg-accent-win/10 text-accent-win"
-                : "border-white/10 text-gray-400 hover:border-white/25 hover:text-gray-200"
-            }`}
+            className={
+              compact
+                ? `text-[13px] transition disabled:cursor-not-allowed disabled:opacity-40 ${
+                    mine ? "text-gray-100" : "text-gray-500 hover:text-gray-300"
+                  }`
+                : `flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm transition disabled:cursor-not-allowed ${
+                    mine
+                      ? "border-accent-win/60 bg-accent-win/10 text-accent-win"
+                      : "border-white/10 text-gray-400 hover:border-white/25 hover:text-gray-200"
+                  }`
+            }
           >
             <span>{emoji}</span>
-            {count > 0 && <span className="font-mono text-xs">{count}</span>}
+            {count > 0 && (
+              <span className={compact ? "ml-1 tabular-nums" : "font-mono text-xs"}>
+                {count}
+              </span>
+            )}
           </button>
         );
       })}
@@ -165,14 +195,26 @@ export function ReactionBar({
       {onToggleComments && (
         <button
           onClick={onToggleComments}
-          className={`ml-auto flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm transition ${
-            commentsOpen
-              ? "border-accent-win/40 text-accent-win"
-              : "border-white/10 text-gray-400 hover:border-white/25 hover:text-gray-200"
-          }`}
+          className={
+            compact
+              ? `ml-auto text-[13px] transition ${
+                  commentsOpen ? "text-gray-100" : "text-gray-500 hover:text-gray-300"
+                }`
+              : `ml-auto flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm transition ${
+                  commentsOpen
+                    ? "border-accent-win/40 text-accent-win"
+                    : "border-white/10 text-gray-400 hover:border-white/25 hover:text-gray-200"
+                }`
+          }
         >
-          💬
-          <span className="font-mono text-xs">{post.commentCount}</span>
+          {compact ? (
+            <>Comments {post.commentCount}</>
+          ) : (
+            <>
+              💬
+              <span className="font-mono text-xs">{post.commentCount}</span>
+            </>
+          )}
         </button>
       )}
     </div>
