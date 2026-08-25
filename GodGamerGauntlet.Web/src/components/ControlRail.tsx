@@ -36,18 +36,18 @@ export default function ControlRail() {
   if (hidden || !runId) return null;
 
   return (
-    <aside className="fixed top-0 right-0 z-30 hidden h-dvh w-80 flex-col border-l border-white/12 bg-dark pt-14 lg:flex">
-      <div className="flex items-center justify-between gap-2 border-b border-white/12 px-3 py-2">
+    <aside className="fixed top-0 right-0 z-30 hidden h-dvh w-80 flex-col border-l border-gold/20 bg-surface pt-14 lg:flex">
+      <div className="flex items-center justify-between gap-2 border-b border-gold/20 px-3 py-2">
         <Link
           href={`/control/${runId}`}
-          className="text-[12px] text-gray-500 hover:text-ink"
+          className="text-[12px] text-muted hover:text-gold"
         >
           Open control room
         </Link>
         <button
           type="button"
           onClick={unpinControlRun}
-          className="px-2 py-1 text-[12px] text-gray-500 hover:text-ink"
+          className="px-2 py-1 text-[12px] text-muted hover:text-gold"
         >
           Hide
         </button>

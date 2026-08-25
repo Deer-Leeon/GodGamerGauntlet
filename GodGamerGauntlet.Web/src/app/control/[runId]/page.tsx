@@ -51,14 +51,14 @@ function ControlStudio({ runId }: { runId: string }) {
       </aside>
 
       <div className="min-w-0 flex-1">
-        <p className="text-sm text-gray-500">Control room</p>
+        <p className="text-sm text-muted">Control room</p>
         <div className="flex flex-wrap items-baseline gap-2">
           <h1 className="text-2xl font-semibold">
             {state?.streamerName ?? "Gauntlet"}
           </h1>
           <RunTypeBadge runType={state?.runType} />
         </div>
-        <p className="mt-1 text-sm text-gray-500">
+        <p className="mt-1 text-sm text-muted">
           Play, split, and reset from the sidebar — or keep those controls
           while you browse the rest of the site. The OBS popup uses a compact
           dock URL so it still fits on one panel.
@@ -67,15 +67,15 @@ function ControlStudio({ runId }: { runId: string }) {
         <div className="mt-4 flex flex-wrap gap-3">
           <Link
             href={`/run/${runId}`}
-            className="border border-white/20 px-3 py-1.5 text-sm text-ink transition hover:bg-white/5"
+            className="border border-gold/35 px-3 py-1.5 text-sm text-gold transition hover:bg-gold/10"
           >
             Open run tracker
           </Link>
         </div>
 
         {state && (
-          <section className="mt-8 border-t border-white/12 pt-5">
-            <h2 className="mb-3 text-sm text-gray-500">
+          <section className="mt-8 border-t border-gold/20 pt-5">
+            <h2 className="mb-3 text-sm text-muted">
               Lineup ({state.games.length} games)
             </h2>
             <div className="flex flex-col">
@@ -153,8 +153,8 @@ function ObsSetup({
   };
 
   return (
-    <section className="mt-8 border-t border-white/12 pt-5 text-sm text-gray-400">
-      <h2 className="mb-3 text-sm text-gray-500">OBS setup</h2>
+    <section className="mt-8 border-t border-gold/20 pt-5 text-sm text-muted">
+      <h2 className="mb-3 text-sm text-muted">OBS setup</h2>
       <ol className="list-decimal space-y-2 pl-5">
         <li>
           On the stream: Sources → Browser. Paste the overlay URL. Width{" "}
@@ -173,7 +173,7 @@ function ObsSetup({
         <button
           type="button"
           onClick={() => void copy("overlay")}
-          className="border border-white/20 px-3 py-1.5 text-sm text-ink hover:bg-white/5"
+          className="border border-gold/35 px-3 py-1.5 text-sm text-gold hover:bg-gold/10"
         >
           {copied === "overlay" ? "Copied" : "Copy overlay URL"}
         </button>

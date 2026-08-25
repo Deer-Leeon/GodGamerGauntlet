@@ -57,11 +57,11 @@ export default function SpeedrunTimer({
     return (
       <div
         className={`font-mono font-medium tabular-nums leading-none ${
-          timerStatus === "paused" ? "text-gray-500" : "text-ink"
+          timerStatus === "paused" ? "text-muted" : "text-gold"
         } ${className}`}
       >
         <span>{mainTime}</span>
-        <span className="text-[0.45em] font-normal text-gray-500">.{centis}</span>
+        <span className="text-[0.45em] font-normal text-gold/55">.{centis}</span>
       </div>
     );
   }

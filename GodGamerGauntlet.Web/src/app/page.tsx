@@ -83,16 +83,16 @@ export default function FeedPage() {
 
   return (
     <main className="feed-page mx-auto w-full max-w-3xl flex-1 px-4 py-10 sm:px-6">
-      <header className="flex flex-wrap items-end justify-between gap-3 border-b border-white/12 pb-5">
+      <header className="flex flex-wrap items-end justify-between gap-3 border-b border-gold/20 pb-5">
         <div>
           <h1 className="text-2xl font-semibold text-ink">Feed</h1>
-          <p className="mt-1 max-w-md text-sm text-gray-500">
+          <p className="mt-1 max-w-md text-sm text-muted">
             Finished gauntlets from the community.
           </p>
         </div>
         <Link
           href="/draft"
-          className="border border-white/20 px-3 py-1.5 text-sm text-ink transition hover:border-white/40 hover:bg-white/5"
+          className="bg-gold px-3 py-1.5 text-sm text-dark transition hover:bg-gold/90"
         >
           Draft a run
         </Link>
@@ -101,7 +101,7 @@ export default function FeedPage() {
       <div
         role="tablist"
         aria-label="Sort feed"
-        className="mt-5 flex gap-5 border-b border-white/12 text-sm"
+        className="mt-5 flex gap-5 border-b border-gold/20 text-sm"
       >
         {SORTS.map((s) => (
           <button
@@ -111,8 +111,8 @@ export default function FeedPage() {
             onClick={() => changeSort(s.id)}
             className={`-mb-px border-b-2 pb-2 transition ${
               sort === s.id
-                ? "border-ink text-ink"
-                : "border-transparent text-gray-500 hover:text-gray-300"
+                ? "border-gold text-gold"
+                : "border-transparent text-muted/70 hover:text-ink"
             }`}
           >
             {s.label}
@@ -132,7 +132,7 @@ export default function FeedPage() {
         {!loading && !error && posts.length === 0 && (
           <p className="py-12 text-sm text-gray-500">
             No finished runs yet.{" "}
-            <Link href="/draft" className="text-ink underline underline-offset-2">
+            <Link href="/draft" className="text-gold underline underline-offset-2">
               Draft a gauntlet
             </Link>
             .
@@ -153,7 +153,7 @@ export default function FeedPage() {
         <button
           onClick={loadMore}
           disabled={loadingMore}
-          className="mt-6 w-full border border-white/15 py-2.5 text-sm text-gray-400 transition hover:border-white/30 hover:text-gray-200 disabled:opacity-50"
+          className="mt-6 w-full border border-gold/25 py-2.5 text-sm text-muted transition hover:border-gold/50 hover:text-gold disabled:opacity-50"
         >
           {loadingMore ? "Loading…" : "Load more"}
         </button>
@@ -192,7 +192,7 @@ function PostCard({
             <span className="text-gray-600">·</span>
             <span className="text-gray-500">{timeAgo(post.endTime)}</span>
             <span className="text-gray-600">·</span>
-            <span className={completed ? "text-gray-400" : "text-red-400/80"}>
+            <span className={completed ? "text-gold" : "text-red-400/80"}>
               {completed ? "Clear" : "DNF"}
             </span>
             {isLite && (
@@ -213,12 +213,12 @@ function PostCard({
                   ? `${post.totalSlots}/${post.totalSlots} games`
                   : `Stopped on game ${post.slotsCompleted + 1} of ${post.totalSlots}`}
               </p>
-              <p className="font-mono text-[13px] tabular-nums text-gray-400">
+              <p className="font-mono text-[13px] tabular-nums text-gold">
                 <span>{formatPts(post.totalScore)} pts</span>
                 {elapsedMs !== null && (
                   <>
-                    <span className="mx-2 text-gray-700">/</span>
-                    <span>{formatSpeedrunTime(elapsedMs)}</span>
+                    <span className="mx-2 text-gold/35">/</span>
+                    <span className="text-muted">{formatSpeedrunTime(elapsedMs)}</span>
                   </>
                 )}
               </p>

@@ -19,9 +19,9 @@ export default function SiteNav() {
   if (pathname?.startsWith("/overlay/")) return null;
 
   return (
-    <header className="site-nav sticky top-0 z-40 border-b border-white/12 bg-dark">
+    <header className="site-nav sticky top-0 z-40 border-b border-gold/20 bg-dark/90">
       <nav className="mx-auto flex w-full max-w-6xl items-center gap-6 px-6 py-3">
-        <Link href="/" className="text-sm font-semibold text-ink">
+        <Link href="/" className="text-sm font-semibold text-gold">
           GGG
         </Link>
 
@@ -34,8 +34,8 @@ export default function SiteNav() {
                 href={link.href}
                 className={
                   active
-                    ? "-mb-px border-b-2 border-ink pb-0.5 text-ink"
-                    : "text-gray-500 transition hover:text-gray-300"
+                    ? "-mb-px border-b-2 border-gold pb-0.5 text-gold"
+                    : "text-muted/70 transition hover:text-ink"
                 }
               >
                 {link.label}
@@ -47,10 +47,10 @@ export default function SiteNav() {
         <div className="ml-auto flex items-center gap-3 text-sm">
           {loading ? null : user ? (
             <>
-              <span className="text-gray-500">{user.username}</span>
+              <span className="text-muted/80">{user.username}</span>
               <button
                 onClick={logout}
-                className="border border-white/20 px-3 py-1.5 text-gray-400 transition hover:border-white/40 hover:text-ink"
+                className="border border-gold/25 px-3 py-1.5 text-muted transition hover:border-gold/50 hover:text-ink"
               >
                 Log out
               </button>
@@ -58,7 +58,7 @@ export default function SiteNav() {
           ) : (
             <Link
               href="/login"
-              className="border border-white/20 px-3 py-1.5 text-ink transition hover:border-white/40 hover:bg-white/5"
+              className="bg-gold px-3 py-1.5 text-dark transition hover:bg-gold/90"
             >
               Sign in
             </Link>

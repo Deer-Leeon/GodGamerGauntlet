@@ -239,15 +239,19 @@ export default function LiveRunTrackerPage() {
         ← Back to feed
       </Link>
 
-      <header className="mb-8 flex flex-wrap items-end justify-between gap-4 border-b border-white/12 pb-5">
+      <header className="mb-8 flex flex-wrap items-end justify-between gap-4 border-b border-gold/20 pb-5">
         <div>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-muted">
             {isOver ? "Lineup" : "Live run"}
           </p>
           <div className="flex flex-wrap items-baseline gap-2">
             <h1 className="text-2xl font-semibold">{run.streamerName}</h1>
             <RunTypeBadge runType={run.runType} />
-            <span className={run.status === "Failed" ? "text-red-400/80" : "text-gray-500"}>
+            <span
+              className={
+                run.status === "Failed" ? "text-red-400/80" : "text-gold"
+              }
+            >
               {run.status === "Completed"
                 ? "Clear"
                 : run.status === "Failed"
@@ -290,7 +294,7 @@ export default function LiveRunTrackerPage() {
             <p className="text-xs text-gray-500">
               {isOver ? "Earned" : "Projected"}
             </p>
-            <p className="font-mono text-2xl tabular-nums text-ink">
+            <p className="font-mono text-2xl tabular-nums text-gold">
               {formatScore(isOver ? earnedScore : run.totalDifficultyScore)}
             </p>
             {runElapsedMs !== null && (
@@ -332,12 +336,13 @@ export default function LiveRunTrackerPage() {
                 <GameThumb slot={slot} />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm text-ink">{title}</p>
-                  <p className="font-mono text-xs tabular-nums text-gray-500">
-                    {base} × {multiplier.toFixed(1)} = +{formatScore(score)}
+                  <p className="font-mono text-xs tabular-nums text-muted">
+                    {base} × {multiplier.toFixed(1)} ={" "}
+                    <span className="text-gold">+{formatScore(score)}</span>
                   </p>
                 </div>
                 {slot.splitTimeMs != null && (
-                  <span className="shrink-0 font-mono text-sm tabular-nums text-gray-400">
+                  <span className="shrink-0 font-mono text-sm tabular-nums text-gold">
                     {formatSpeedrunTime(slot.splitTimeMs)}
                   </span>
                 )}
@@ -388,7 +393,7 @@ export default function LiveRunTrackerPage() {
                       type="button"
                       onClick={() => report(slot.position, "Won")}
                       disabled={reporting}
-                      className="border border-white/20 py-2 text-sm text-ink hover:bg-white/5 disabled:opacity-50"
+                      className="border border-gold/40 bg-gold py-2 text-sm text-dark hover:bg-gold/90 disabled:opacity-50"
                     >
                       {reporting ? "…" : "Record win"}
                     </button>
@@ -433,7 +438,7 @@ export default function LiveRunTrackerPage() {
       </ol>
 
       {isOver && post && (
-        <section className="mt-8 flex gap-4 border-t border-white/12 pt-5">
+        <section className="mt-8 flex gap-4 border-t border-gold/20 pt-5">
           <VoteColumn
             post={post}
             signedIn={!!user}
@@ -463,10 +468,10 @@ export default function LiveRunTrackerPage() {
       )}
 
       {isOver && (
-        <div className="mt-8 flex flex-wrap gap-3 border-t border-white/12 pt-5">
+        <div className="mt-8 flex flex-wrap gap-3 border-t border-gold/20 pt-5">
           <Link
             href="/draft"
-            className="border border-white/20 px-4 py-2 text-sm text-ink transition hover:bg-white/5"
+            className="bg-gold px-4 py-2 text-sm text-dark transition hover:bg-gold/90"
           >
             Start a new run
           </Link>

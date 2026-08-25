@@ -58,7 +58,7 @@ function GamePrice({ game }: { game: Game }) {
     <p className="font-mono text-xs tabular-nums text-gray-500">
       {discounted ? (
         <>
-          <span className="text-ink">${game.salePrice!.toFixed(2)}</span>{" "}
+          <span className="text-gold">${game.salePrice!.toFixed(2)}</span>{" "}
           <span className="text-gray-600 line-through">
             ${game.normalPrice.toFixed(2)}
           </span>
@@ -265,26 +265,26 @@ export default function DraftRoomPage() {
   if (createdRun) {
     return (
       <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col justify-center px-6 py-16">
-        <p className="text-sm text-gray-500">Run ready</p>
+        <p className="text-sm text-muted">Run ready</p>
         <div className="flex flex-wrap items-baseline gap-2">
           <h1 className="text-2xl font-semibold">Lineup locked</h1>
           <RunTypeBadge runType={createdRun.runType} />
         </div>
-        <dl className="mt-6 border-t border-white/12">
-          <div className="flex items-baseline justify-between gap-4 border-b border-white/12 py-3">
-            <dt className="text-sm text-gray-500">Run ID</dt>
+        <dl className="mt-6 border-t border-gold/20">
+          <div className="flex items-baseline justify-between gap-4 border-b border-gold/20 py-3">
+            <dt className="text-sm text-muted">Run ID</dt>
             <dd className="truncate font-mono text-sm text-ink">
               {createdRun.id}
             </dd>
           </div>
-          <div className="flex items-baseline justify-between gap-4 border-b border-white/12 py-3">
-            <dt className="text-sm text-gray-500">Projected score</dt>
-            <dd className="font-mono text-xl tabular-nums text-ink">
+          <div className="flex items-baseline justify-between gap-4 border-b border-gold/20 py-3">
+            <dt className="text-sm text-muted">Projected score</dt>
+            <dd className="font-mono text-xl tabular-nums text-gold">
               {formatScore(createdRun.totalDifficultyScore)}
             </dd>
           </div>
-          <div className="flex items-baseline justify-between gap-4 border-b border-white/12 py-3">
-            <dt className="text-sm text-gray-500">Status</dt>
+          <div className="flex items-baseline justify-between gap-4 border-b border-gold/20 py-3">
+            <dt className="text-sm text-muted">Status</dt>
             <dd className="text-sm text-ink">
               {createdRun.status} · {createdRun.totalSlots} games
             </dd>
@@ -292,7 +292,7 @@ export default function DraftRoomPage() {
         </dl>
         <Link
           href={`/run/${createdRun.id}`}
-          className="mt-8 self-start border border-white/20 px-4 py-2 text-sm text-ink transition hover:bg-white/5"
+          className="mt-8 self-start bg-gold px-4 py-2 text-sm text-dark transition hover:bg-gold/90"
         >
           Open run tracker
         </Link>
@@ -302,19 +302,19 @@ export default function DraftRoomPage() {
 
   return (
     <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-10">
-      <header className="flex flex-wrap items-end justify-between gap-3 border-b border-white/12 pb-5">
+      <header className="flex flex-wrap items-end justify-between gap-3 border-b border-gold/20 pb-5">
         <div>
           <h1 className="text-2xl font-semibold">Draft Room</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="mt-1 text-sm text-muted">
             Build a {slotCount}-game gauntlet. Later slots multiply the score.
           </p>
         </div>
         <div className="text-right">
-          <p className="text-xs text-gray-500">Projected</p>
-          <p className="font-mono text-2xl tabular-nums text-ink">
+          <p className="text-xs text-muted">Projected</p>
+          <p className="font-mono text-2xl tabular-nums text-gold">
             {formatScore(totalProjectedScore)}
           </p>
-          <p className="font-mono text-xs tabular-nums text-gray-500">
+          <p className="font-mono text-xs tabular-nums text-muted">
             {filledCount}/{slotCount} slots
           </p>
         </div>
@@ -323,7 +323,7 @@ export default function DraftRoomPage() {
       <div
         role="radiogroup"
         aria-label="Gauntlet mode"
-        className="mt-5 flex gap-5 border-b border-white/12 text-sm"
+        className="mt-5 flex gap-5 border-b border-gold/20 text-sm"
       >
         {MODES.map((mode) => (
           <button
@@ -333,8 +333,8 @@ export default function DraftRoomPage() {
             onClick={() => changeMode(mode.id)}
             className={`-mb-px border-b-2 pb-2 transition ${
               runType === mode.id
-                ? "border-ink text-ink"
-                : "border-transparent text-gray-500 hover:text-gray-300"
+                ? "border-gold text-gold"
+                : "border-transparent text-muted/70 hover:text-ink"
             }`}
           >
             {mode.label}
@@ -344,7 +344,7 @@ export default function DraftRoomPage() {
           </button>
         ))}
       </div>
-      <p className="mt-3 text-sm text-gray-500">{activeMode.blurb}</p>
+      <p className="mt-3 text-sm text-muted">{activeMode.blurb}</p>
 
       {loadError && (
         <p className="mt-4 text-sm text-red-400/90">
@@ -353,13 +353,13 @@ export default function DraftRoomPage() {
       )}
 
       {!authLoading && !user && (
-        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border border-white/12 px-4 py-3">
-          <p className="text-sm text-gray-400">
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border border-gold/25 px-4 py-3">
+          <p className="text-sm text-muted">
             Sign in to launch a gauntlet — the run is posted under your name.
           </p>
           <Link
             href="/login"
-            className="border border-white/20 px-3 py-1.5 text-sm text-ink transition hover:bg-white/5"
+            className="bg-gold px-3 py-1.5 text-sm text-dark transition hover:bg-gold/90"
           >
             Sign in
           </Link>
@@ -393,7 +393,7 @@ export default function DraftRoomPage() {
             <label className="sr-only" htmlFor="catalog-search">
               Search games
             </label>
-            <div className="relative flex items-center border border-white/12">
+            <div className="relative flex items-center border border-gold/20">
               <span aria-hidden className="pl-3 text-gray-500">
                 ⌕
               </span>
@@ -436,7 +436,7 @@ export default function DraftRoomPage() {
                   setSort(event.target.value as CatalogSort);
                   setPage(1);
                 }}
-                className="border border-white/12 bg-dark px-3 py-1.5 text-xs text-ink outline-none"
+                className="border border-gold/20 bg-surface px-3 py-1.5 text-xs text-ink outline-none"
                 aria-label="Sort catalog"
               >
                 <option value="featured">Featured &amp; popular</option>
@@ -494,14 +494,14 @@ export default function DraftRoomPage() {
                     </span>
                     <GamePrice game={game} />
                   </div>
-                  <span className="shrink-0 font-mono text-sm tabular-nums text-gray-500">
+                  <span className="shrink-0 font-mono text-sm tabular-nums text-gold">
                     {game.baseDifficulty}
                   </span>
                   <button
                     type="button"
                     onClick={() => addGame(game)}
                     disabled={drafted || boardFull}
-                    className="shrink-0 border border-white/15 px-2.5 py-1 text-xs text-gray-400 transition enabled:hover:border-white/30 enabled:hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
+                    className="shrink-0 border border-gold/30 px-2.5 py-1 text-xs text-gold transition enabled:hover:bg-gold/10 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     {drafted ? "Drafted" : "Add"}
                   </button>
@@ -546,9 +546,11 @@ export default function DraftRoomPage() {
                     <>
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm text-ink">{game.title}</p>
-                        <p className="font-mono text-xs tabular-nums text-gray-500">
+                        <p className="font-mono text-xs tabular-nums text-muted">
                           {game.baseDifficulty} × {multiplier.toFixed(1)} ={" "}
-                          {formatScore(slotScore(game.baseDifficulty, position))}
+                          <span className="text-gold">
+                            {formatScore(slotScore(game.baseDifficulty, position))}
+                          </span>
                         </p>
                       </div>
                       <div className="flex items-center gap-1">
@@ -600,8 +602,8 @@ export default function DraftRoomPage() {
               disabled={!boardFull || !user || launching}
               className={`w-full py-2.5 text-sm transition disabled:cursor-not-allowed disabled:opacity-40 ${
                 boardFull && user
-                  ? "bg-ink text-dark hover:bg-white"
-                  : "border border-white/15 text-gray-400"
+                  ? "bg-gold text-dark hover:bg-gold/90"
+                  : "border border-gold/25 text-muted"
               }`}
             >
               {launching
@@ -643,7 +645,7 @@ function CatalogPager({
         type="button"
         onClick={() => onPage(page - 1)}
         disabled={page <= 1}
-        className="border border-white/15 px-3 py-1.5 text-xs text-gray-400 transition enabled:hover:text-ink disabled:opacity-30"
+        className="border border-gold/25 px-3 py-1.5 text-xs text-muted transition enabled:hover:text-gold disabled:opacity-30"
       >
         Prev
       </button>
@@ -660,8 +662,8 @@ function CatalogPager({
             aria-current={item === page ? "page" : undefined}
             className={`min-w-8 px-2.5 py-1.5 font-mono text-xs tabular-nums transition ${
               item === page
-                ? "bg-ink text-dark"
-                : "border border-white/15 text-gray-400 hover:text-ink"
+                ? "bg-gold text-dark"
+                : "border border-gold/25 text-muted hover:text-gold"
             }`}
           >
             {item}
@@ -672,7 +674,7 @@ function CatalogPager({
         type="button"
         onClick={() => onPage(page + 1)}
         disabled={page >= pageCount}
-        className="border border-white/15 px-3 py-1.5 text-xs text-gray-400 transition enabled:hover:text-ink disabled:opacity-30"
+        className="border border-gold/25 px-3 py-1.5 text-xs text-muted transition enabled:hover:text-gold disabled:opacity-30"
       >
         Next
       </button>

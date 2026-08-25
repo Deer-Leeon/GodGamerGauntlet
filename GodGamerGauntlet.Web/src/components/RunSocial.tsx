@@ -64,7 +64,15 @@ export function VoteColumn({
         disabled={!signedIn}
         onClick={() => castVote(1)}
       />
-      <span className="text-sm font-medium tabular-nums text-gray-300">
+      <span
+        className={`text-sm font-medium tabular-nums ${
+          post.voteScore > 0
+            ? "text-gold"
+            : post.voteScore < 0
+              ? "text-accent-death"
+              : "text-muted"
+        }`}
+      >
         {post.voteScore}
       </span>
       <VoteArrow
@@ -95,7 +103,7 @@ function VoteArrow({
       disabled={disabled}
       title={disabled ? "Sign in to vote" : up ? "Upvote" : "Downvote"}
       className={`px-1 py-0.5 text-xs leading-none transition disabled:cursor-not-allowed disabled:opacity-40 ${
-        active ? "text-gray-100" : "text-gray-600 hover:text-gray-300"
+        active ? "text-gold" : "text-muted/60 hover:text-ink"
       }`}
     >
       {up ? "▲" : "▼"}
@@ -244,7 +252,7 @@ export function CommentThread({
           <button
             type="submit"
             disabled={posting || !draft.trim()}
-            className="border border-white/20 px-4 py-2 text-sm text-ink transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-40"
+            className="bg-gold px-4 py-2 text-sm text-dark transition hover:bg-gold/90 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {posting ? "…" : "Post"}
           </button>

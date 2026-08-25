@@ -130,7 +130,7 @@ export default function ControlBoard({
         </div>
       )}
 
-      <div className="flex shrink-0 flex-col items-center border-y border-white/12 py-3">
+      <div className="flex shrink-0 flex-col items-center border-y border-gold/20 py-3">
         <SpeedrunTimer
           elapsedMs={state.elapsedMs}
           timerStatus={state.timerStatus}
@@ -150,8 +150,8 @@ export default function ControlBoard({
           disabled={!isOwner || state.timerStatus === "finished"}
           className={`col-span-2 py-2.5 text-sm disabled:opacity-40 ${
             running
-              ? "border border-white/20 text-ink hover:bg-white/5"
-              : "bg-ink text-dark hover:bg-white"
+              ? "border border-gold/40 text-gold hover:bg-gold/10"
+              : "bg-gold text-dark hover:bg-gold/90"
           }`}
         >
           {running ? "Pause" : "Play"}
@@ -162,7 +162,7 @@ export default function ControlBoard({
           type="button"
           onClick={split}
           disabled={!isOwner || state.runStatus !== "Active"}
-          className="col-span-2 border border-white/20 py-2.5 text-sm text-ink hover:bg-white/5 disabled:opacity-40"
+          className="col-span-2 border border-gold/35 py-2.5 text-sm text-gold hover:bg-gold/10 disabled:opacity-40"
         >
           Game beaten — next
           <KeyHint>Enter</KeyHint>
@@ -211,7 +211,7 @@ export default function ControlBoard({
           />
         ))}
         {beaten.length > 0 && (
-          <table className="mt-3 w-full border-collapse border-t border-white/12 pt-2 text-[12px]">
+          <table className="mt-3 w-full border-collapse border-t border-gold/20 pt-2 text-[12px]">
             <caption className="sr-only">Splits</caption>
             <tbody>
               {beaten.map((game, i) => (

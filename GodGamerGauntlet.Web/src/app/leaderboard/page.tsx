@@ -66,16 +66,16 @@ export default function LeaderboardPage() {
 
   return (
     <main className="mx-auto w-full max-w-4xl flex-1 px-6 py-10">
-      <header className="flex flex-wrap items-end justify-between gap-3 border-b border-white/12 pb-5">
+      <header className="flex flex-wrap items-end justify-between gap-3 border-b border-gold/20 pb-5">
         <div>
           <h1 className="text-2xl font-semibold">Leaderboard</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="mt-1 text-sm text-muted">
             Top finished runs, ranked by earned score.
           </p>
         </div>
         <Link
           href="/draft"
-          className="border border-white/20 px-3 py-1.5 text-sm text-ink transition hover:border-white/40 hover:bg-white/5"
+          className="bg-gold px-3 py-1.5 text-sm text-dark transition hover:bg-gold/90"
         >
           Draft a run
         </Link>
@@ -84,7 +84,7 @@ export default function LeaderboardPage() {
       <div
         role="tablist"
         aria-label="Gauntlet mode"
-        className="mt-5 flex gap-5 border-b border-white/12 text-sm"
+        className="mt-5 flex gap-5 border-b border-gold/20 text-sm"
       >
         {BOARDS.map((board) => (
           <button
@@ -94,8 +94,8 @@ export default function LeaderboardPage() {
             onClick={() => setRunType(board.id)}
             className={`-mb-px border-b-2 pb-2 transition ${
               runType === board.id
-                ? "border-ink text-ink"
-                : "border-transparent text-gray-500 hover:text-gray-300"
+                ? "border-gold text-gold"
+                : "border-transparent text-muted/70 hover:text-ink"
             }`}
           >
             {board.label}
@@ -108,7 +108,7 @@ export default function LeaderboardPage() {
       )}
 
       <div className="feed-list">
-        <div className="grid grid-cols-[3rem_1fr_6rem_5rem_4rem] gap-2 border-b border-white/12 px-0 py-3 text-[12px] text-gray-500 sm:grid-cols-[3rem_1fr_7rem_6rem_5rem_8rem]">
+        <div className="grid grid-cols-[3rem_1fr_6rem_5rem_4rem] gap-2 border-b border-gold/20 px-0 py-3 text-[12px] text-muted sm:grid-cols-[3rem_1fr_7rem_6rem_5rem_8rem]">
           <span>#</span>
           <span>Streamer</span>
           <span className="text-right">Score</span>
@@ -143,7 +143,7 @@ export default function LeaderboardPage() {
                   <span className="truncate font-medium text-ink">
                     {entry.streamerName}
                   </span>
-                  <span className="text-right font-mono tabular-nums text-gray-400">
+                  <span className="text-right font-mono tabular-nums text-gold">
                     {formatScore(entry.totalScore)}
                   </span>
                   <span className="text-center font-mono text-sm tabular-nums text-gray-500">
@@ -151,7 +151,7 @@ export default function LeaderboardPage() {
                   </span>
                   <span
                     className={`text-center text-[13px] ${
-                      completed ? "text-gray-400" : "text-red-400/80"
+                      completed ? "text-gold" : "text-red-400/80"
                     }`}
                   >
                     {completed ? "Clear" : "DNF"}

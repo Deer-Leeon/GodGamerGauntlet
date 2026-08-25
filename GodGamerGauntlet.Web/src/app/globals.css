@@ -1,19 +1,20 @@
 @import "tailwindcss";
 
 /*
- * Site language: a results wire. Hairlines, sentence-case type, numbers
- * in the margin. Accents stay available for the OBS overlay; site chrome
- * should not use them as fill.
+ * Site language: a results wire in a warm arena. Hairlines, sentence-case
+ * type, numbers in the margin. Gold marks the brand, the score, and the
+ * next action — not every box.
  */
 @theme {
-  --color-dark: #0c0c0e;
-  --color-surface: #0c0c0e;
-  --color-ink: #ecece8;
-  --color-muted: #c8c8c4;
+  --color-dark: #1a1610;
+  --color-surface: #241e16;
+  --color-ink: #f7efdc;
+  --color-muted: #d2c4a8;
+  --color-gold: #e8bc4a;
 
-  --color-accent-streak: #ecece8;
-  --color-accent-win: #ecece8;
-  --color-accent-death: #c45c5c;
+  --color-accent-streak: #e8bc4a;
+  --color-accent-win: #e8bc4a;
+  --color-accent-death: #e07a68;
 
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-heading: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
@@ -21,8 +22,8 @@
 }
 
 @utility panel {
-  background-color: transparent;
-  border: 1px solid rgb(255 255 255 / 0.12);
+  background-color: rgb(36 30 22 / 0.55);
+  border: 1px solid rgb(232 188 74 / 0.2);
 }
 
 body {
@@ -35,6 +36,10 @@ body {
   display: flex;
   min-height: 100dvh;
   flex-direction: column;
+  background:
+    radial-gradient(1100px 420px at 50% -12%, rgb(232 188 74 / 0.16), transparent 58%),
+    radial-gradient(700px 480px at 100% 110%, rgb(180 70 30 / 0.1), transparent 55%),
+    var(--color-dark);
 }
 
 .site-shell h1,
@@ -49,20 +54,20 @@ body {
 .site-shell input:focus-visible,
 .site-shell select:focus-visible,
 .site-shell textarea:focus-visible {
-  outline: 1px solid var(--color-ink);
+  outline: 1px solid var(--color-gold);
   outline-offset: 3px;
 }
 
 .feed-list {
-  border-top: 1px solid rgb(255 255 255 / 0.12);
+  border-top: 1px solid rgb(232 188 74 / 0.18);
 }
 
 .feed-row {
-  border-bottom: 1px solid rgb(255 255 255 / 0.12);
+  border-bottom: 1px solid rgb(232 188 74 / 0.16);
 }
 
 .feed-row:hover {
-  background: rgb(255 255 255 / 0.02);
+  background: rgb(232 188 74 / 0.06);
 }
 
 /*
