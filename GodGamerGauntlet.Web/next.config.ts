@@ -2,8 +2,11 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   images: {
-    // Game cover art comes from the RAWG media CDN.
-    remotePatterns: [{ protocol: "https", hostname: "media.rawg.io" }],
+    // RAWG covers plus Wikimedia logos for web-native featured titles.
+    remotePatterns: [
+      { protocol: "https", hostname: "media.rawg.io" },
+      { protocol: "https", hostname: "upload.wikimedia.org" },
+    ],
   },
 };
 

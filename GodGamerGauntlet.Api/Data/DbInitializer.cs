@@ -34,13 +34,13 @@ public static class DbInitializer
             "Chess.com",
             95,
             "web-chess-com",
-            "https://images.chesscomfiles.com/uploads/v1/images_users/tiny_mce/SamCopeland/phpvd9y9P.png"
+            "https://upload.wikimedia.org/wikipedia/commons/thumb/8/88/Chesscom_logo_pawn_flat.svg/330px-Chesscom_logo_pawn_flat.svg.png"
         ),
         (
             "GeoGuessr",
             85,
             "web-geoguessr",
-            "https://www.geoguessr.com/images/auto/1200/630/ce/0/plain/static/hero-image.jpg"
+            "https://upload.wikimedia.org/wikipedia/commons/b/b4/GeoGuessr_logo.png"
         )
     ];
 
@@ -111,7 +111,12 @@ public static class DbInitializer
                 match.IsFeatured = true;
                 match.PopularityRank = 0;
                 match.ExternalId ??= externalId;
-                match.Thumb ??= thumb;
+                // Seed thumbs must overwrite: the first web-native URLs 404'd,
+                // and `??=` would have left those broken strings in place forever.
+                if (thumb is not null)
+                {
+                    match.Thumb = thumb;
+                }
                 continue;
             }
 

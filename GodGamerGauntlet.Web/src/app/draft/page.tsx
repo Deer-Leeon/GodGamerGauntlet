@@ -52,7 +52,8 @@ function GamePrice({ game }: { game: Game }) {
 }
 
 function GameThumb({ game }: { game: Game }) {
-  if (!game.thumb) {
+  const [broken, setBroken] = useState(false);
+  if (!game.thumb || broken) {
     return (
       <span
         aria-hidden
@@ -69,6 +70,7 @@ function GameThumb({ game }: { game: Game }) {
       width={64}
       height={48}
       unoptimized
+      onError={() => setBroken(true)}
       className="h-12 w-16 shrink-0 rounded-lg border border-white/10 object-cover"
     />
   );
