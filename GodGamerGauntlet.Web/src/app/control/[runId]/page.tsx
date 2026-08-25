@@ -1,10 +1,12 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { useOverlayRun } from "@/lib/useOverlayRun";
+import { useOverlayHotkeys } from "@/lib/useOverlayHotkeys";
 import SpeedrunTimer, { formatSpeedrunTime } from "@/components/SpeedrunTimer";
 
 export default function ControlDeckPage() {
@@ -21,19 +23,25 @@ export default function ControlDeckPage() {
     resetGauntlet,
   } = useOverlayRun(runId);
 
-  const [confirmingReset, setConfirmingReset] = useState(false);
-  const [copied, setCopied] = useState<"overlay" | "dock" | null>(null);
+  const rootRef = useRef<HTMLElement>(null);
+  const isOwner = Boolean(state?.overlayKey);
 
-  // Auto-disarm the reset confirmation after a few seconds.
+  const { resetArmed, requestReset } = useOverlayHotkeys({
+    enabled: isOwner,
+    togglePlayPause,
+    split,
+    resetGauntlet,
+    onKeyP: previousGame,
+  });
+
+  // Click anywhere in the dock so Space/Enter hit our handlers, not a focused button.
   useEffect(() => {
-    if (!confirmingReset) return;
-    const timer = setTimeout(() => setConfirmingReset(false), 4000);
-    return () => clearTimeout(timer);
-  }, [confirmingReset]);
+    rootRef.current?.focus();
+  }, [state]);
 
   if (loadError && !state) {
     return (
-      <main className="mx-auto max-w-md px-4 py-12 text-center text-gray-400">
+      <main className="obs-control-root grid h-full min-h-0 flex-1 place-items-center px-4 text-center text-gray-400">
         Run not found.
       </main>
     );
@@ -41,19 +49,21 @@ export default function ControlDeckPage() {
 
   if (!state) {
     return (
-      <main className="mx-auto max-w-md px-4 py-12 text-center text-gray-500">
+      <main className="obs-control-root grid h-full min-h-0 flex-1 place-items-center px-4 text-center text-gray-500">
         Connecting to run…
       </main>
     );
   }
 
-  // The API only reveals the overlay key to the run owner.
-  const isOwner = state.overlayKey !== null;
   const games = state.games;
   const active = games[state.currentSlotIndex];
-  const upcoming = games.slice(state.currentSlotIndex + 1, state.currentSlotIndex + 4);
+  const upcoming = games.slice(
+    state.currentSlotIndex + 1,
+    state.currentSlotIndex + 3,
+  );
   const beaten = games.filter((g) => g.completed);
   const running = state.timerStatus === "running";
+  const slotLabel = `${Math.min(state.currentSlotIndex + 1, games.length)}/${games.length}`;
 
   const copyUrl = async (which: "overlay" | "dock") => {
     const url =
@@ -61,229 +71,232 @@ export default function ControlDeckPage() {
         ? `${window.location.origin}/overlay/${state.runId}?key=${state.overlayKey}`
         : window.location.href;
     await navigator.clipboard.writeText(url);
-    setCopied(which);
-    setTimeout(() => setCopied(null), 2000);
   };
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-col gap-4 px-4 py-6">
-      <header className="text-center">
-        <h1 className="font-heading text-lg font-bold uppercase tracking-[0.2em] text-accent-streak">
+    <main
+      ref={rootRef}
+      tabIndex={-1}
+      onPointerDown={() => {
+        window.focus();
+        rootRef.current?.focus();
+      }}
+      className="obs-control-root flex h-full min-h-0 flex-1 flex-col gap-2 overflow-hidden px-3 py-2 outline-none"
+    >
+      <header className="flex shrink-0 items-baseline justify-between gap-2">
+        <h1 className="font-heading text-xs font-bold uppercase tracking-[0.2em] text-accent-streak">
           Control Deck
         </h1>
-        <p className="text-sm text-gray-400">
-          {state.streamerName} · {state.runStatus} ·{" "}
-          {Math.min(state.currentSlotIndex + 1, games.length)}/{games.length}
+        <p className="truncate font-mono text-[11px] uppercase tracking-widest text-gray-400">
+          {state.runStatus} · {slotLabel}
         </p>
       </header>
 
       {!authLoading && !isOwner && (
-        <div className="panel rounded-xl p-4 text-center text-sm text-amber-300">
-          {user
-            ? "You are not the owner of this run — controls are disabled."
-            : "Sign in as the run owner to use the controls."}
+        <div className="shrink-0 rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-center text-xs text-amber-200">
+          {user ? (
+            "You are not the owner of this run — controls are disabled."
+          ) : (
+            <>
+              <Link href="/login" className="font-bold underline">
+                Sign in
+              </Link>{" "}
+              as the run owner to use the controls.
+            </>
+          )}
         </div>
       )}
 
-      {/* Live mirrored timer */}
-      <div className="panel flex flex-col items-center rounded-2xl py-5">
+      <div className="panel flex shrink-0 flex-col items-center rounded-xl py-2">
         <SpeedrunTimer
           elapsedMs={state.elapsedMs}
           timerStatus={state.timerStatus}
           syncedAt={syncedAt}
-          className="text-5xl"
+          className="text-[42px]"
         />
-        <span className="mt-1 font-mono text-xs uppercase tracking-widest text-gray-500">
-          {state.timerStatus}
+        <span className="font-mono text-[10px] uppercase tracking-widest text-gray-500">
+          {resetArmed ? "Press R again to reset" : state.timerStatus}
         </span>
       </div>
 
-      {/* Core actions */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid shrink-0 grid-cols-2 gap-2">
         <button
+          type="button"
           onClick={togglePlayPause}
           disabled={!isOwner || state.timerStatus === "finished"}
-          className={`col-span-2 rounded-2xl py-6 font-heading text-2xl font-black uppercase tracking-wider text-dark transition active:scale-[0.98] disabled:opacity-40 ${
+          className={`col-span-2 rounded-xl py-3 font-heading text-lg font-black uppercase tracking-wider text-dark disabled:opacity-40 ${
             running
               ? "bg-amber-400 hover:brightness-110"
               : "bg-[#00ff66] hover:brightness-110"
           }`}
         >
           {running ? "❚❚ Pause" : "▶ Play"}
+          <KeyHint>Space</KeyHint>
         </button>
 
         <button
+          type="button"
           onClick={split}
           disabled={!isOwner || state.runStatus !== "Active"}
-          className="col-span-2 rounded-2xl bg-accent-win py-6 font-heading text-xl font-black uppercase tracking-wider text-dark transition hover:brightness-110 active:scale-[0.98] disabled:opacity-40"
+          className="col-span-2 rounded-xl bg-accent-win py-3 font-heading text-base font-black uppercase tracking-wider text-dark hover:brightness-110 disabled:opacity-40"
         >
           Game Beaten — Next ▸
+          <KeyHint>Enter</KeyHint>
         </button>
 
         <button
+          type="button"
           onClick={previousGame}
           disabled={!isOwner}
-          className="rounded-2xl border border-white/15 bg-white/5 py-4 font-heading font-bold uppercase tracking-wider text-gray-300 transition hover:bg-white/10 active:scale-[0.98] disabled:opacity-40"
+          className="rounded-xl border border-white/15 bg-white/5 py-2.5 font-heading text-sm font-bold uppercase tracking-wider text-gray-300 hover:bg-white/10 disabled:opacity-40"
         >
-          ◂ Undo Previous
+          ◂ Undo
+          <KeyHint>P</KeyHint>
         </button>
 
         <button
-          onClick={() => {
-            if (confirmingReset) {
-              setConfirmingReset(false);
-              void resetGauntlet();
-            } else {
-              setConfirmingReset(true);
-            }
-          }}
+          type="button"
+          onClick={requestReset}
           disabled={!isOwner}
-          className={`rounded-2xl py-4 font-heading font-bold uppercase tracking-wider transition active:scale-[0.98] disabled:opacity-40 ${
-            confirmingReset
+          className={`rounded-xl py-2.5 font-heading text-sm font-bold uppercase tracking-wider disabled:opacity-40 ${
+            resetArmed
               ? "bg-accent-death text-white"
               : "border border-accent-death/50 bg-accent-death/10 text-accent-death hover:bg-accent-death/20"
           }`}
         >
-          {confirmingReset ? "Confirm reset?" : "Reset Gauntlet"}
+          {resetArmed ? "Confirm reset?" : "Reset"}
+          <KeyHint>R R</KeyHint>
         </button>
       </div>
 
       {actionError && (
-        <p className="text-center text-sm text-accent-death">{actionError}</p>
+        <p className="shrink-0 text-center text-xs text-accent-death">
+          {actionError}
+        </p>
       )}
 
-      {/* Mirrored run state */}
-      {active && state.runStatus === "Active" && (
-        <section className="panel rounded-2xl p-4">
-          <h2 className="mb-2 font-mono text-xs uppercase tracking-widest text-gray-500">
-            Now playing
-          </h2>
-          <GameRow game={active} highlight />
-        </section>
-      )}
-
-      {upcoming.length > 0 && (
-        <section className="panel rounded-2xl p-4">
-          <h2 className="mb-2 font-mono text-xs uppercase tracking-widest text-gray-500">
-            Up next
-          </h2>
-          <div className="flex flex-col gap-2">
-            {upcoming.map((game) => (
-              <GameRow key={game.gameId} game={game} />
-            ))}
+      <section className="panel min-h-0 flex-1 overflow-y-auto rounded-xl p-2.5">
+        {active && (
+          <GameRow game={active} label="Now" highlight />
+        )}
+        {upcoming.map((game, index) => (
+          <GameRow
+            key={game.gameId}
+            game={game}
+            label={index === 0 ? "Next" : "Then"}
+          />
+        ))}
+        {beaten.length > 0 && (
+          <div className="mt-2 border-t border-white/10 pt-2">
+            <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-gray-500">
+              Splits
+            </p>
+            <div className="flex flex-col gap-0.5">
+              {beaten.map((game) => (
+                <div
+                  key={game.gameId}
+                  className="flex items-center justify-between gap-2 text-[11px]"
+                >
+                  <span className="truncate text-gray-400">
+                    <span className="mr-1.5 font-mono text-[#00ff66]">✓</span>
+                    {game.title}
+                  </span>
+                  <span className="shrink-0 font-mono text-[#00ff66]">
+                    {game.splitTimeMs !== null
+                      ? formatSpeedrunTime(game.splitTimeMs)
+                      : "—"}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
-        </section>
-      )}
-
-      {beaten.length > 0 && (
-        <section className="panel rounded-2xl p-4">
-          <h2 className="mb-2 font-mono text-xs uppercase tracking-widest text-gray-500">
-            Splits
-          </h2>
-          <div className="flex flex-col gap-1.5">
-            {beaten.map((game) => (
-              <div
-                key={game.gameId}
-                className="flex items-center justify-between text-sm"
-              >
-                <span className="truncate text-gray-400">
-                  <span className="mr-2 font-mono text-[#00ff66]">✓</span>
-                  {game.title}
-                </span>
-                <span className="ml-3 shrink-0 font-mono text-[#00ff66]">
-                  {game.splitTimeMs !== null
-                    ? formatSpeedrunTime(game.splitTimeMs)
-                    : "—"}
-                </span>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
+        )}
+      </section>
 
       {isOwner && (
-        <section className="panel flex flex-col gap-3 rounded-2xl p-4 text-sm">
-          <h2 className="font-heading text-xs font-bold uppercase tracking-widest text-accent-streak">
-            OBS setup
-          </h2>
-          <ol className="list-decimal space-y-2 pl-5 text-gray-300">
+        <details className="panel shrink-0 rounded-xl px-2.5 py-1.5 text-xs text-gray-400">
+          <summary className="cursor-pointer font-heading text-[10px] font-bold uppercase tracking-widest text-accent-streak">
+            OBS setup / copy URLs
+          </summary>
+          <ol className="mt-2 list-decimal space-y-1.5 pl-4 text-gray-300">
             <li>
-              <span className="font-semibold text-white">On the stream:</span>{" "}
-              Sources → <span className="text-accent-win">Browser</span>. Paste
-              the overlay URL. In the properties window set Width{" "}
-              <span className="font-mono text-accent-win">840</span> and Height{" "}
-              <span className="font-mono text-accent-win">680</span>, then OK.
-              Right-click the source → Transform →{" "}
-              <span className="text-white">Reset Transform</span>. The overlay
-              renders sharp at any size with that shape — shrinking it on the
-              canvas is fine, stretching it bigger is not.
+              Stream overlay: Sources → Browser. Width{" "}
+              <span className="font-mono text-accent-win">840</span> × Height{" "}
+              <span className="font-mono text-accent-win">680</span>, then
+              Transform → Reset Transform.
             </li>
             <li>
-              <span className="font-semibold text-white">For buttons:</span>{" "}
-              Docks → Custom Browser Docks → paste this control-deck URL. Docks
-              are always opaque — that is expected.
+              This deck: Docks → Custom Browser Docks. Opaque is expected.
             </li>
           </ol>
-          <button
-            onClick={() => copyUrl("overlay")}
-            className="rounded-2xl border border-accent-streak/50 bg-accent-streak/10 py-3 font-heading text-sm font-bold uppercase tracking-wider text-accent-streak transition hover:bg-accent-streak/20"
-          >
-            {copied === "overlay" ? "Copied!" : "Copy overlay URL (Browser Source)"}
-          </button>
-          <button
-            onClick={() => copyUrl("dock")}
-            className="rounded-2xl border border-white/15 bg-white/5 py-3 font-heading text-sm font-bold uppercase tracking-wider text-gray-300 transition hover:bg-white/10"
-          >
-            {copied === "dock" ? "Copied!" : "Copy this deck URL (OBS Dock)"}
-          </button>
-          <p className="text-xs text-gray-500">
-            Chrome and OBS docks cannot punch through to your game capture. Only
-            a Browser Source in the scene is transparent.
-          </p>
-        </section>
+          <div className="mt-2 flex gap-2">
+            <button
+              type="button"
+              onClick={() => void copyUrl("overlay")}
+              className="flex-1 rounded-lg border border-accent-streak/50 py-1.5 font-heading text-[10px] font-bold uppercase tracking-wider text-accent-streak"
+            >
+              Copy overlay URL
+            </button>
+            <button
+              type="button"
+              onClick={() => void copyUrl("dock")}
+              className="flex-1 rounded-lg border border-white/15 py-1.5 font-heading text-[10px] font-bold uppercase tracking-wider text-gray-300"
+            >
+              Copy deck URL
+            </button>
+          </div>
+        </details>
       )}
-
-      <p className="text-center text-xs text-gray-600">
-        Overlay hotkeys: Space play/pause · Enter split · R×2 reset · P helper
-        buttons
-      </p>
     </main>
+  );
+}
+
+function KeyHint({ children }: { children: string }) {
+  return (
+    <span className="ml-2 font-mono text-[10px] font-bold tracking-widest opacity-70">
+      {children}
+    </span>
   );
 }
 
 function GameRow({
   game,
+  label,
   highlight = false,
 }: {
-  game: { title: string; thumb: string | null; slotNumber: number; baseDifficulty: number };
+  game: {
+    title: string;
+    thumb: string | null;
+    slotNumber: number;
+    baseDifficulty: number;
+  };
+  label: string;
   highlight?: boolean;
 }) {
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex items-center gap-2 py-0.5">
+      <span className="w-9 shrink-0 font-mono text-[9px] font-bold uppercase tracking-widest text-gray-500">
+        {label}
+      </span>
       {game.thumb ? (
         <Image
           src={game.thumb}
           alt=""
-          width={40}
-          height={40}
+          width={28}
+          height={28}
           unoptimized
-          className="h-10 w-10 shrink-0 rounded-lg object-cover"
+          className="h-7 w-7 shrink-0 rounded object-cover"
         />
       ) : (
-        <div className="h-10 w-10 shrink-0 rounded-lg bg-white/10" />
+        <div className="h-7 w-7 shrink-0 rounded bg-white/10" />
       )}
-      <div className="min-w-0 flex-1">
-        <p
-          className={`truncate font-heading font-bold ${
-            highlight ? "text-accent-win" : "text-gray-300"
-          }`}
-        >
-          {game.title}
-        </p>
-        <p className="text-xs text-gray-500">
-          Slot {game.slotNumber} · difficulty {game.baseDifficulty}
-        </p>
-      </div>
+      <p
+        className={`min-w-0 flex-1 truncate text-sm font-heading font-bold ${
+          highlight ? "text-accent-win" : "text-gray-300"
+        }`}
+      >
+        {game.title}
+      </p>
     </div>
   );
 }

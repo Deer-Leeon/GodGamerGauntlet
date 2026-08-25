@@ -75,3 +75,17 @@ html:has(.obs-overlay-root) .site-shell {
   -moz-osx-font-smoothing: grayscale;
   text-rendering: geometricPrecision;
 }
+
+/* Control deck dock: one screen, no page scroll, keys go to the page. */
+html:has(.obs-control-root),
+html:has(.obs-control-root) body {
+  overflow: hidden !important;
+  height: 100% !important;
+  max-height: 100dvh;
+}
+
+html:has(.obs-control-root) .site-shell {
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}

@@ -1,13 +1,11 @@
 "use client";
 
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import type { OverlaySlot } from "@/lib/api";
 import { useOverlayRun } from "@/lib/useOverlayRun";
+import { useOverlayHotkeys } from "@/lib/useOverlayHotkeys";
 import SpeedrunTimer from "@/components/SpeedrunTimer";
-
-/** How long a first R-press stays armed before reset confirmation expires. */
-const RESET_ARM_WINDOW_MS = 1500;
 
 /**
  * Design-space size. The overlay re-renders natively at whatever size the
@@ -33,10 +31,16 @@ function OverlayView() {
     useOverlayRun(runId, overlayKey);
 
   const [showHelpers, setShowHelpers] = useState(false);
-  const [resetArmed, setResetArmed] = useState(false);
   const [scale, setScale] = useState(1);
   const [aspectOff, setAspectOff] = useState(false);
-  const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const { resetArmed } = useOverlayHotkeys({
+    enabled: Boolean(state),
+    togglePlayPause,
+    split,
+    resetGauntlet,
+    onKeyP: () => setShowHelpers((visible) => !visible),
+  });
 
   // Belt-and-suspenders with the CSS :has(.obs-overlay-root) rule.
   useEffect(() => {
@@ -60,49 +64,6 @@ function OverlayView() {
     window.addEventListener("resize", update);
     return () => window.removeEventListener("resize", update);
   }, []);
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      switch (event.code) {
-        case "Space":
-          event.preventDefault();
-          void togglePlayPause();
-          break;
-        case "Enter":
-        case "NumpadEnter":
-          event.preventDefault();
-          void split();
-          break;
-        case "KeyR":
-          event.preventDefault();
-          setResetArmed((armed) => {
-            if (armed) {
-              if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
-              void resetGauntlet();
-              return false;
-            }
-            // First tap arms the reset; a second tap within the window fires it.
-            if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
-            resetTimerRef.current = setTimeout(
-              () => setResetArmed(false),
-              RESET_ARM_WINDOW_MS,
-            );
-            return true;
-          });
-          break;
-        case "KeyP":
-          event.preventDefault();
-          setShowHelpers((visible) => !visible);
-          break;
-      }
-    };
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => {
-      window.removeEventListener("keydown", onKeyDown);
-      if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
-    };
-  }, [togglePlayPause, split, resetGauntlet]);
 
   if (!state) {
     return (
