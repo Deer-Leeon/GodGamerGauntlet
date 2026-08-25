@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 
 /** How long a first R-press stays armed before reset confirmation expires. */
 const RESET_ARM_WINDOW_MS = 1500;
@@ -19,6 +19,11 @@ interface OverlayHotkeys {
   resetGauntlet: () => void | Promise<void>;
   /** Overlay: toggle helper chips. Control deck: undo previous game. */
   onKeyP?: () => void | Promise<void>;
+  /**
+   * When set, ignore keypresses that happen outside this element so a
+   * site-wide sidebar does not steal Space/Enter from the rest of the page.
+   */
+  limitTo?: RefObject<HTMLElement | null>;
 }
 
 /**
@@ -32,16 +37,19 @@ export function useOverlayHotkeys({
   split,
   resetGauntlet,
   onKeyP,
+  limitTo,
 }: OverlayHotkeys): { resetArmed: boolean; requestReset: () => void } {
   const [resetArmed, setResetArmed] = useState(false);
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const enabledRef = useRef(enabled);
   const actionsRef = useRef({ togglePlayPause, split, resetGauntlet, onKeyP });
+  const limitToRef = useRef(limitTo);
 
   useEffect(() => {
     enabledRef.current = enabled;
     actionsRef.current = { togglePlayPause, split, resetGauntlet, onKeyP };
-  }, [enabled, togglePlayPause, split, resetGauntlet, onKeyP]);
+    limitToRef.current = limitTo;
+  }, [enabled, togglePlayPause, split, resetGauntlet, onKeyP, limitTo]);
 
   const requestReset = useCallback(() => {
     setResetArmed((armed) => {
@@ -67,6 +75,14 @@ export function useOverlayHotkeys({
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       if (isTypingTarget(event.target)) return;
       if (event.repeat) return;
+      const limit = limitToRef.current?.current;
+      if (
+        limit &&
+        event.target instanceof Node &&
+        !limit.contains(event.target)
+      ) {
+        return;
+      }
 
       switch (event.code) {
         case "Space":

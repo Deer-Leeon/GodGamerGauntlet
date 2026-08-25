@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, JetBrains_Mono, Space_Grotesk } from "next/font/google";
 import { AuthProvider } from "@/lib/auth";
 import SiteNav from "@/components/SiteNav";
+import ControlRail from "@/components/ControlRail";
 import "./globals.css";
 
 const inter = Inter({
@@ -36,6 +37,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <div className="site-shell">
             <SiteNav />
             {children}
+            <ControlRail />
           </div>
         </AuthProvider>
       </body>

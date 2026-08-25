@@ -14,13 +14,12 @@ export default function SiteNav() {
   const pathname = usePathname();
   const { user, loading, logout } = useAuth();
 
-  // Overlay is chrome-free for OBS; the control deck is a tight dock panel.
-  if (pathname?.startsWith("/overlay/") || pathname?.startsWith("/control/")) {
-    return null;
-  }
+  // Overlay is chrome-free for OBS. The control dock hides this via CSS
+  // when .obs-control-root is present; the wide control room keeps the nav.
+  if (pathname?.startsWith("/overlay/")) return null;
 
   return (
-    <header className="sticky top-0 z-40 border-b border-white/10 bg-surface/90 backdrop-blur">
+    <header className="site-nav sticky top-0 z-40 border-b border-white/10 bg-surface/90 backdrop-blur">
       <nav className="mx-auto flex w-full max-w-5xl items-center gap-6 px-6 py-3">
         <Link
           href="/"

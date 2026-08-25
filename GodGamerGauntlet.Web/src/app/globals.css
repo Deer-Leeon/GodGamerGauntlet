@@ -89,3 +89,14 @@ html:has(.obs-control-root) .site-shell {
   min-height: 0;
   overflow: hidden;
 }
+
+html:has(.obs-control-root) .site-nav {
+  display: none !important;
+}
+
+/* Live-controls sidebar on the rest of the site (lg and up). */
+@media (min-width: 1024px) {
+  html.ggg-has-control-rail .site-shell {
+    padding-right: 20rem;
+  }
+}

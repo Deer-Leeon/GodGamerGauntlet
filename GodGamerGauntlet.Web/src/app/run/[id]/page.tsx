@@ -14,6 +14,7 @@ import {
   type RunStatus,
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { pinControlRun } from "@/lib/controlSession";
 import {
   CommentThread,
   ReactionBar,
@@ -248,12 +249,21 @@ export default function LiveRunTrackerPage() {
         </div>
         <div className="flex flex-wrap items-center gap-4">
           {isOwner && (
-            <Link
-              href={`/control/${run.id}`}
-              className="rounded-lg border border-accent-streak/50 px-3 py-1.5 text-xs font-semibold text-accent-streak transition hover:bg-accent-streak/10"
-            >
-              Stream Control Deck
-            </Link>
+            <>
+              <button
+                type="button"
+                onClick={() => pinControlRun(run.id)}
+                className="rounded-lg border border-accent-win/50 px-3 py-1.5 text-xs font-semibold text-accent-win transition hover:bg-accent-win/10"
+              >
+                Show live controls
+              </button>
+              <Link
+                href={`/control/${run.id}`}
+                className="rounded-lg border border-accent-streak/50 px-3 py-1.5 text-xs font-semibold text-accent-streak transition hover:bg-accent-streak/10"
+              >
+                Control room
+              </Link>
+            </>
           )}
           <button
             type="button"
