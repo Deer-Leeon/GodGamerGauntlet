@@ -22,7 +22,7 @@ export default function ControlDeckPage() {
   } = useOverlayRun(runId);
 
   const [confirmingReset, setConfirmingReset] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<"overlay" | "dock" | null>(null);
 
   // Auto-disarm the reset confirmation after a few seconds.
   useEffect(() => {
@@ -55,11 +55,14 @@ export default function ControlDeckPage() {
   const beaten = games.filter((g) => g.completed);
   const running = state.timerStatus === "running";
 
-  const copyObsUrl = async () => {
-    const url = `${window.location.origin}/overlay/${state.runId}?key=${state.overlayKey}`;
+  const copyUrl = async (which: "overlay" | "dock") => {
+    const url =
+      which === "overlay"
+        ? `${window.location.origin}/overlay/${state.runId}?key=${state.overlayKey}`
+        : window.location.href;
     await navigator.clipboard.writeText(url);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setCopied(which);
+    setTimeout(() => setCopied(null), 2000);
   };
 
   return (
@@ -199,12 +202,42 @@ export default function ControlDeckPage() {
       )}
 
       {isOwner && (
-        <button
-          onClick={copyObsUrl}
-          className="rounded-2xl border border-accent-streak/50 bg-accent-streak/10 py-3 font-heading text-sm font-bold uppercase tracking-wider text-accent-streak transition hover:bg-accent-streak/20"
-        >
-          {copied ? "Copied!" : "Copy OBS Browser Source URL"}
-        </button>
+        <section className="panel flex flex-col gap-3 rounded-2xl p-4 text-sm">
+          <h2 className="font-heading text-xs font-bold uppercase tracking-widest text-accent-streak">
+            OBS setup
+          </h2>
+          <ol className="list-decimal space-y-2 pl-5 text-gray-300">
+            <li>
+              <span className="font-semibold text-white">On the stream:</span>{" "}
+              Sources → <span className="text-accent-win">Browser</span> (not a
+              window capture, not a dock). Paste the overlay URL. Width{" "}
+              <span className="font-mono text-accent-win">420</span>, height{" "}
+              <span className="font-mono text-accent-win">560</span>. Leave
+              Custom CSS empty.
+            </li>
+            <li>
+              <span className="font-semibold text-white">For buttons:</span>{" "}
+              Docks → Custom Browser Docks → paste this control-deck URL. Docks
+              are always opaque — that is expected.
+            </li>
+          </ol>
+          <button
+            onClick={() => copyUrl("overlay")}
+            className="rounded-2xl border border-accent-streak/50 bg-accent-streak/10 py-3 font-heading text-sm font-bold uppercase tracking-wider text-accent-streak transition hover:bg-accent-streak/20"
+          >
+            {copied === "overlay" ? "Copied!" : "Copy overlay URL (Browser Source)"}
+          </button>
+          <button
+            onClick={() => copyUrl("dock")}
+            className="rounded-2xl border border-white/15 bg-white/5 py-3 font-heading text-sm font-bold uppercase tracking-wider text-gray-300 transition hover:bg-white/10"
+          >
+            {copied === "dock" ? "Copied!" : "Copy this deck URL (OBS Dock)"}
+          </button>
+          <p className="text-xs text-gray-500">
+            Chrome and OBS docks cannot punch through to your game capture. Only
+            a Browser Source in the scene is transparent.
+          </p>
+        </section>
       )}
 
       <p className="text-center text-xs text-gray-600">
