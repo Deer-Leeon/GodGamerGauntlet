@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import type { OverlaySlot } from "@/lib/api";
@@ -9,6 +8,10 @@ import SpeedrunTimer from "@/components/SpeedrunTimer";
 
 /** How long a first R-press stays armed before reset confirmation expires. */
 const RESET_ARM_WINDOW_MS = 1500;
+
+/** Must match the Browser Source Width / Height in OBS properties. */
+const OVERLAY_W = 420;
+const OVERLAY_H = 340;
 
 export default function OverlayPage() {
   // useSearchParams requires a Suspense boundary during prerender.
@@ -27,6 +30,7 @@ function OverlayView() {
 
   const [showHelpers, setShowHelpers] = useState(false);
   const [resetArmed, setResetArmed] = useState(false);
+  const [sourceTooTall, setSourceTooTall] = useState(false);
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Belt-and-suspenders with the CSS :has(.obs-overlay-root) rule.
@@ -37,6 +41,13 @@ function OverlayView() {
       document.documentElement.classList.remove("obs-overlay");
       document.body.classList.remove("obs-overlay");
     };
+  }, []);
+
+  useEffect(() => {
+    const check = () => setSourceTooTall(window.innerHeight > OVERLAY_H + 4);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
   }, []);
 
   useEffect(() => {
@@ -83,29 +94,41 @@ function OverlayView() {
   }, [togglePlayPause, split, resetGauntlet]);
 
   if (!state) {
-    return <main className="obs-overlay-root h-0 w-[420px] overflow-hidden" />;
+    return (
+      <main
+        className="obs-overlay-root overflow-hidden"
+        style={{ width: OVERLAY_W, height: OVERLAY_H }}
+      />
+    );
   }
 
   const beatenCount = state.games.filter((g) => g.completed).length;
   const totalCount = state.games.length || 10;
 
   return (
-    <main className="obs-overlay-root flex w-[420px] flex-col items-center px-2 pt-1 pb-1">
+    <main
+      className="obs-overlay-root relative flex flex-col gap-2 overflow-hidden p-2"
+      style={{ width: OVERLAY_W, height: OVERLAY_H }}
+    >
+      {sourceTooTall && (
+        <div className="rounded bg-[#ff3366] px-2 py-1 font-heading text-[11px] font-bold leading-tight text-white">
+          Empty space = OBS source is too tall. Double-click the Browser source
+          → Width {OVERLAY_W}, Height {OVERLAY_H} → OK. Then right-click →
+          Transform → Reset Transform. Do not drag the red box.
+        </div>
+      )}
+
       <GameWheel games={state.games} currentIndex={state.currentSlotIndex} />
 
-      {/* Timer plate: dark glass backing keeps the digits legible over bright gameplay. */}
       <div
-        className="mt-3 w-full rounded-2xl border border-white/15 px-5 py-3"
-        style={{
-          background: "rgba(8,11,22,0.94)",
-          boxShadow: "0 8px 24px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08)",
-        }}
+        className="mt-auto w-full rounded-lg border border-white/20 px-4 py-2"
+        style={{ background: "rgba(8,11,22,0.96)" }}
       >
         <div className="flex items-center justify-between">
-          <span className="font-heading text-[10px] font-bold uppercase tracking-[0.3em] text-gray-500">
+          <span className="font-heading text-[11px] font-bold uppercase tracking-[0.2em] text-gray-400">
             Gauntlet Time
           </span>
-          <span className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500">
+          <span className="font-mono text-[11px] font-bold uppercase tracking-[0.16em] text-gray-400">
             {beatenCount}/{totalCount} clear
           </span>
         </div>
@@ -114,29 +137,28 @@ function OverlayView() {
           elapsedMs={state.elapsedMs}
           timerStatus={state.timerStatus}
           syncedAt={syncedAt}
-          className="mt-1 text-center text-[54px]"
+          className="mt-1 text-center text-[48px]"
         />
 
-        <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-white/10">
+        <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-white/15">
           <div
-            className="h-full rounded-full transition-all duration-500 ease-out"
+            className="h-full rounded-full"
             style={{
               width: `${(beatenCount / totalCount) * 100}%`,
-              background: "linear-gradient(90deg, #00e5ff 0%, #00ff66 100%)",
-              boxShadow: "0 0 10px rgba(0,255,102,0.6)",
+              background: "#00ff66",
             }}
           />
         </div>
       </div>
 
       {resetArmed && (
-        <div className="rounded-md bg-accent-death/90 px-3 py-1 font-heading text-xs font-bold uppercase tracking-widest text-white">
+        <div className="absolute bottom-2 left-2 right-2 rounded bg-accent-death px-3 py-1 text-center font-heading text-xs font-bold uppercase tracking-widest text-white">
           Press R again to reset
         </div>
       )}
 
       {showHelpers && (
-        <div className="flex items-center gap-2">
+        <div className="absolute right-2 top-2 flex items-center gap-1">
           <HelperButton onClick={togglePlayPause}>
             {state.timerStatus === "running" ? "Pause" : "Play"}
           </HelperButton>
@@ -163,10 +185,10 @@ function HelperButton({
   return (
     <button
       onClick={onClick}
-      className={`rounded-md border px-3 py-1.5 font-heading text-xs font-bold uppercase tracking-wider backdrop-blur transition ${
+      className={`rounded border px-2 py-1 font-heading text-xs font-bold uppercase tracking-wider ${
         danger
-          ? "border-accent-death/60 bg-black/60 text-accent-death hover:bg-accent-death/20"
-          : "border-accent-win/40 bg-black/60 text-accent-win hover:bg-accent-win/10"
+          ? "border-accent-death/60 bg-black/80 text-accent-death"
+          : "border-accent-win/40 bg-black/80 text-accent-win"
       }`}
     >
       {children}
@@ -188,7 +210,7 @@ function GameWheel({
   if (!active) return null;
 
   return (
-    <div className="flex w-full flex-col gap-2">
+    <div className="flex w-full min-h-0 flex-1 flex-col gap-2">
       <WheelPill
         game={active}
         variant="active"
@@ -208,6 +230,30 @@ function GameWheel({
   );
 }
 
+function Thumb({ src, size }: { src: string | null; size: number }) {
+  if (!src) {
+    return (
+      <div
+        className="shrink-0 rounded bg-white/10"
+        style={{ width: size, height: size }}
+      />
+    );
+  }
+  return (
+    // Native img: Next/Image wrappers can resample and look soft in OBS CEF.
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt=""
+      width={size}
+      height={size}
+      draggable={false}
+      className="shrink-0 rounded object-cover"
+      style={{ width: size, height: size }}
+    />
+  );
+}
+
 function WheelPill({
   game,
   variant,
@@ -219,91 +265,48 @@ function WheelPill({
   currentSlot: number;
   totalSlots: number;
 }) {
-  if (variant === "active") {
-    return (
-      <div
-        className="relative mx-auto w-full overflow-hidden rounded-2xl border border-accent-win/60"
-        style={{
-          background: "rgba(10,16,32,0.96)",
-          boxShadow:
-            "0 8px 24px rgba(0,0,0,0.5), 0 0 18px rgba(0,229,255,0.22), inset 0 1px 0 rgba(255,255,255,0.10)",
-        }}
-      >
-        <div
-          className="absolute inset-y-0 left-0 w-[3px]"
-          style={{ background: "linear-gradient(180deg, #00e5ff 0%, #00ff66 100%)" }}
-        />
-
-        <div className="flex items-center gap-3 py-3 pl-5 pr-4">
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-accent-win/15 font-mono text-sm font-black text-accent-win ring-1 ring-accent-win/40">
-            {game.slotNumber}
-          </span>
-
-          {game.thumb ? (
-            <Image
-              src={game.thumb}
-              alt=""
-              width={48}
-              height={48}
-              unoptimized
-              className="h-12 w-12 shrink-0 rounded-xl object-cover ring-1 ring-white/20"
-            />
-          ) : (
-            <div className="h-12 w-12 shrink-0 rounded-xl bg-white/10 ring-1 ring-white/20" />
-          )}
-
-          <div className="min-w-0 flex-1">
-            <p className="font-heading text-[10px] font-bold uppercase tracking-[0.28em] text-accent-win">
-              Now Playing
-            </p>
-            <p className="truncate font-heading text-lg font-extrabold leading-snug text-white">
-              {game.title}
-            </p>
-          </div>
-
-          <div className="shrink-0 text-right font-mono leading-none">
-            <span className="text-[26px] font-black text-accent-win">
-              {currentSlot}
-            </span>
-            <span className="text-sm font-bold text-gray-400">/{totalSlots}</span>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const isActive = variant === "active";
 
   return (
     <div
-      className="mx-auto flex w-full items-center gap-3 rounded-xl border border-white/15 px-4 py-2.5"
-      style={{ background: "rgba(10,14,26,0.94)" }}
+      className={`relative flex w-full shrink-0 items-center gap-3 overflow-hidden rounded-lg border px-3 py-2 ${
+        isActive ? "border-[#00e5ff]" : "border-white/25"
+      }`}
+      style={{ background: isActive ? "rgba(10,16,32,0.96)" : "rgba(10,14,26,0.94)" }}
     >
-      <span className="w-6 shrink-0 text-center font-mono text-sm font-black text-gray-300">
+      {isActive && (
+        <div className="absolute inset-y-0 left-0 w-[3px] bg-[#00e5ff]" />
+      )}
+
+      <span
+        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded font-mono text-sm font-black ${
+          isActive ? "bg-[#00e5ff]/15 text-[#00e5ff]" : "text-gray-200"
+        }`}
+      >
         {game.slotNumber}
       </span>
 
-      {game.thumb ? (
-        <Image
-          src={game.thumb}
-          alt=""
-          width={40}
-          height={40}
-          unoptimized
-          className="h-10 w-10 shrink-0 rounded-lg object-cover ring-1 ring-white/15"
-        />
-      ) : (
-        <div className="h-10 w-10 shrink-0 rounded-lg bg-white/10" />
-      )}
+      <Thumb src={game.thumb} size={isActive ? 48 : 44} />
 
       <div className="min-w-0 flex-1">
-        {variant === "next" && (
-          <p className="font-heading text-[10px] font-bold uppercase tracking-[0.28em] text-gray-400">
-            Up Next
-          </p>
-        )}
-        <p className="truncate font-heading text-base font-bold leading-snug text-white">
+        <p
+          className={`font-heading text-[11px] font-bold uppercase tracking-[0.2em] ${
+            isActive ? "text-[#00e5ff]" : "text-gray-400"
+          }`}
+        >
+          {isActive ? "Now Playing" : variant === "next" ? "Up Next" : "Then"}
+        </p>
+        <p className="truncate font-heading text-lg font-extrabold leading-tight text-white">
           {game.title}
         </p>
       </div>
+
+      {isActive && (
+        <div className="shrink-0 text-right font-mono leading-none">
+          <span className="text-[26px] font-black text-[#00e5ff]">{currentSlot}</span>
+          <span className="text-sm font-bold text-gray-400">/{totalSlots}</span>
+        </div>
+      )}
     </div>
   );
 }

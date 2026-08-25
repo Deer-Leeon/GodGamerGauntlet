@@ -48,23 +48,23 @@ export default function SpeedrunTimer({
       ? elapsedMs + (tickNow - syncedAt)
       : elapsedMs;
 
-  // Layered glow via text-shadow (CSS filter drop-shadow is what OBS blurs).
-  const looks: Record<TimerStatus, { classes: string; glow: string }> = {
+  // 1px black outline keeps digits readable without a soft glow bloom.
+  const looks: Record<TimerStatus, { classes: string; outline: string }> = {
     running: {
       classes: "text-[#00ff66]",
-      glow: "0 0 8px rgba(0,255,102,0.7), 0 2px 0 rgba(0,0,0,0.55)",
+      outline: "0 1px 0 #000, 0 -1px 0 #000, 1px 0 0 #000, -1px 0 0 #000",
     },
     paused: {
-      classes: "animate-pulse text-[#facc15]",
-      glow: "0 0 8px rgba(250,204,21,0.7), 0 2px 0 rgba(0,0,0,0.55)",
+      classes: "text-[#facc15]",
+      outline: "0 1px 0 #000, 0 -1px 0 #000, 1px 0 0 #000, -1px 0 0 #000",
     },
     finished: {
       classes: "text-accent-streak",
-      glow: "0 0 8px rgba(255,192,0,0.7), 0 2px 0 rgba(0,0,0,0.55)",
+      outline: "0 1px 0 #000, 0 -1px 0 #000, 1px 0 0 #000, -1px 0 0 #000",
     },
     idle: {
       classes: "text-[#00ff66]",
-      glow: "0 0 6px rgba(0,255,102,0.45), 0 2px 0 rgba(0,0,0,0.55)",
+      outline: "0 1px 0 #000, 0 -1px 0 #000, 1px 0 0 #000, -1px 0 0 #000",
     },
   };
   const look = looks[timerStatus];
@@ -73,11 +73,11 @@ export default function SpeedrunTimer({
 
   return (
     <div
-      className={`font-mono font-black tabular-nums leading-none transition-colors duration-300 ${look.classes} ${className}`}
-      style={{ textShadow: look.glow }}
+      className={`font-mono font-black tabular-nums leading-none ${look.classes} ${className}`}
+      style={{ textShadow: look.outline }}
     >
-      <span className="tracking-[-0.04em]">{mainTime}</span>
-      <span className="text-[0.52em] font-bold opacity-90">.{centis}</span>
+      <span>{mainTime}</span>
+      <span className="text-[24px] font-bold">.{centis}</span>
     </div>
   );
 }

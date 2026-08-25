@@ -209,12 +209,14 @@ export default function ControlDeckPage() {
           <ol className="list-decimal space-y-2 pl-5 text-gray-300">
             <li>
               <span className="font-semibold text-white">On the stream:</span>{" "}
-              Sources → <span className="text-accent-win">Browser</span> (not a
-              window capture, not a dock). Paste the overlay URL. Width{" "}
-              <span className="font-mono text-accent-win">420</span>, height{" "}
-              <span className="font-mono text-accent-win">420</span>. Leave
-              Custom CSS empty. If the red box is taller than the overlay,
-              drag the source shorter so it hugs the timer.
+              Sources → <span className="text-accent-win">Browser</span>. Paste
+              the overlay URL. In the properties window set Width{" "}
+              <span className="font-mono text-accent-win">420</span> and Height{" "}
+              <span className="font-mono text-accent-win">340</span>, then
+              OK. Right-click the source → Transform →{" "}
+              <span className="text-white">Reset Transform</span>. Do not drag
+              the red handles — that stretches empty pixels and looks blurry.
+              Place it at 100% size.
             </li>
             <li>
               <span className="font-semibold text-white">For buttons:</span>{" "}

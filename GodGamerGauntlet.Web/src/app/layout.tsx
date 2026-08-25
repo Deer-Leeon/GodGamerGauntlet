@@ -29,12 +29,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} h-full antialiased`}
+      className={`${inter.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-dark text-gray-100">
+      <body className="bg-dark text-gray-100">
         <AuthProvider>
-          <SiteNav />
-          {children}
+          <div className="site-shell">
+            <SiteNav />
+            {children}
+          </div>
         </AuthProvider>
       </body>
     </html>
