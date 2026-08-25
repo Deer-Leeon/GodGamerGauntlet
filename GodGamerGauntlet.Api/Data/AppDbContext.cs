@@ -36,6 +36,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.Property(g => g.Thumb).HasMaxLength(500);
             entity.Property(g => g.NormalPrice).HasPrecision(10, 2);
             entity.Property(g => g.SalePrice).HasPrecision(10, 2);
+            entity.Property(g => g.IsFeatured).HasDefaultValue(false);
+            entity.Property(g => g.PopularityRank).HasDefaultValue(999999);
+            // Backs the catalog's default featured-then-popularity ordering.
+            entity.HasIndex(g => new { g.IsFeatured, g.PopularityRank });
             entity.ToTable(t => t.HasCheckConstraint(
                 "CK_Games_BaseDifficulty", "\"BaseDifficulty\" BETWEEN 1 AND 100"));
         });

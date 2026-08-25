@@ -86,7 +86,7 @@ export default function DraftRoomPage() {
   const [launchError, setLaunchError] = useState<string | null>(null);
   const [createdRun, setCreatedRun] = useState<Run | null>(null);
   const [query, setQuery] = useState("");
-  const [sort, setSort] = useState<CatalogSort>("title");
+  const [sort, setSort] = useState<CatalogSort>("featured");
   const [page, setPage] = useState(1);
   const searchRef = useRef<HTMLInputElement>(null);
   const catalogRef = useRef<HTMLElement>(null);
@@ -164,7 +164,7 @@ export default function DraftRoomPage() {
     setQuery(value);
     setPage(1);
     setSort((current) =>
-      value.trim() && current === "title" ? "relevance" : current,
+      value.trim() && current === "featured" ? "relevance" : current,
     );
   }
 
@@ -394,6 +394,7 @@ export default function DraftRoomPage() {
                 className="panel rounded-lg bg-surface px-3 py-1.5 font-heading text-xs outline-none focus:border-accent-win/60"
                 aria-label="Sort catalog"
               >
+                <option value="featured">Featured &amp; popular</option>
                 <option value="relevance">Best match</option>
                 <option value="title">Title A–Z</option>
                 <option value="difficulty">Difficulty</option>

@@ -10,7 +10,9 @@ public class GameRepository(AppDbContext context) : IGameRepository
     {
         return await context.Games
             .AsNoTracking()
-            .OrderBy(g => g.Title)
+            .OrderByDescending(g => g.IsFeatured)
+            .ThenBy(g => g.PopularityRank)
+            .ThenBy(g => g.Title)
             .ToListAsync(cancellationToken);
     }
 
@@ -38,8 +40,8 @@ public class GameRepository(AppDbContext context) : IGameRepository
         return game;
     }
 
-    public Task<bool> AnyAsync(CancellationToken cancellationToken = default) =>
-        context.Games.AnyAsync(cancellationToken);
+    public Task<bool> HasIngestedCatalogAsync(CancellationToken cancellationToken = default) =>
+        context.Games.AnyAsync(g => !g.IsFeatured, cancellationToken);
 
     public async Task<int> UpsertGamesAsync(IReadOnlyList<Game> games, CancellationToken cancellationToken = default)
     {
@@ -78,6 +80,14 @@ public class GameRepository(AppDbContext context) : IGameRepository
             match.Thumb = incoming.Thumb ?? match.Thumb;
             match.NormalPrice = incoming.NormalPrice;
             match.SalePrice = incoming.SalePrice;
+
+            // Featured is a one-way promotion: RAWG can add the flag but never
+            // clear it, and a pinned staple keeps rank 0 over its RAWG position.
+            match.IsFeatured = match.IsFeatured || incoming.IsFeatured;
+            if (!match.IsFeatured)
+            {
+                match.PopularityRank = incoming.PopularityRank;
+            }
         }
 
         await context.SaveChangesAsync(cancellationToken);

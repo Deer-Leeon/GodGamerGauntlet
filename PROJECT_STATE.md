@@ -2,7 +2,7 @@
 
 > Living documentation for the godgamergauntlet.com backend. Update this file whenever the schema, API surface, or deployment story changes.
 >
-> **Last updated:** 2026-08-24 (Phase 8 — OBS overlay & dual control system: 3D game wheel, speedrun timer, control deck)
+> **Last updated:** 2026-08-25 (Phase 9 — hybrid catalog sorting: curated featured staples + RAWG popularity rank)
 
 ---
 
@@ -96,6 +96,10 @@ All primary keys are `uuid` (Guid, generated in application code). Enums are sto
 | Thumb | varchar(500) | NULL (cover image URL, RAWG media CDN) |
 | NormalPrice | numeric(10,2) | NULL — RAWG tracks no pricing; null for all ingested and seeded games |
 | SalePrice | numeric(10,2) | NULL — same |
+| IsFeatured | boolean | NOT NULL, default `false` — curated competitive staple, pinned above the RAWG catalog (Phase 9) |
+| PopularityRank | int | NOT NULL, default `999999` — RAWG most-added position; `0` for curated staples (Phase 9) |
+
+Composite index `IX_Games_IsFeatured_PopularityRank` backs the default catalog ordering.
 
 ### Runs
 
@@ -207,7 +211,7 @@ User object: `{ "id": "uuid", "username": "string", "createdAt": "ISO-8601 UTC" 
 
 | Method | Route | Body | Success | Errors |
 |---|---|---|---|---|
-| GET | `/api/games` | — | `200` → `Game[]` (sorted by title) | — |
+| GET | `/api/games` | — | `200` → `Game[]` (featured first, then RAWG popularity, then title — see §5b) | — |
 | POST | `/api/games` | `{ "title": "string (≤200)", "baseDifficulty": 1-100 }` | `201` → Game | `400` invalid body |
 | GET | `/api/games/{id}` | — | `200` → Game | `404` not found |
 
@@ -397,14 +401,67 @@ RAWG requires a free API key ([rawg.io/apidocs](https://rawg.io/apidocs)). The c
 | `background_image` | `Thumb` | RAWG media CDN (`media.rawg.io`) |
 | `metacritic` | `BaseDifficulty` | clamped 1–100; **fallback 70 when null/0** |
 | — | `NormalPrice` / `SalePrice` | always `null` — RAWG has no pricing |
+| *(ingest position)* | `PopularityRank` | running 1-based index across all pages; `0` reserved for curated staples (Phase 9) |
 
 ### Upsert semantics (`GameRepository.UpsertGamesAsync`)
 
 - Match existing rows by `ExternalId` first, then case-insensitive title.
 - Matched rows: refresh `Thumb` and prices, backfill `ExternalId` — but **never overwrite the curated `BaseDifficulty`** of seeded games.
+- **`IsFeatured` is a one-way promotion**: the sync may set it, never clear it. A featured row also keeps `PopularityRank = 0` instead of taking its RAWG position.
 - Unmatched rows are inserted; returns the count of newly added games.
 
 EF Core SQL command logging (`Microsoft.EntityFrameworkCore.Database.Command`) and HttpClient chatter remain at `Warning` in `appsettings.json` — at Information level each sync would print ~20,000 INSERT statements into the logs.
+
+---
+
+## 5b. Hybrid Catalog Sorting (Phase 9 — `IsFeatured` + `PopularityRank`)
+
+A 20,000-game catalog sorted alphabetically buries the games people actually run gauntlets on. The catalog therefore has **two sort keys** rather than a hand-maintained ordering:
+
+| Key | Owner | Meaning |
+|---|---|---|
+| `IsFeatured` | `DbInitializer` seed | Curated competitive staple. Overrides popularity entirely. |
+| `PopularityRank` | RAWG sync | Position in RAWG's `-added` ordering. Lower is more popular. |
+
+**Default order** (`GameRepository.GetAllAsync`, serving `GET /api/games`):
+
+```csharp
+.OrderByDescending(g => g.IsFeatured)
+.ThenBy(g => g.PopularityRank)
+.ThenBy(g => g.Title)
+```
+
+`Title` is only a tiebreaker, so the result is: curated staples (alphabetical among themselves, all at rank 0), then the RAWG catalog in most-added order, then any pre-Phase-9 rows left at the `999999` default.
+
+### Running EF Core commands locally
+
+`Data/DesignTimeDbContextFactory.cs` lets `dotnet ef` build an `AppDbContext` without a reachable database. EF still probes the entry point first, and `Program.cs` migrates/seeds at startup, so that probe hangs for the full 5-minute host-resolver timeout before falling back to the factory. Cap it:
+
+```bash
+DOTNET_HOST_FACTORY_RESOLVER_DEFAULT_TIMEOUT_IN_SECONDS=1 dotnet ef migrations add <Name>
+```
+
+That turns a ~5-minute stall into ~5 seconds.
+
+### Curated seed (`DbInitializer.SeedFeaturedGames`)
+
+Twelve competitive staples — Counter-Strike 2, League of Legends, Dota 2, VALORANT, Tekken 7, Super Smash Bros. Melee, Street Fighter 6, Rocket League, Overwatch 2, Apex Legends, Fortnite, StarCraft II — seeded with `IsFeatured = true`, `PopularityRank = 0`, and hand-set difficulties. Runs on every boot and after an admin hard-reset.
+
+Seeding is **idempotent by title**: if RAWG already ingested a title, the seeder *promotes that existing row* instead of inserting a duplicate. Titles deliberately match RAWG's spelling so the case-insensitive title match in `UpsertGamesAsync` merges the two — a curated row starts with `ExternalId = null` and `Thumb = null`, and the sync backfills both.
+
+### Interaction with the sync guard
+
+`GameSyncService` skips ingestion when the catalog is already populated (serverless cold-starts would otherwise re-run 500 RAWG requests on every wake). Because the seeder now writes games at startup, that guard can no longer be "any game exists" — it would permanently suppress the sync. `IGameRepository.HasIngestedCatalogAsync` therefore asks a narrower question:
+
+```csharp
+context.Games.AnyAsync(g => !g.IsFeatured, cancellationToken);
+```
+
+Seeded staples don't count as an ingested catalog; only RAWG rows do. (This replaced the old `AnyAsync`, whose only caller was this guard.)
+
+### Frontend consumption
+
+`GET /api/games` returns `isFeatured` and `popularityRank` on every game, but the Draft Room sorts client-side over the full in-memory catalog, so the server order alone would be invisible. `catalogSearch.ts` gained a **`featured`** `CatalogSort` mode that mirrors the server comparator (`isFeatured` desc → `popularityRank` asc → title), and the Draft Room now defaults to it. Typing a search switches to `relevance`, whose score ties now break on featured/popularity instead of alphabetically; clearing the box returns to `featured`.
 
 ---
 
@@ -568,3 +625,4 @@ cd GodGamerGauntlet.Web && npm run dev
 | 6.1 | 15-game baseline seeding removed (catalog is RAWG-only, empty until first sync); serverless tuning: Npgsql `MinPoolSize=0` + 15 s idle lifetime, `SocketsHttpHandler` 15 s pooled-connection idle timeout so Railway Serverless can sleep |
 | 7 | **Accounts + community feed**: JWT auth (`AuthController` register/login/me, `PasswordHasher<User>`, `JwtTokenService`, 30-day HS256 tokens from `Jwt:Secret`); `POST /api/users` removed; run initialize/report locked to the authenticated owner; `RunVote`/`RunComment`/`RunReaction` tables (`AddAuthAndCommunityFeed` migration); `FeedController` (Hot/New/Top paged feed with gravity decay, vote upsert, reaction toggle, flat comments); frontend `AuthProvider` + `SiteNav` + `/login`; homepage replaced by the community feed; Draft Room drops the user dropdown; run tracker shows WIN/LOSS only to the owner |
 | 8 | **OBS overlay & dual control system**: server-side speedrun timer state on `Run` (`TimerStatus`/`TimerElapsedMs`/`TimerUpdatedAt`) + per-slot `SplitTimeMs` + per-run `OverlayKey` secret (`AddOverlayTimerState` migration); `OverlayController` (public GET state; toggle/split/undo/reset guarded by owner JWT or `?key=`); `/overlay/[runId]` OBS browser source (transparent, 3D cylindrical game wheel, neon `H:MM:SS.cc` timer, hotkeys Space/Enter/R×2/P); `/control/[runId]` control deck (Play/Pause, Split, Undo, two-step Reset, splits list, Copy OBS URL); `useOverlayRun` hook (2 s polling + BroadcastChannel fan-out) + `SpeedrunTimer` component; owner link to the deck from the run tracker. Also fixed run initialization 500 (`AsNoTracking` games attached to new slots made EF re-insert them → duplicate `PK_Games`) |
+| 9 | **Hybrid catalog sorting**: `Game.IsFeatured` + `Game.PopularityRank` (`AddGameSortingFields` migration, composite index, exposed on `GameResponse`); `DbInitializer` seeds 12 curated competitive staples at `IsFeatured = true` / rank 0, promoting the existing row when RAWG already ingested the title; the RAWG loop assigns each game its running most-added index as `PopularityRank`; `UpsertGamesAsync` refreshes rank but treats featured as a one-way promotion; `GetAllAsync` orders featured → rank → title. Sync guard changed from "any game exists" to `HasIngestedCatalogAsync` (any **non-featured** game) so the new seed can't permanently suppress ingestion. Frontend: `featured` catalog sort mirroring the server comparator, now the Draft Room default |

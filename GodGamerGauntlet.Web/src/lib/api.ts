@@ -30,6 +30,10 @@ export interface Game {
   /** RAWG does not track storefront pricing, so prices may be absent. */
   normalPrice: number | null;
   salePrice: number | null;
+  /** Curated competitive staple, pinned above the RAWG catalog. */
+  isFeatured: boolean;
+  /** Position in RAWG's most-added ordering; 0 for curated staples. */
+  popularityRank: number;
 }
 
 export type RunStatus = "Active" | "Failed" | "Completed";

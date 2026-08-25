@@ -13,8 +13,11 @@ public record GameResponse(
     int BaseDifficulty,
     string? Thumb,
     decimal? NormalPrice,
-    decimal? SalePrice)
+    decimal? SalePrice,
+    bool IsFeatured,
+    int PopularityRank)
 {
     public static GameResponse FromEntity(Game game) =>
-        new(game.Id, game.Title, game.BaseDifficulty, game.Thumb, game.NormalPrice, game.SalePrice);
+        new(game.Id, game.Title, game.BaseDifficulty, game.Thumb, game.NormalPrice,
+            game.SalePrice, game.IsFeatured, game.PopularityRank);
 }

@@ -21,4 +21,16 @@ public class Game
     public decimal? NormalPrice { get; set; }
 
     public decimal? SalePrice { get; set; }
+
+    /// <summary>
+    /// Curated competitive staple, pinned above the RAWG catalog. Set by the
+    /// seeder only; the RAWG sync must never clear it.
+    /// </summary>
+    public bool IsFeatured { get; set; } = false;
+
+    /// <summary>
+    /// Position in RAWG's most-added ordering (0 = curated staple). The default
+    /// sinks anything ingested before this field existed to the bottom.
+    /// </summary>
+    public int PopularityRank { get; set; } = 999999;
 }

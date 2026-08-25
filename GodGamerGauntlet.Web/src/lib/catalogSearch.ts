@@ -1,6 +1,12 @@
 import type { Game } from "@/lib/api";
 
-export type CatalogSort = "relevance" | "title" | "difficulty" | "price" | "sale";
+export type CatalogSort =
+  | "featured"
+  | "relevance"
+  | "title"
+  | "difficulty"
+  | "price"
+  | "sale";
 
 export interface SearchFilters {
   titleTokens: string[];
@@ -165,6 +171,15 @@ function priceForSort(game: Game): number {
   return currentPrice(game) ?? Number.POSITIVE_INFINITY;
 }
 
+/** Mirrors the API's default order: curated staples, then RAWG popularity. */
+function compareFeatured(a: Game, b: Game): number {
+  if (a.isFeatured !== b.isFeatured) return a.isFeatured ? -1 : 1;
+  if (a.popularityRank !== b.popularityRank) {
+    return a.popularityRank - b.popularityRank;
+  }
+  return a.title.localeCompare(b.title);
+}
+
 export function searchGames(
   games: Game[],
   query: string,
@@ -198,13 +213,16 @@ export function searchGames(
   }
 
   const effectiveSort: CatalogSort =
-    sort === "relevance" && !hasTitleQuery ? "title" : sort;
+    sort === "relevance" && !hasTitleQuery ? "featured" : sort;
 
   ranked.sort((a, b) => {
     switch (effectiveSort) {
+      case "featured":
+        return compareFeatured(a.game, b.game);
       case "relevance":
         if (b.score !== a.score) return b.score - a.score;
-        return a.game.title.localeCompare(b.game.title);
+        // Equally-good text matches fall back to the curated/popularity order.
+        return compareFeatured(a.game, b.game);
       case "difficulty":
         return b.game.baseDifficulty - a.game.baseDifficulty;
       case "price":

@@ -12,12 +12,16 @@ public interface IGameRepository
 
     Task<Game> AddAsync(Game game, CancellationToken cancellationToken = default);
 
-    Task<bool> AnyAsync(CancellationToken cancellationToken = default);
+    /// <summary>
+    /// True once RAWG has been ingested. Ignores curated featured games so the
+    /// seeded staples cannot make the sync think the catalog is already built.
+    /// </summary>
+    Task<bool> HasIngestedCatalogAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Inserts new games and refreshes store data (thumb, prices) on existing ones,
-    /// matching by ExternalId first and then case-insensitive title.
-    /// Returns the number of games added.
+    /// Inserts new games and refreshes store data (thumb, prices, popularity rank)
+    /// on existing ones, matching by ExternalId first and then case-insensitive
+    /// title. Never clears <see cref="Game.IsFeatured"/>. Returns the number added.
     /// </summary>
     Task<int> UpsertGamesAsync(IReadOnlyList<Game> games, CancellationToken cancellationToken = default);
 }

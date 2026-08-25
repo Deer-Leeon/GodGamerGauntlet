@@ -22,8 +22,8 @@ public class GameSyncService(
 
         // Serverless cold-starts would otherwise re-run all 500 pages (~12 min,
         // 500 RAWG requests) on every wake. Only ingest when the catalog is empty
-        // (first boot or after hard-reset).
-        if (await gameRepository.AnyAsync(cancellationToken))
+        // (first boot or after hard-reset). Seeded featured games don't count.
+        if (await gameRepository.HasIngestedCatalogAsync(cancellationToken))
         {
             logger.LogInformation("RAWG sync skipped: catalog already populated.");
             return new GameSyncResult(0, 0);
@@ -38,6 +38,7 @@ public class GameSyncService(
         var gamesByExternalId = new Dictionary<string, Game>();
         var pending = new List<Game>();
         var added = 0;
+        var popularityRank = 0;
 
         for (var page = 1; page <= PagesToFetch; page++)
         {
@@ -67,10 +68,19 @@ public class GameSyncService(
             foreach (var rawgGame in results)
             {
                 if (string.IsNullOrWhiteSpace(rawgGame.Name)) continue;
-                var game = MapToGame(rawgGame);
+
+                // RAWG pages are ordered by -added, so the running position across
+                // all pages *is* the popularity rank. Rank 0 is reserved for the
+                // curated staples, hence the pre-increment.
+                var game = MapToGame(rawgGame, ++popularityRank);
                 if (gamesByExternalId.TryAdd(rawgGame.Id.ToString(), game))
                 {
                     pending.Add(game);
+                }
+                else
+                {
+                    // Duplicate across pages: don't burn a rank on it.
+                    popularityRank--;
                 }
             }
 
@@ -98,7 +108,7 @@ public class GameSyncService(
         return new GameSyncResult(gamesByExternalId.Count, added);
     }
 
-    private static Game MapToGame(RawgGame rawgGame) => new()
+    private static Game MapToGame(RawgGame rawgGame, int popularityRank) => new()
     {
         Id = Guid.NewGuid(),
         ExternalId = rawgGame.Id.ToString(),
@@ -106,6 +116,7 @@ public class GameSyncService(
         Thumb = rawgGame.BackgroundImage,
         NormalPrice = null,
         SalePrice = null,
+        PopularityRank = popularityRank,
         BaseDifficulty = rawgGame.Metacritic is > 0
             ? Math.Clamp(rawgGame.Metacritic.Value, 1, 100)
             : DefaultDifficulty
