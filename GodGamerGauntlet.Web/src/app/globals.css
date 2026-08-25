@@ -33,9 +33,23 @@ body {
   font-family: var(--font-sans);
 }
 
-/* OBS browser-source overlay: transparent capture surface, no scrollbars. */
+/*
+ * OBS browser-source overlay: punch through every page chrome so only the
+ * game pills and timer are opaque. :has() applies on first paint (no JS).
+ * rgba(0,0,0,0) is what OBS's CEF treats as a chroma-keyable clear.
+ */
+html:has(.obs-overlay-root),
+html:has(.obs-overlay-root) body,
 html.obs-overlay,
 html.obs-overlay body {
-  background: transparent !important;
-  overflow: hidden;
+  background-color: rgba(0, 0, 0, 0) !important;
+  background-image: none !important;
+  height: auto !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+html:has(.obs-overlay-root) body,
+html.obs-overlay body {
+  display: block !important;
 }

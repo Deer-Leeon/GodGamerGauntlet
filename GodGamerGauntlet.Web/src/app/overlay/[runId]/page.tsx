@@ -29,10 +29,14 @@ function OverlayView() {
   const [resetArmed, setResetArmed] = useState(false);
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // OBS browser source: fully transparent capture surface, no scrollbars.
+  // Belt-and-suspenders with the CSS :has(.obs-overlay-root) rule.
   useEffect(() => {
     document.documentElement.classList.add("obs-overlay");
-    return () => document.documentElement.classList.remove("obs-overlay");
+    document.body.classList.add("obs-overlay");
+    return () => {
+      document.documentElement.classList.remove("obs-overlay");
+      document.body.classList.remove("obs-overlay");
+    };
   }, []);
 
   useEffect(() => {
@@ -78,17 +82,19 @@ function OverlayView() {
     };
   }, [togglePlayPause, split, resetGauntlet]);
 
-  if (!state) return null;
+  if (!state) {
+    return <main className="obs-overlay-root h-0 w-[420px] overflow-hidden" />;
+  }
 
   return (
-    <main className="flex w-[420px] flex-col items-center gap-3 p-4">
+    <main className="obs-overlay-root flex w-[420px] flex-col items-center px-3 pt-2 pb-4">
       <GameWheel games={state.games} currentIndex={state.currentSlotIndex} />
 
       <SpeedrunTimer
         elapsedMs={state.elapsedMs}
         timerStatus={state.timerStatus}
         syncedAt={syncedAt}
-        className="text-5xl"
+        className="mt-10 text-5xl"
       />
 
       {resetArmed && (
@@ -138,8 +144,7 @@ function HelperButton({
 
 /* ---------- 3D cylindrical wheel ---------- */
 
-const WHEEL_ITEM_ANGLE_DEG = 32;
-const WHEEL_RADIUS_PX = 168;
+const WHEEL_ITEM_ANGLE_DEG = 28;
 const WHEEL_VISIBLE_DISTANCE = 2;
 
 function GameWheel({
@@ -149,36 +154,36 @@ function GameWheel({
   games: OverlaySlot[];
   currentIndex: number;
 }) {
+  // Document-flow stack so the timer can sit below the last visible pill
+  // instead of colliding with absolutely-positioned 3D overflow.
+  const visible = games
+    .map((game, index) => ({ game, offset: index - currentIndex }))
+    .filter(({ offset }) => Math.abs(offset) <= WHEEL_VISIBLE_DISTANCE);
+
   return (
-    <div className="relative h-[280px] w-full" style={{ perspective: "1000px" }}>
+    <div className="w-full" style={{ perspective: "1000px" }}>
       <div
-        className="absolute inset-0"
+        className="flex flex-col items-center gap-4"
         style={{ transformStyle: "preserve-3d" }}
       >
-        {games.map((game, index) => {
-          const offset = index - currentIndex;
+        {visible.map(({ game, offset }) => {
           const distance = Math.abs(offset);
-          const isActive = offset === 0;
-
           return (
             <div
               key={game.gameId}
-              className="absolute left-0 right-0 top-1/2"
+              className="w-full"
               style={{
-                transform: `translateY(-50%) rotateX(${offset * -WHEEL_ITEM_ANGLE_DEG}deg) translateZ(${WHEEL_RADIUS_PX}px)`,
-                opacity:
-                  distance === 0 ? 1 : distance === 1 ? 0.5 : distance === 2 ? 0.18 : 0,
+                transform: `rotateX(${offset * -WHEEL_ITEM_ANGLE_DEG}deg) translateZ(${distance === 0 ? 36 : 8}px) scale(${1 - distance * 0.08})`,
+                opacity: distance === 0 ? 1 : distance === 1 ? 0.55 : 0.28,
                 zIndex: 20 - distance,
                 pointerEvents: "none",
                 transition:
                   "transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.45s cubic-bezier(0.2, 0.8, 0.2, 1)",
-                visibility:
-                  distance > WHEEL_VISIBLE_DISTANCE ? "hidden" : "visible",
               }}
             >
               <WheelPill
                 game={game}
-                isActive={isActive}
+                isActive={offset === 0}
                 slotLabel={`${currentIndex + 1}/${games.length || 10}`}
               />
             </div>
