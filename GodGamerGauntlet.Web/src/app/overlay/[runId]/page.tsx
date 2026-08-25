@@ -90,17 +90,15 @@ function OverlayView() {
   const totalCount = state.games.length || 10;
 
   return (
-    <main className="obs-overlay-root flex w-[420px] flex-col items-center px-3 pt-3 pb-5">
+    <main className="obs-overlay-root flex w-[420px] flex-col items-center px-2 pt-1 pb-1">
       <GameWheel games={state.games} currentIndex={state.currentSlotIndex} />
 
       {/* Timer plate: dark glass backing keeps the digits legible over bright gameplay. */}
       <div
-        className="mt-8 w-full rounded-2xl border border-white/10 px-6 py-4 backdrop-blur-md"
+        className="mt-3 w-full rounded-2xl border border-white/15 px-5 py-3"
         style={{
-          background:
-            "linear-gradient(160deg, rgba(12,17,32,0.88) 0%, rgba(5,8,16,0.92) 100%)",
-          boxShadow:
-            "0 12px 36px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.07)",
+          background: "rgba(8,11,22,0.94)",
+          boxShadow: "0 8px 24px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08)",
         }}
       >
         <div className="flex items-center justify-between">
@@ -176,10 +174,7 @@ function HelperButton({
   );
 }
 
-/* ---------- 3D cylindrical wheel ---------- */
-
-const WHEEL_ITEM_ANGLE_DEG = 28;
-const WHEEL_VISIBLE_DISTANCE = 2;
+/* ---------- Game stack ---------- */
 
 function GameWheel({
   games,
@@ -188,80 +183,58 @@ function GameWheel({
   games: OverlaySlot[];
   currentIndex: number;
 }) {
-  // Document-flow stack so the timer can sit below the last visible pill
-  // instead of colliding with absolutely-positioned 3D overflow.
-  const visible = games
-    .map((game, index) => ({ game, offset: index - currentIndex }))
-    .filter(({ offset }) => Math.abs(offset) <= WHEEL_VISIBLE_DISTANCE);
+  const active = games[currentIndex];
+  const upcoming = games.slice(currentIndex + 1, currentIndex + 3);
+  if (!active) return null;
 
   return (
-    <div className="w-full" style={{ perspective: "1100px" }}>
-      <div
-        className="flex flex-col items-center gap-3"
-        style={{ transformStyle: "preserve-3d" }}
-      >
-        {visible.map(({ game, offset }) => {
-          const distance = Math.abs(offset);
-          return (
-            <div
-              key={game.gameId}
-              className="w-full"
-              style={{
-                transform: `rotateX(${offset * -WHEEL_ITEM_ANGLE_DEG}deg) translateZ(${distance === 0 ? 40 : 6}px) scale(${1 - distance * 0.07})`,
-                opacity: distance === 0 ? 1 : distance === 1 ? 0.6 : 0.25,
-                filter: distance === 0 ? "none" : `blur(${distance * 0.6}px)`,
-                zIndex: 20 - distance,
-                pointerEvents: "none",
-                transition:
-                  "transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.45s cubic-bezier(0.2, 0.8, 0.2, 1), filter 0.45s cubic-bezier(0.2, 0.8, 0.2, 1)",
-              }}
-            >
-              <WheelPill
-                game={game}
-                isActive={offset === 0}
-                currentSlot={currentIndex + 1}
-                totalSlots={games.length || 10}
-              />
-            </div>
-          );
-        })}
-      </div>
+    <div className="flex w-full flex-col gap-2">
+      <WheelPill
+        game={active}
+        variant="active"
+        currentSlot={currentIndex + 1}
+        totalSlots={games.length || 10}
+      />
+      {upcoming.map((game, i) => (
+        <WheelPill
+          key={game.gameId}
+          game={game}
+          variant={i === 0 ? "next" : "later"}
+          currentSlot={currentIndex + 1}
+          totalSlots={games.length || 10}
+        />
+      ))}
     </div>
   );
 }
 
 function WheelPill({
   game,
-  isActive,
+  variant,
   currentSlot,
   totalSlots,
 }: {
   game: OverlaySlot;
-  isActive: boolean;
+  variant: "active" | "next" | "later";
   currentSlot: number;
   totalSlots: number;
 }) {
-  if (isActive) {
+  if (variant === "active") {
     return (
       <div
-        className="relative mx-auto w-full overflow-hidden rounded-2xl border border-accent-win/50"
+        className="relative mx-auto w-full overflow-hidden rounded-2xl border border-accent-win/60"
         style={{
-          background:
-            "linear-gradient(135deg, rgba(16,24,44,0.94) 0%, rgba(7,10,20,0.96) 60%)",
+          background: "rgba(10,16,32,0.96)",
           boxShadow:
-            "0 12px 36px rgba(0,0,0,0.55), 0 0 26px rgba(0,229,255,0.28), 0 0 70px rgba(0,229,255,0.10), inset 0 1px 0 rgba(255,255,255,0.10)",
+            "0 8px 24px rgba(0,0,0,0.5), 0 0 18px rgba(0,229,255,0.22), inset 0 1px 0 rgba(255,255,255,0.10)",
         }}
       >
-        {/* Neon accent edge */}
         <div
           className="absolute inset-y-0 left-0 w-[3px]"
-          style={{
-            background: "linear-gradient(180deg, #00e5ff 0%, #00ff66 100%)",
-            boxShadow: "0 0 12px rgba(0,229,255,0.8)",
-          }}
+          style={{ background: "linear-gradient(180deg, #00e5ff 0%, #00ff66 100%)" }}
         />
 
-        <div className="flex items-center gap-3.5 py-3.5 pl-5 pr-4">
+        <div className="flex items-center gap-3 py-3 pl-5 pr-4">
           <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-accent-win/15 font-mono text-sm font-black text-accent-win ring-1 ring-accent-win/40">
             {game.slotNumber}
           </span>
@@ -280,19 +253,19 @@ function WheelPill({
           )}
 
           <div className="min-w-0 flex-1">
-            <p className="font-heading text-[9px] font-bold uppercase tracking-[0.3em] text-accent-win/90">
+            <p className="font-heading text-[10px] font-bold uppercase tracking-[0.28em] text-accent-win">
               Now Playing
             </p>
-            <p className="truncate font-heading text-[17px] font-extrabold leading-snug text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.8)]">
+            <p className="truncate font-heading text-lg font-extrabold leading-snug text-white">
               {game.title}
             </p>
           </div>
 
           <div className="shrink-0 text-right font-mono leading-none">
-            <span className="text-[26px] font-black text-accent-win [text-shadow:0_0_12px_rgba(0,229,255,0.6)]">
+            <span className="text-[26px] font-black text-accent-win">
               {currentSlot}
             </span>
-            <span className="text-sm font-bold text-gray-500">/{totalSlots}</span>
+            <span className="text-sm font-bold text-gray-400">/{totalSlots}</span>
           </div>
         </div>
       </div>
@@ -301,49 +274,36 @@ function WheelPill({
 
   return (
     <div
-      className={`mx-auto flex w-full items-center gap-3 rounded-xl border px-4 py-2.5 backdrop-blur-sm ${
-        game.completed ? "border-[#00ff66]/20" : "border-white/10"
-      }`}
-      style={{ background: "rgba(6,9,18,0.82)" }}
+      className="mx-auto flex w-full items-center gap-3 rounded-xl border border-white/15 px-4 py-2.5"
+      style={{ background: "rgba(10,14,26,0.94)" }}
     >
-      <span
-        className={`w-5 shrink-0 text-center font-mono text-xs font-bold ${
-          game.completed ? "text-[#00ff66]" : "text-gray-500"
-        }`}
-      >
-        {game.completed ? "✓" : game.slotNumber}
+      <span className="w-6 shrink-0 text-center font-mono text-sm font-black text-gray-300">
+        {game.slotNumber}
       </span>
 
       {game.thumb ? (
         <Image
           src={game.thumb}
           alt=""
-          width={36}
-          height={36}
+          width={40}
+          height={40}
           unoptimized
-          className={`h-9 w-9 shrink-0 rounded-lg object-cover ring-1 ring-white/10 ${
-            game.completed ? "opacity-50 saturate-0" : ""
-          }`}
+          className="h-10 w-10 shrink-0 rounded-lg object-cover ring-1 ring-white/15"
         />
       ) : (
-        <div className="h-9 w-9 shrink-0 rounded-lg bg-white/10" />
+        <div className="h-10 w-10 shrink-0 rounded-lg bg-white/10" />
       )}
 
-      <span
-        className={`min-w-0 flex-1 truncate font-heading text-sm font-semibold ${
-          game.completed
-            ? "text-gray-500 line-through decoration-[#00ff66]/40"
-            : "text-gray-200"
-        }`}
-      >
-        {game.title}
-      </span>
-
-      {game.completed && (
-        <span className="shrink-0 font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-[#00ff66]/80">
-          Clear
-        </span>
-      )}
+      <div className="min-w-0 flex-1">
+        {variant === "next" && (
+          <p className="font-heading text-[10px] font-bold uppercase tracking-[0.28em] text-gray-400">
+            Up Next
+          </p>
+        )}
+        <p className="truncate font-heading text-base font-bold leading-snug text-white">
+          {game.title}
+        </p>
+      </div>
     </div>
   );
 }

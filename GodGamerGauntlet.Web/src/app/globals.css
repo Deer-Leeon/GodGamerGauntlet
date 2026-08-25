@@ -53,3 +53,10 @@ html:has(.obs-overlay-root) body,
 html.obs-overlay body {
   display: block !important;
 }
+
+/* OBS CEF blurs anything that uses CSS filter/3D scale. Keep overlay text
+ * on the pixel grid and skip the effects that force a bitmap pass. */
+.obs-overlay-root {
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
+}

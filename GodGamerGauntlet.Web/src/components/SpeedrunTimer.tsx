@@ -48,23 +48,23 @@ export default function SpeedrunTimer({
       ? elapsedMs + (tickNow - syncedAt)
       : elapsedMs;
 
-  // Layered glow: a tight halo for crispness plus a wide soft bloom.
+  // Layered glow via text-shadow (CSS filter drop-shadow is what OBS blurs).
   const looks: Record<TimerStatus, { classes: string; glow: string }> = {
     running: {
       classes: "text-[#00ff66]",
-      glow: "drop-shadow(0 0 4px rgba(0,255,102,0.85)) drop-shadow(0 0 20px rgba(0,255,102,0.35))",
+      glow: "0 0 8px rgba(0,255,102,0.7), 0 2px 0 rgba(0,0,0,0.55)",
     },
     paused: {
       classes: "animate-pulse text-[#facc15]",
-      glow: "drop-shadow(0 0 4px rgba(250,204,21,0.8)) drop-shadow(0 0 18px rgba(250,204,21,0.3))",
+      glow: "0 0 8px rgba(250,204,21,0.7), 0 2px 0 rgba(0,0,0,0.55)",
     },
     finished: {
       classes: "text-accent-streak",
-      glow: "drop-shadow(0 0 4px rgba(255,192,0,0.85)) drop-shadow(0 0 20px rgba(255,192,0,0.35))",
+      glow: "0 0 8px rgba(255,192,0,0.7), 0 2px 0 rgba(0,0,0,0.55)",
     },
     idle: {
-      classes: "text-[#00ff66]/70",
-      glow: "drop-shadow(0 0 10px rgba(0,255,102,0.25))",
+      classes: "text-[#00ff66]",
+      glow: "0 0 6px rgba(0,255,102,0.45), 0 2px 0 rgba(0,0,0,0.55)",
     },
   };
   const look = looks[timerStatus];
@@ -74,7 +74,7 @@ export default function SpeedrunTimer({
   return (
     <div
       className={`font-mono font-black tabular-nums leading-none transition-colors duration-300 ${look.classes} ${className}`}
-      style={{ filter: look.glow }}
+      style={{ textShadow: look.glow }}
     >
       <span className="tracking-[-0.04em]">{mainTime}</span>
       <span className="text-[0.52em] font-bold opacity-90">.{centis}</span>

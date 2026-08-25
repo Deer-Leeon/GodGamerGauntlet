@@ -212,8 +212,9 @@ export default function ControlDeckPage() {
               Sources → <span className="text-accent-win">Browser</span> (not a
               window capture, not a dock). Paste the overlay URL. Width{" "}
               <span className="font-mono text-accent-win">420</span>, height{" "}
-              <span className="font-mono text-accent-win">560</span>. Leave
-              Custom CSS empty.
+              <span className="font-mono text-accent-win">420</span>. Leave
+              Custom CSS empty. If the red box is taller than the overlay,
+              drag the source shorter so it hugs the timer.
             </li>
             <li>
               <span className="font-semibold text-white">For buttons:</span>{" "}
