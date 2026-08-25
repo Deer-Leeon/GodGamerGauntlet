@@ -9,7 +9,11 @@ import SpeedrunTimer from "@/components/SpeedrunTimer";
 /** How long a first R-press stays armed before reset confirmation expires. */
 const RESET_ARM_WINDOW_MS = 1500;
 
-/** Must match the Browser Source Width / Height in OBS properties. */
+/**
+ * Design-space size. The overlay re-renders natively at whatever size the
+ * OBS Browser Source is (via CSS zoom), so any source with a 420:340 aspect
+ * ratio is pixel-sharp — recommended: 840×680.
+ */
 const OVERLAY_W = 420;
 const OVERLAY_H = 340;
 
@@ -30,7 +34,8 @@ function OverlayView() {
 
   const [showHelpers, setShowHelpers] = useState(false);
   const [resetArmed, setResetArmed] = useState(false);
-  const [sourceTooTall, setSourceTooTall] = useState(false);
+  const [scale, setScale] = useState(1);
+  const [aspectOff, setAspectOff] = useState(false);
   const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Belt-and-suspenders with the CSS :has(.obs-overlay-root) rule.
@@ -43,11 +48,17 @@ function OverlayView() {
     };
   }, []);
 
+  // Fill the Browser Source natively: zoom re-renders text/vectors at the
+  // real source resolution, so a bigger source means sharper pixels.
   useEffect(() => {
-    const check = () => setSourceTooTall(window.innerHeight > OVERLAY_H + 4);
-    check();
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
+    const update = () => {
+      const nextScale = window.innerWidth / OVERLAY_W;
+      setScale(nextScale);
+      setAspectOff(Math.abs(window.innerHeight - OVERLAY_H * nextScale) > 8);
+    };
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
   }, []);
 
   useEffect(() => {
@@ -97,7 +108,7 @@ function OverlayView() {
     return (
       <main
         className="obs-overlay-root overflow-hidden"
-        style={{ width: OVERLAY_W, height: OVERLAY_H }}
+        style={{ width: OVERLAY_W, height: OVERLAY_H, zoom: scale }}
       />
     );
   }
@@ -108,13 +119,13 @@ function OverlayView() {
   return (
     <main
       className="obs-overlay-root relative flex flex-col gap-2 overflow-hidden p-2"
-      style={{ width: OVERLAY_W, height: OVERLAY_H }}
+      style={{ width: OVERLAY_W, height: OVERLAY_H, zoom: scale }}
     >
-      {sourceTooTall && (
-        <div className="rounded bg-[#ff3366] px-2 py-1 font-heading text-[11px] font-bold leading-tight text-white">
-          Empty space = OBS source is too tall. Double-click the Browser source
-          → Width {OVERLAY_W}, Height {OVERLAY_H} → OK. Then right-click →
-          Transform → Reset Transform. Do not drag the red box.
+      {aspectOff && (
+        <div className="rounded bg-accent-death px-2 py-1 font-heading text-[11px] font-bold leading-tight text-white">
+          Wrong source shape. Double-click the Browser source and set Height to{" "}
+          {Math.round(OVERLAY_H * scale)} (keep Width as is). Recommended: 840 ×
+          680.
         </div>
       )}
 

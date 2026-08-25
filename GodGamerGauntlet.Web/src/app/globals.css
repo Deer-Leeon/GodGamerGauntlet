@@ -43,8 +43,8 @@ body {
 /*
  * OBS browser-source overlay: punch through every page chrome so only the
  * game pills and timer are opaque. :has() applies on first paint (no JS).
- * The overlay is a fixed 420×340 canvas — set those exact values in the
- * Browser Source *properties* (not by dragging the red box on the preview).
+ * The overlay zooms itself to fill the Browser Source (420:340 aspect),
+ * so a larger source (e.g. 840×680) renders natively sharper.
  */
 html:has(.obs-overlay-root),
 html:has(.obs-overlay-root) body,
@@ -52,10 +52,8 @@ html.obs-overlay,
 html.obs-overlay body {
   background-color: rgba(0, 0, 0, 0) !important;
   background-image: none !important;
-  width: 420px !important;
-  height: 340px !important;
+  height: auto !important;
   min-height: 0 !important;
-  max-height: 340px !important;
   margin: 0 !important;
   padding: 0 !important;
   overflow: hidden !important;

@@ -211,12 +211,12 @@ export default function ControlDeckPage() {
               <span className="font-semibold text-white">On the stream:</span>{" "}
               Sources → <span className="text-accent-win">Browser</span>. Paste
               the overlay URL. In the properties window set Width{" "}
-              <span className="font-mono text-accent-win">420</span> and Height{" "}
-              <span className="font-mono text-accent-win">340</span>, then
-              OK. Right-click the source → Transform →{" "}
-              <span className="text-white">Reset Transform</span>. Do not drag
-              the red handles — that stretches empty pixels and looks blurry.
-              Place it at 100% size.
+              <span className="font-mono text-accent-win">840</span> and Height{" "}
+              <span className="font-mono text-accent-win">680</span>, then OK.
+              Right-click the source → Transform →{" "}
+              <span className="text-white">Reset Transform</span>. The overlay
+              renders sharp at any size with that shape — shrinking it on the
+              canvas is fine, stretching it bigger is not.
             </li>
             <li>
               <span className="font-semibold text-white">For buttons:</span>{" "}
