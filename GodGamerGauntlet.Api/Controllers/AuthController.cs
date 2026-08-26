@@ -176,32 +176,40 @@ public class AuthController(
     [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> ChangeStreamLinks(
-        [FromBody] ChangeStreamLinksRequest request,
+        [FromBody] ChangeStreamLinksRequest? request,
         CancellationToken cancellationToken)
     {
-        if (!StreamLinkRules.TryNormalize(request.Links, out var links, out var error))
+        try
         {
-            return BadRequest(error);
-        }
-
-        var user = await userRepository.GetForUpdateAsync(CurrentUserId, cancellationToken);
-        if (user is null) return Unauthorized();
-
-        user.StreamLinks.Clear();
-        for (var i = 0; i < links.Count; i++)
-        {
-            user.StreamLinks.Add(new UserStreamLink
+            if (!StreamLinkRules.TryNormalize(request?.Links, out var links, out var error))
             {
-                Id = Guid.NewGuid(),
-                UserId = user.Id,
-                Platform = links[i].Platform,
-                Url = links[i].Url,
-                SortOrder = i,
-            });
-        }
+                return BadRequest(error);
+            }
 
-        await userRepository.SaveChangesAsync(cancellationToken);
-        return Ok(SignedIn(user));
+            var user = await userRepository.GetForUpdateAsync(CurrentUserId, cancellationToken);
+            if (user is null) return Unauthorized();
+
+            user.StreamLinks ??= new List<UserStreamLink>();
+            user.StreamLinks.Clear();
+            for (var i = 0; i < links.Count; i++)
+            {
+                user.StreamLinks.Add(new UserStreamLink
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = user.Id,
+                    Platform = links[i].Platform,
+                    Url = links[i].Url,
+                    SortOrder = i,
+                });
+            }
+
+            await userRepository.SaveChangesAsync(cancellationToken);
+            return Ok(SignedIn(user));
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ex.GetBaseException().Message);
+        }
     }
 
     private Guid CurrentUserId => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);

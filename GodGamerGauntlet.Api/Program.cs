@@ -93,7 +93,12 @@ builder.Services.AddHttpClient<RawgClient>(client =>
 builder.Services.AddScoped<IGameSyncService, GameSyncService>();
 builder.Services.AddHostedService<GameSyncBackgroundService>();
 
-builder.Services.AddControllers();
+builder.Services.AddControllers(options =>
+{
+    // Nested record types in lists make DataAnnotations throw, which the
+    // browser surfaces as a blank CORS failure instead of a field error.
+    options.SuppressImplicitRequiredAttributeForNonNullableReferenceTypes = true;
+});
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -146,7 +151,7 @@ app.Use(async (context, next) =>
         if (context.Response.HasStarted) throw;
         context.Response.StatusCode = StatusCodes.Status500InternalServerError;
         context.Response.ContentType = "application/json";
-        await context.Response.WriteAsJsonAsync("Something went wrong. Try again.");
+        await context.Response.WriteAsJsonAsync(ex.GetBaseException().Message);
     }
 });
 app.UseHttpsRedirection();

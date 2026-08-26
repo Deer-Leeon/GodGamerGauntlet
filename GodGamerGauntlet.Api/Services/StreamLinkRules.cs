@@ -55,6 +55,7 @@ public static class StreamLinkRules
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var item in raw)
         {
+            if (item is null) continue;
             if (!TryNormalizeOne(item, out var platform, out var url, out error))
             {
                 return false;

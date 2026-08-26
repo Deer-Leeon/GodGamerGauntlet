@@ -22,8 +22,15 @@ public record ChangePasswordRequest(
     [Required] string CurrentPassword,
     [Required, MinLength(8), MaxLength(100)] string NewPassword);
 
-public record StreamLinkInput(string? Platform, string? Url);
+public class StreamLinkInput
+{
+    public string? Platform { get; set; }
+    public string? Url { get; set; }
+}
 
-public record ChangeStreamLinksRequest(List<StreamLinkInput>? Links);
+public class ChangeStreamLinksRequest
+{
+    public List<StreamLinkInput>? Links { get; set; }
+}
 
 public record AuthResponse(string Token, AccountDto User);
