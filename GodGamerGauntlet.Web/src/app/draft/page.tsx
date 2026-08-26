@@ -393,20 +393,20 @@ export default function DraftRoomPage() {
             <label className="sr-only" htmlFor="catalog-search">
               Search games
             </label>
-            <div className="relative flex items-center border border-gold/20">
+            <div className="field group relative flex items-center">
               <span aria-hidden className="pl-4 text-faint">
                 ⌕
               </span>
               <input
                 ref={searchRef}
                 id="catalog-search"
-                type="search"
+                type="text"
                 value={query}
                 onChange={(event) => updateQuery(event.target.value)}
-                placeholder="Search titles, or try sale  <$10  >80"
+                placeholder="Search games"
                 autoComplete="off"
                 spellCheck={false}
-                className="w-full bg-transparent px-4 py-3 text-sm text-ink outline-none placeholder:text-faint"
+                className="w-full bg-transparent px-3 py-3 text-sm text-ink placeholder:text-faint"
               />
               {query ? (
                 <button
@@ -417,18 +417,17 @@ export default function DraftRoomPage() {
                   Clear
                 </button>
               ) : (
-                <kbd className="mr-3 hidden border border-gold/20 px-2 py-1 font-mono text-[11px] text-faint sm:inline">
+                <kbd
+                  title="Press / to search"
+                  className="mr-3 hidden border border-gold/20 px-2 py-1 font-mono text-[11px] text-faint sm:inline-block group-focus-within:!hidden"
+                >
                   /
                 </kbd>
               )}
             </div>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="text-xs leading-relaxed text-faint">
-                Tokens match any word. Operators:{" "}
-                <span className="font-mono text-muted">sale</span>{" "}
-                <span className="font-mono text-muted">free</span>{" "}
-                <span className="font-mono text-muted">&gt;80</span>{" "}
-                <span className="font-mono text-muted">&lt;$10</span>
+                Filter with sale, free, &gt;80, or &lt;$10
               </p>
               <select
                 value={sort}

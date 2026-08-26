@@ -60,6 +60,20 @@ body {
   outline-offset: 3px;
 }
 
+/* Bordered fields own their focus ring so the input doesn't draw a second box inside. */
+.field {
+  border: 1px solid rgb(240 193 77 / 0.28);
+  background: rgb(255 248 234 / 0.04);
+}
+
+.field:focus-within {
+  border-color: var(--color-gold);
+}
+
+.site-shell .field :is(input, select, textarea):focus-visible {
+  outline: none;
+}
+
 .feed-list {
   border: 1px solid rgb(240 193 77 / 0.28);
   background: rgb(255 248 234 / 0.05);
