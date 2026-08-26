@@ -111,16 +111,44 @@ body {
 .stream-links {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.35rem 1rem;
-  margin-top: 0.75rem;
+  gap: 0.5rem;
+  margin-top: 0.85rem;
 }
 
-.stream-links a {
-  color: var(--color-gold);
+.stream-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45em;
+  padding: 0.45rem 0.9rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: #fff;
+  text-decoration: none;
 }
 
-.stream-links a:hover {
-  color: var(--color-ink);
+.stream-link-icon {
+  width: 0.95rem;
+  height: 0.95rem;
+  flex-shrink: 0;
+}
+
+.stream-link-twitch {
+  background: #9146ff;
+}
+
+.stream-link-twitch:hover {
+  background: #772ce8;
+  color: #fff;
+}
+
+.stream-link-youtube {
+  background: #ff0000;
+}
+
+.stream-link-youtube:hover {
+  background: #cc0000;
+  color: #fff;
 }
 
 /* Page titles vs section titles vs recap headlines. */

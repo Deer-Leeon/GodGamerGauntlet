@@ -25,15 +25,23 @@ export function StreamLinkList({
 
   return (
     <ul className="stream-links">
-      {links.map((link) => (
-        <li key={link.url}>
-          <a href={link.url} target="_blank" rel="noopener noreferrer">
-            {live
-              ? `Watch on ${link.platform === "youtube" ? "YouTube" : "Twitch"}`
-              : link.label}
-          </a>
-        </li>
-      ))}
+      {links.map((link) => {
+        const platform = link.platform === "youtube" ? "youtube" : "twitch";
+        const name = platform === "youtube" ? "YouTube" : "Twitch";
+        return (
+          <li key={link.url}>
+            <a
+              href={link.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`stream-link stream-link-${platform}`}
+            >
+              <StreamPlatformIcon platform={platform} />
+              {live ? `Watch on ${name}` : link.label}
+            </a>
+          </li>
+        );
+      })}
     </ul>
   );
 }
@@ -186,4 +194,27 @@ function incompleteLinkMessage(
     return "Use a YouTube URL like youtube.com/@you/live.";
   }
   return null;
+}
+
+function StreamPlatformIcon({ platform }: { platform: StreamPlatform }) {
+  if (platform === "youtube") {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden className="stream-link-icon">
+        <path
+          fill="currentColor"
+          d="M23.5 6.2a3 3 0 0 0-2.1-2.2C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2 32 32 0 0 0 0 12a32 32 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.2c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.2A32 32 0 0 0 24 12a32 32 0 0 0-.5-5.8zM9.8 15.5v-7l6.2 3.5-6.2 3.5z"
+        />
+      </svg>
+    );
+  }
+
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden className="stream-link-icon">
+      <path
+        fill="currentColor"
+        d="M11.6 1 4.7 7.9v8.2H1.3V16h5.1l4.8 4.8h2.1v-4.8h5.6L22.7 12V1zm9.4 10.2-3.4 3.4h-6v4.8H9.8l-4.8-4.8H6.4V3h14.6z"
+      />
+      <path fill="currentColor" d="M16.4 6.4h1.7v5.1h-1.7zm-4.6 0h1.7v5.1h-1.7z" />
+    </svg>
+  );
 }
