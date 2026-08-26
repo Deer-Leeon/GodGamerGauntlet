@@ -134,8 +134,8 @@ export default function ProfilePage() {
         <section className="mt-8 border-b border-gold/20 pb-8">
           <h2 className="text-sm font-medium text-ink">Stream links</h2>
           <p className="mt-2 text-sm leading-relaxed text-muted">
-            Twitch and YouTube URLs show here and on your live runs so people
-            can watch.
+            Twitch and YouTube show here and on your live runs so people can
+            watch.
           </p>
           <div className="mt-4">
             <StreamLinkEditor
