@@ -36,8 +36,8 @@ export default function ControlRail() {
   if (hidden || !runId) return null;
 
   return (
-    <aside className="fixed top-0 right-0 z-30 hidden h-dvh w-80 flex-col border-l border-gold/20 bg-surface pt-14 lg:flex">
-      <div className="flex items-center justify-between gap-2 border-b border-gold/20 px-3 py-2">
+    <aside className="fixed top-0 right-0 z-30 hidden h-dvh w-80 flex-col border-l border-gold/25 bg-surface pt-14 lg:flex">
+      <div className="flex items-center justify-between gap-2 border-b border-gold/25 px-3 py-2">
         <Link
           href={`/control/${runId}`}
           className="text-[12px] text-muted hover:text-gold"

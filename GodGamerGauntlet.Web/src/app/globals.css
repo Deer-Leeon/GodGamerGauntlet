@@ -6,14 +6,14 @@
  * next action — not every box.
  */
 @theme {
-  --color-dark: #1a1610;
-  --color-surface: #241e16;
-  --color-ink: #f7efdc;
-  --color-muted: #d2c4a8;
-  --color-gold: #e8bc4a;
+  --color-dark: #3f372c;
+  --color-surface: #4d4438;
+  --color-ink: #fff8ea;
+  --color-muted: #ebe0c8;
+  --color-gold: #f0c14d;
 
-  --color-accent-streak: #e8bc4a;
-  --color-accent-win: #e8bc4a;
+  --color-accent-streak: #f0c14d;
+  --color-accent-win: #f0c14d;
   --color-accent-death: #e07a68;
 
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
@@ -22,8 +22,8 @@
 }
 
 @utility panel {
-  background-color: rgb(36 30 22 / 0.55);
-  border: 1px solid rgb(232 188 74 / 0.2);
+  background-color: rgb(77 68 56 / 0.85);
+  border: 1px solid rgb(240 193 77 / 0.28);
 }
 
 body {
@@ -37,8 +37,8 @@ body {
   min-height: 100dvh;
   flex-direction: column;
   background:
-    radial-gradient(1100px 420px at 50% -12%, rgb(232 188 74 / 0.16), transparent 58%),
-    radial-gradient(700px 480px at 100% 110%, rgb(180 70 30 / 0.1), transparent 55%),
+    radial-gradient(1200px 520px at 50% -8%, rgb(240 193 77 / 0.28), transparent 60%),
+    radial-gradient(800px 520px at 100% 115%, rgb(196 92 40 / 0.16), transparent 55%),
     var(--color-dark);
 }
 
@@ -59,15 +59,16 @@ body {
 }
 
 .feed-list {
-  border-top: 1px solid rgb(232 188 74 / 0.18);
+  border-top: 1px solid rgb(240 193 77 / 0.28);
+  background: rgb(255 248 234 / 0.04);
 }
 
 .feed-row {
-  border-bottom: 1px solid rgb(232 188 74 / 0.16);
+  border-bottom: 1px solid rgb(240 193 77 / 0.22);
 }
 
 .feed-row:hover {
-  background: rgb(232 188 74 / 0.06);
+  background: rgb(240 193 77 / 0.1);
 }
 
 /*
