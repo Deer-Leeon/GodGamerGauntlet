@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import { AuthProvider } from "@/lib/auth";
 import SiteNav from "@/components/SiteNav";
 import ControlRail from "@/components/ControlRail";
@@ -35,6 +36,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             <ControlRail />
           </div>
         </AuthProvider>
+        <Analytics />
       </body>
     </html>
   );
