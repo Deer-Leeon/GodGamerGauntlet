@@ -374,6 +374,17 @@ export interface UserProfile {
   lite: ProfileMode;
   runs: ProfileRun[];
   streamLinks?: StreamLink[];
+  live?: ProfileLiveRun | null;
+}
+
+export interface ProfileLiveRun {
+  runId: string;
+  runType: RunType;
+  slotsCompleted: number;
+  totalSlots: number;
+  currentSlot: number;
+  currentTitle: string | null;
+  currentThumb: string | null;
 }
 
 export function getProfile(username: string): Promise<UserProfile> {

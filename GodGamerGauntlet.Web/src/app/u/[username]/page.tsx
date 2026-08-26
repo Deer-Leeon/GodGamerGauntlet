@@ -4,13 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { getProfile, type ProfileGame, type ProfileMode, type ProfileRun, type RunType, type UserProfile } from "@/lib/api";
+import { getProfile, type ProfileGame, type ProfileLiveRun, type ProfileMode, type ProfileRun, type RunType, type UserProfile } from "@/lib/api";
 import { timeAgo } from "@/components/RunSocial";
 import { formatSpeedrunTime } from "@/components/SpeedrunTimer";
 import MomentChips from "@/components/MomentChips";
 import SurvivalMeter from "@/components/SurvivalMeter";
-import { StreamLinkEditor, StreamLinkList } from "@/components/StreamLinks";
-import { useAuth } from "@/lib/auth";
+import { StreamLinkList } from "@/components/StreamLinks";
 
 type HistoryFilter = "All" | RunType;
 
@@ -35,7 +34,6 @@ function clearRate(clears: number, attempts: number): string {
 export default function ProfilePage() {
   const { username } = useParams<{ username: string }>();
   const decoded = decodeURIComponent(username ?? "");
-  const { user } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [missing, setMissing] = useState(false);
@@ -101,7 +99,10 @@ export default function ProfilePage() {
       </p>
 
       <header className="border-b border-gold/20 pb-6">
-        <h1 className="text-2xl font-semibold">{profile.username}</h1>
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <h1 className="text-2xl font-semibold">{profile.username}</h1>
+          {profile.live && <span className="live-run-chip">Live</span>}
+        </div>
         {profile.title && (
           <p className="mt-1 text-sm font-medium text-gold">{profile.title}</p>
         )}
@@ -123,32 +124,16 @@ export default function ProfilePage() {
         )}
         <p className="mt-2 text-sm leading-relaxed text-muted">
           Joined {formatJoined(profile.createdAt)}
-          {profile.lastRunAt
-            ? ` · Last run ${timeAgo(profile.lastRunAt)}`
-            : " · No finished gauntlets yet"}
+          {profile.live
+            ? " · Live now"
+            : profile.lastRunAt
+              ? ` · Last run ${timeAgo(profile.lastRunAt)}`
+              : " · No finished gauntlets yet"}
         </p>
         <StreamLinkList links={profile.streamLinks} />
       </header>
 
-      {user?.id === profile.id && (
-        <section className="mt-8 border-b border-gold/20 pb-8">
-          <h2 className="text-sm font-medium text-ink">Stream links</h2>
-          <p className="mt-2 text-sm leading-relaxed text-muted">
-            Twitch and YouTube show here and on your live runs so people can
-            watch.
-          </p>
-          <div className="mt-4">
-            <StreamLinkEditor
-              initial={profile.streamLinks}
-              onSaved={(streamLinks) =>
-                setProfile((current) =>
-                  current ? { ...current, streamLinks } : current,
-                )
-              }
-            />
-          </div>
-        </section>
-      )}
+      {profile.live && <LiveRunCallout live={profile.live} />}
 
       <section className="mt-8 grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-5">
         <Stat label="Attempts" value={String(profile.attemptCount)} />
@@ -207,6 +192,40 @@ export default function ProfilePage() {
         )}
       </section>
     </main>
+  );
+}
+
+function LiveRunCallout({ live }: { live: ProfileLiveRun }) {
+  const isLite = live.runType === "Lite";
+  const title = live.currentTitle ?? "the next game";
+
+  return (
+    <Link href={`/run/${live.runId}`} className="live-run-banner">
+      <span className="live-run-kicker">
+        <span className="live-run-dot" aria-hidden />
+        Live run
+      </span>
+      {live.currentThumb ? (
+        <span className="live-run-thumb">
+          <Image
+            src={live.currentThumb}
+            alt=""
+            fill
+            unoptimized
+            sizes="48px"
+            className="object-cover"
+          />
+        </span>
+      ) : null}
+      <span className="live-run-copy">
+        <span className="live-run-title">
+          On game {live.currentSlot} of {live.totalSlots}
+          {isLite ? " · Lite" : ""}
+        </span>
+        <span className="live-run-game">{title}</span>
+      </span>
+      <span className="live-run-cta">Open the gauntlet</span>
+    </Link>
   );
 }
 

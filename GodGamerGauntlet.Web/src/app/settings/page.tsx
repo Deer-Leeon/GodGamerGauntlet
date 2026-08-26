@@ -160,7 +160,7 @@ export default function SettingsPage() {
       <section className="mt-10 flex flex-col gap-4 border-t border-gold/20 pt-8">
         <h2 className="text-sm font-medium text-ink">Stream links</h2>
         <p className="text-sm leading-relaxed text-muted">
-          Twitch and YouTube show on your profile and live runs.
+          Twitch and YouTube show on your profile and live runs. Edit them here.
         </p>
         <StreamLinkEditor initial={user.streamLinks} />
       </section>

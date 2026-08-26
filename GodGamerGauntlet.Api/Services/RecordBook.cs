@@ -175,12 +175,18 @@ public class RecordBook(AppDbContext context) : IRecordBook
 
         var boards = await GetAllBoardsAsync(cancellationToken);
 
-        var finished = await context.Runs
+        var allRuns = await context.Runs
             .AsNoTracking()
             .Include(r => r.Slots)
             .ThenInclude(s => s.Game)
-            .Where(r => r.UserId == user.Id && r.Status != RunStatus.Active)
+            .Where(r => r.UserId == user.Id)
             .ToListAsync(cancellationToken);
+
+        var finished = allRuns.Where(r => r.Status != RunStatus.Active).ToList();
+        var liveRun = allRuns
+            .Where(r => r.Status == RunStatus.Active)
+            .OrderByDescending(r => r.StartTime)
+            .FirstOrDefault();
 
         var ordered = finished
             .OrderByDescending(r => r.EndTime)
@@ -233,7 +239,26 @@ public class RecordBook(AppDbContext context) : IRecordBook
             BuildMode(ordered, RunType.Standard, boards[RunType.Standard], user.Id),
             BuildMode(ordered, RunType.Lite, boards[RunType.Lite], user.Id),
             runs,
-            StreamLinkDto.FromUser(user));
+            StreamLinkDto.FromUser(user),
+            ToLive(liveRun));
+    }
+
+    private static ProfileLiveRunDto? ToLive(Run? run)
+    {
+        if (run is null) return null;
+
+        var slots = run.Slots.OrderBy(s => s.Position).ToList();
+        var current = slots.FindIndex(s => s.Status != RunSlotStatus.Won);
+        if (current < 0) current = Math.Max(0, slots.Count - 1);
+        var currentSlot = slots.ElementAtOrDefault(current);
+        return new ProfileLiveRunDto(
+            run.Id,
+            run.RunType.ToString(),
+            slots.Count(s => s.Status == RunSlotStatus.Won),
+            run.RunType.SlotCount(),
+            current + 1,
+            currentSlot?.Game?.Title,
+            currentSlot?.Game?.Thumb);
     }
 
     public async Task<IReadOnlyList<PlayerCardDto>> GetDirectoryAsync(

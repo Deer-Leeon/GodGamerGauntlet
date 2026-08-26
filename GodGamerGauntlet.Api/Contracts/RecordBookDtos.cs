@@ -100,4 +100,15 @@ public record UserProfileDto(
     ProfileModeDto Standard,
     ProfileModeDto Lite,
     IReadOnlyList<ProfileRunDto> Runs,
-    IReadOnlyList<StreamLinkDto> StreamLinks);
+    IReadOnlyList<StreamLinkDto> StreamLinks,
+    ProfileLiveRunDto? Live);
+
+/// <summary>An in-progress gauntlet on a public profile, when one is running.</summary>
+public record ProfileLiveRunDto(
+    Guid RunId,
+    string RunType,
+    int SlotsCompleted,
+    int TotalSlots,
+    int CurrentSlot,
+    string? CurrentTitle,
+    string? CurrentThumb);
