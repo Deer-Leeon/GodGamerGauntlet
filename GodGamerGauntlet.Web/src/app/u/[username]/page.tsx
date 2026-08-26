@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { getProfile, type ProfileMode, type ProfileRun, type RunType, type UserProfile } from "@/lib/api";
 import { timeAgo } from "@/components/RunSocial";
+import { formatSpeedrunTime } from "@/components/SpeedrunTimer";
 
 type HistoryFilter = "All" | RunType;
 
@@ -151,11 +153,9 @@ export default function ProfilePage() {
           </p>
         ) : (
           <div className="feed-list mt-5">
-            <ol>
-              {history.map((run) => (
-                <HistoryRow key={run.runId} run={run} />
-              ))}
-            </ol>
+            {history.map((run) => (
+              <HistoryCard key={run.runId} run={run} />
+            ))}
           </div>
         )}
       </section>
@@ -203,31 +203,103 @@ function ModeCard({ label, mode }: { label: string; mode: ProfileMode }) {
   );
 }
 
-function HistoryRow({ run }: { run: ProfileRun }) {
+function HistoryCard({ run }: { run: ProfileRun }) {
   const clear = run.status === "Completed";
+  const isLite = run.runType === "Lite";
+  const elapsedMs = run.elapsedMs > 0 ? run.elapsedMs : null;
+  const statuses = run.slotStatuses ?? [];
+  const titles = run.slotTitles ?? [];
+  const thumbs = run.slotThumbs ?? [];
+
   return (
-    <li className="feed-row flex items-baseline gap-3 py-3.5 text-sm">
-      <span className={`w-12 shrink-0 ${clear ? "text-gold" : "text-red-400/80"}`}>
-        {clear ? "Clear" : "DNF"}
-      </span>
-      <Link
-        href={`/run/${run.runId}`}
-        className="min-w-0 flex-1 truncate text-ink hover:text-gold"
-      >
-        {run.runType}
-        {run.boardRank != null
-          ? ` · #${run.boardRank}`
-          : run.wouldBeRank != null
-            ? ` · would #${run.wouldBeRank}`
-            : ""}
-        {` · ${run.slotsCompleted}/${run.totalSlots}`}
+    <article className="feed-row py-4">
+      <Link href={`/run/${run.runId}`} className="block outline-none">
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm">
+          <span className={clear ? "text-gold" : "text-red-400/80"}>
+            {clear ? "Clear" : "DNF"}
+          </span>
+          {clear && run.boardRank != null && (
+            <>
+              <span className="text-faint/70">·</span>
+              <span className="font-mono tabular-nums text-gold">
+                #{run.boardRank}
+              </span>
+            </>
+          )}
+          {clear && run.boardRank == null && run.wouldBeRank != null && (
+            <>
+              <span className="text-faint/70">·</span>
+              <span className="tabular-nums text-faint">
+                would #{run.wouldBeRank}
+              </span>
+            </>
+          )}
+          {isLite && (
+            <>
+              <span className="text-faint/70">·</span>
+              <span className="text-faint">Lite</span>
+            </>
+          )}
+          <span className="text-faint/70">·</span>
+          <span className="text-faint">{timeAgo(run.endTime)}</span>
+        </div>
+
+        <div className="mt-1.5 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+          <p className="text-sm leading-snug text-ink">
+            {clear
+              ? `${run.totalSlots}/${run.totalSlots} games`
+              : `Stopped on game ${run.slotsCompleted + 1} of ${run.totalSlots}`}
+          </p>
+          <p className="font-mono text-sm tabular-nums text-faint">
+            {elapsedMs !== null && (
+              <>
+                <span>{formatSpeedrunTime(elapsedMs)}</span>
+                <span className="mx-2 text-faint/50">·</span>
+              </>
+            )}
+            <span>{formatScore(run.totalScore)}</span>
+          </p>
+        </div>
+
+        {statuses.length > 0 && (
+          <ol className="mt-3 flex flex-wrap gap-0.5">
+            {statuses.map((status, i) => {
+              const thumb = thumbs[i] ?? null;
+              const title = titles[i] ?? `Slot ${i + 1}`;
+              return (
+                <li
+                  key={i}
+                  title={`${i + 1}. ${title} — ${status}`}
+                  className={`relative h-8 w-8 overflow-hidden bg-white/5 ${
+                    status === "Pending" ? "opacity-40" : ""
+                  } ${status === "Lost" ? "opacity-80" : ""}`}
+                >
+                  {thumb ? (
+                    <Image
+                      src={thumb}
+                      alt=""
+                      fill
+                      unoptimized
+                      sizes="32px"
+                      className="object-cover"
+                    />
+                  ) : (
+                    <span className="flex h-full items-center justify-center font-mono text-[10px] text-faint">
+                      {i + 1}
+                    </span>
+                  )}
+                  {status === "Lost" && (
+                    <span
+                      aria-hidden
+                      className="absolute inset-0 bg-red-950/45"
+                    />
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+        )}
       </Link>
-      <span className="shrink-0 font-mono tabular-nums text-faint">
-        {formatScore(run.totalScore)}
-      </span>
-      <span className="hidden w-16 shrink-0 text-right text-sm text-faint sm:block">
-        {timeAgo(run.endTime)}
-      </span>
-    </li>
+    </article>
   );
 }

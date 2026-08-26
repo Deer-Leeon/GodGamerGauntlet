@@ -47,7 +47,11 @@ public record ProfileRunDto(
     int SlotsCompleted,
     int TotalSlots,
     int? BoardRank,
-    int? WouldBeRank);
+    int? WouldBeRank,
+    long ElapsedMs,
+    IReadOnlyList<string> SlotStatuses,
+    IReadOnlyList<string> SlotTitles,
+    IReadOnlyList<string?> SlotThumbs);
 
 /// <summary>Public roster row. Email is never included.</summary>
 public record PlayerCardDto(

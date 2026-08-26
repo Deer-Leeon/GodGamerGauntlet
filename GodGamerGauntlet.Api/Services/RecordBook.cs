@@ -84,29 +84,28 @@ public class RecordBook(AppDbContext context) : IRecordBook
 
         var finished = await context.Runs
             .AsNoTracking()
+            .Include(r => r.Slots)
+            .ThenInclude(s => s.Game)
             .Where(r => r.UserId == user.Id && r.Status != RunStatus.Active)
-            .Select(r => new
-            {
-                r.Id,
-                r.Status,
-                r.RunType,
-                r.EndTime,
-                Score = r.Slots
-                    .Where(s => s.Status == RunSlotStatus.Won)
-                    .Sum(s => (double?)s.Game!.BaseDifficulty) ?? 0,
-                SlotsCompleted = r.Slots.Count(s => s.Status == RunSlotStatus.Won)
-            })
             .ToListAsync(cancellationToken);
 
         var ordered = finished
-            .Select(r => new FinishedSlice(
-                r.Id,
-                r.Status,
-                r.RunType,
-                r.EndTime,
-                r.Score,
-                r.SlotsCompleted))
             .OrderByDescending(r => r.EndTime)
+            .Select(r =>
+            {
+                var slots = r.Slots.OrderBy(s => s.Position).ToList();
+                return new FinishedSlice(
+                    r.Id,
+                    r.Status,
+                    r.RunType,
+                    r.EndTime,
+                    SlotScores.Earned(slots),
+                    slots.Count(s => s.Status == RunSlotStatus.Won),
+                    r.TimerElapsedMs,
+                    slots.Select(s => s.Status.ToString()).ToList(),
+                    slots.Select(s => s.Game?.Title ?? "Unknown game").ToList(),
+                    slots.Select(s => s.Game?.Thumb).ToList());
+            })
             .ToList();
 
         var runs = ordered
@@ -263,7 +262,11 @@ public class RecordBook(AppDbContext context) : IRecordBook
             run.SlotsCompleted,
             run.RunType.SlotCount(),
             isPb ? pb!.Rank : null,
-            isClear ? WouldBeRank(board, userId, run.Score, run.EndTime) : null);
+            isClear ? WouldBeRank(board, userId, run.Score, run.EndTime) : null,
+            run.ElapsedMs,
+            run.SlotStatuses,
+            run.SlotTitles,
+            run.SlotThumbs);
     }
 
     private static ProfileModeDto BuildMode(
@@ -296,5 +299,9 @@ public class RecordBook(AppDbContext context) : IRecordBook
         RunType RunType,
         DateTime? EndTime,
         double Score,
-        int SlotsCompleted);
+        int SlotsCompleted,
+        long ElapsedMs,
+        IReadOnlyList<string> SlotStatuses,
+        IReadOnlyList<string> SlotTitles,
+        IReadOnlyList<string?> SlotThumbs);
 }

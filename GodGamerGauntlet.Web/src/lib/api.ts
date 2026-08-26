@@ -270,6 +270,10 @@ export interface ProfileRun {
   totalSlots: number;
   boardRank: number | null;
   wouldBeRank: number | null;
+  elapsedMs: number;
+  slotStatuses: RunSlotStatus[];
+  slotTitles: string[];
+  slotThumbs: (string | null)[];
 }
 
 export interface ProfileMode {
