@@ -191,6 +191,10 @@ export default function DraftRoomPage() {
       slots.reduce((sum, game) => sum + (game ? game.baseDifficulty : 0), 0),
     [slots],
   );
+  const spicyCount = useMemo(
+    () => slots.filter((game) => game && game.baseDifficulty >= 80).length,
+    [slots],
+  );
 
   function addGame(game: Game) {
     setSlots((current) => {
@@ -307,6 +311,11 @@ export default function DraftRoomPage() {
           <p className="mt-1 font-mono text-sm tabular-nums text-faint">
             {formatScore(totalProjectedScore)} if cleared
           </p>
+          {spicyCount >= 2 && (
+            <p className="mt-1 text-sm text-red-400/80">
+              Spicy — {spicyCount} games at 80+
+            </p>
+          )}
         </div>
       </header>
 

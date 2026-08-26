@@ -202,7 +202,18 @@ export default function ControlBoard({
       <section
         className={`min-h-0 ${dock ? "flex-1 overflow-y-auto" : ""}`}
       >
-        {active && <GameRow game={active} label="Now" highlight />}
+        {active && (
+          <GameRow
+            game={active}
+            label={
+              active.status === "Lost" || state.runStatus === "Failed"
+                ? "Ended"
+                : "Now"
+            }
+            highlight
+            dead={active.status === "Lost" || state.runStatus === "Failed"}
+          />
+        )}
         {upcoming.map((game, index) => (
           <GameRow
             key={game.gameId}
@@ -222,7 +233,7 @@ export default function ControlBoard({
                   <td className="w-6 py-0.5 pr-2 font-mono tabular-nums text-gray-600">
                     {i + 1}
                   </td>
-                  <td className="max-w-0 truncate py-0.5 pr-3 text-gray-400">
+                  <td className="max-w-0 truncate py-0.5 pr-3 text-gold">
                     {game.title}
                   </td>
                   <td className="py-0.5 text-right font-mono tabular-nums">
@@ -315,6 +326,7 @@ function GameRow({
   game,
   label,
   highlight = false,
+  dead = false,
 }: {
   game: {
     title: string;
@@ -324,10 +336,17 @@ function GameRow({
   };
   label: string;
   highlight?: boolean;
+  dead?: boolean;
 }) {
   return (
     <div className="flex items-center gap-2 py-0.5">
-      <span className="w-9 shrink-0 text-[11px] text-gray-500">{label}</span>
+      <span
+        className={`w-9 shrink-0 text-[11px] ${
+          dead ? "text-red-400/80" : "text-gray-500"
+        }`}
+      >
+        {label}
+      </span>
       {game.thumb ? (
         <Image
           src={game.thumb}
@@ -342,7 +361,7 @@ function GameRow({
       )}
       <p
         className={`min-w-0 flex-1 truncate text-sm ${
-          highlight ? "text-ink" : "text-gray-400"
+          dead ? "text-red-400/80" : highlight ? "text-ink" : "text-gray-400"
         }`}
       >
         {game.title}

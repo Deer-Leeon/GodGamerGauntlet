@@ -24,6 +24,7 @@ import {
 } from "@/components/RunSocial";
 import { RunTypeBadge } from "@/components/RunTypeBadge";
 import { formatSpeedrunTime } from "@/components/SpeedrunTimer";
+import MomentChips from "@/components/MomentChips";
 
 function formatWhen(iso: string | null): string {
   if (!iso) return "—";
@@ -105,13 +106,13 @@ export default function LiveRunTrackerPage() {
       .then(async (fetchedRun) => {
         if (cancelled) return;
         setRun(fetchedRun);
+        try {
+          const feedPost = await getFeedPost(fetchedRun.id);
+          if (!cancelled) setPost(feedPost);
+        } catch {
+          if (!cancelled) setPost(null);
+        }
         if (fetchedRun.status !== "Active") {
-          try {
-            const feedPost = await getFeedPost(fetchedRun.id);
-            if (!cancelled) setPost(feedPost);
-          } catch {
-            if (!cancelled) setPost(null);
-          }
           try {
             const place = await getPlacement(fetchedRun.id);
             if (!cancelled) setPlacement(place);
@@ -313,6 +314,21 @@ export default function LiveRunTrackerPage() {
               )}
             </p>
           )}
+          {isOver && placement?.nextRank != null && (placement.pointsToNext ?? 0) > 0 && (
+            <p className="mt-1 text-sm text-faint">
+              {formatScore(placement.pointsToNext ?? 0)} behind #{placement.nextRank}
+              {placement.nextUsername ? ` · ${placement.nextUsername}` : ""}
+              {run.status === "Completed" && !placement.isPersonalBest
+                ? " if this were the PB"
+                : ""}
+            </p>
+          )}
+          {isOver && placement?.boardRank === 1 && (
+            <p className="mt-1 text-sm text-gold">You hold 1st</p>
+          )}
+          {isOver && run.status === "Failed" && (
+            <p className="mt-1 text-sm text-faint">Clear the lineup to place.</p>
+          )}
         </div>
         <div className="flex flex-wrap items-center gap-3">
           {isOwner && (
@@ -363,6 +379,22 @@ export default function LiveRunTrackerPage() {
         </div>
       </header>
 
+      {isOver && placement && (
+        <section className="mb-8 border border-gold/30 bg-gold/5 px-5 py-6 text-center">
+          <p className="text-sm uppercase tracking-[0.18em] text-gold">
+            Recap
+          </p>
+          <h2 className="mt-2 text-2xl font-semibold text-ink">
+            {placement.recapTitle}
+          </h2>
+          {post && (
+            <div className="mt-3 flex justify-center">
+              <MomentChips moments={post.moments} />
+            </div>
+          )}
+        </section>
+      )}
+
       {reportError && (
         <p className="mb-6 text-sm text-red-400/90">{reportError}</p>
       )}
@@ -378,9 +410,10 @@ export default function LiveRunTrackerPage() {
             return (
               <li
                 key={slot.id}
-                className="feed-row flex items-center gap-4 py-4"
+                className="feed-row relative flex items-center gap-4 py-4 pl-3"
               >
-                <span className="w-6 font-mono text-sm tabular-nums text-faint">
+                <span className="absolute inset-y-0 left-0 w-0.5 bg-gold" />
+                <span className="w-6 font-mono text-sm tabular-nums text-gold">
                   {slot.position}
                 </span>
                 <GameThumb slot={slot} />
@@ -403,8 +436,9 @@ export default function LiveRunTrackerPage() {
             return (
               <li
                 key={slot.id}
-                className="feed-row flex items-center gap-4 py-4"
+                className="feed-row relative flex items-center gap-4 py-5 pl-3"
               >
+                <span className="absolute inset-y-0 left-0 w-0.5 bg-red-400/80" />
                 <span className="w-6 font-mono text-sm tabular-nums text-red-400/80">
                   {slot.position}
                 </span>
@@ -421,7 +455,11 @@ export default function LiveRunTrackerPage() {
 
           if (isActive) {
             return (
-              <li key={slot.id} className="feed-row py-5">
+              <li key={slot.id} className="feed-row relative py-6 pl-3">
+                <span className="absolute inset-y-0 left-0 w-0.5 bg-gold" />
+                <p className="mb-3 text-[11px] uppercase tracking-wide text-gold">
+                  Now
+                </p>
                 <div className="flex items-center gap-4">
                   <span className="w-6 font-mono text-sm tabular-nums text-ink">
                     {slot.position}
@@ -484,14 +522,16 @@ export default function LiveRunTrackerPage() {
         })}
       </ol>
 
-      {isOver && post && (
+      {post && (
         <section className="mt-10 flex gap-5 border-t border-gold/20 pt-6">
-          <VoteColumn
-            post={post}
-            signedIn={!!user}
-            compact
-            onPatch={(patch) => setPost((current) => (current ? { ...current, ...patch } : current))}
-          />
+          {isOver && (
+            <VoteColumn
+              post={post}
+              signedIn={!!user}
+              compact
+              onPatch={(patch) => setPost((current) => (current ? { ...current, ...patch } : current))}
+            />
+          )}
           <div className="min-w-0 flex-1">
             <ReactionBar
               post={post}
@@ -501,15 +541,17 @@ export default function LiveRunTrackerPage() {
                 setPost((current) => (current ? { ...current, ...patch } : current))
               }
             />
-            <CommentThread
-              runId={run.id}
-              currentUserId={user?.id ?? null}
-              onCountChange={(count) =>
-                setPost((current) =>
-                  current ? { ...current, commentCount: count } : current,
-                )
-              }
-            />
+            {isOver && (
+              <CommentThread
+                runId={run.id}
+                currentUserId={user?.id ?? null}
+                onCountChange={(count) =>
+                  setPost((current) =>
+                    current ? { ...current, commentCount: count } : current,
+                  )
+                }
+              />
+            )}
           </div>
         </section>
       )}

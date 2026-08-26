@@ -231,10 +231,31 @@ export interface LeaderboardEntry {
 export function getLeaderboard(
   runType: RunType = "Standard",
   limit = 50,
+  season: "all" | "current" | string = "all",
 ): Promise<LeaderboardEntry[]> {
   return request<LeaderboardEntry[]>(
-    `/api/leaderboard?runType=${encodeURIComponent(runType)}&limit=${limit}`,
+    `/api/leaderboard?runType=${encodeURIComponent(runType)}&limit=${limit}&season=${encodeURIComponent(season)}`,
   );
+}
+
+export function getSurvivalBoard(
+  runType: RunType = "Standard",
+  limit = 50,
+): Promise<LeaderboardEntry[]> {
+  return request<LeaderboardEntry[]>(
+    `/api/leaderboard/survival?runType=${encodeURIComponent(runType)}&limit=${limit}`,
+  );
+}
+
+export interface SeasonChampion {
+  season: string;
+  label: string;
+  standard: LeaderboardEntry | null;
+  lite: LeaderboardEntry | null;
+}
+
+export function getHallOfFame(): Promise<SeasonChampion[]> {
+  return request<SeasonChampion[]>("/api/leaderboard/seasons");
 }
 
 export interface RunPlacement {
@@ -247,6 +268,10 @@ export interface RunPlacement {
   personalBestScore: number | null;
   personalBestRunId: string | null;
   personalBestRank: number | null;
+  recapTitle: string;
+  nextRank: number | null;
+  pointsToNext: number | null;
+  nextUsername: string | null;
 }
 
 export function getPlacement(runId: string): Promise<RunPlacement> {
@@ -258,6 +283,16 @@ export interface ProfileBoard {
   score: number;
   runId: string;
   boardSize: number;
+  nextRank: number | null;
+  pointsToNext: number | null;
+  nextUsername: string | null;
+}
+
+export interface ProfileGame {
+  gameId: string;
+  title: string;
+  thumb: string | null;
+  count: number;
 }
 
 export interface ProfileRun {
@@ -274,6 +309,7 @@ export interface ProfileRun {
   slotStatuses: RunSlotStatus[];
   slotTitles: string[];
   slotThumbs: (string | null)[];
+  moments?: string[];
 }
 
 export interface ProfileMode {
@@ -295,6 +331,10 @@ export interface UserProfile {
   clearCount: number;
   dnfCount: number;
   gamesBeaten: number;
+  title: string | null;
+  titles: string[];
+  beaten: ProfileGame[];
+  killers: ProfileGame[];
   standard: ProfileMode;
   lite: ProfileMode;
   runs: ProfileRun[];
@@ -333,6 +373,7 @@ export interface OverlaySlot {
   baseDifficulty: number;
   completed: boolean;
   splitTimeMs: number | null;
+  status?: RunSlotStatus;
 }
 
 export interface OverlayState {
@@ -346,6 +387,7 @@ export interface OverlayState {
   games: OverlaySlot[];
   /** Only present when the caller is the run owner. */
   overlayKey: string | null;
+  reactions?: Record<string, number>;
 }
 
 export type OverlayAction = "toggle" | "split" | "undo" | "reset";
@@ -382,7 +424,7 @@ export interface FeedPost {
   runId: string;
   userId: string;
   streamerName: string;
-  status: "Completed" | "Failed";
+  status: RunStatus;
   runType: RunType;
   endTime: string | null;
   totalScore: number;
@@ -402,12 +444,25 @@ export interface FeedPost {
   myReactions: string[];
   boardRank: number | null;
   wouldBeRank: number | null;
+  moments?: string[];
+}
+
+export interface LiveRun {
+  runId: string;
+  streamerName: string;
+  runType: RunType;
+  slotsCompleted: number;
+  totalSlots: number;
+  currentSlot: number;
+  currentTitle: string | null;
+  currentThumb: string | null;
 }
 
 export interface FeedPage {
   posts: FeedPost[];
   page: number;
   hasMore: boolean;
+  live: LiveRun[];
 }
 
 export function getFeed(sort: FeedSort, page: number): Promise<FeedPage> {

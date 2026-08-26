@@ -42,7 +42,7 @@ public class OverlayController(AppDbContext context) : ControllerBase
             await context.SaveChangesAsync(cancellationToken);
         }
 
-        return Ok(ToDto(run, includeKey: isOwner));
+        return Ok(await ToDtoAsync(run, includeKey: isOwner, cancellationToken));
     }
 
     [HttpPost("toggle")]
@@ -74,7 +74,7 @@ public class OverlayController(AppDbContext context) : ControllerBase
         }
 
         await context.SaveChangesAsync(cancellationToken);
-        return Ok(ToDto(run, includeKey: run.UserId == CurrentUserId));
+        return Ok(await ToDtoAsync(run, includeKey: run.UserId == CurrentUserId, cancellationToken));
     }
 
     /// <summary>Marks the current game beaten, locks its split, and advances the wheel.</summary>
@@ -119,7 +119,7 @@ public class OverlayController(AppDbContext context) : ControllerBase
         }
 
         await context.SaveChangesAsync(cancellationToken);
-        return Ok(ToDto(run, includeKey: run.UserId == CurrentUserId));
+        return Ok(await ToDtoAsync(run, includeKey: run.UserId == CurrentUserId, cancellationToken));
     }
 
     /// <summary>Reverts the most recently reported slot back to pending.</summary>
@@ -159,7 +159,7 @@ public class OverlayController(AppDbContext context) : ControllerBase
         }
 
         await context.SaveChangesAsync(cancellationToken);
-        return Ok(ToDto(run, includeKey: run.UserId == CurrentUserId));
+        return Ok(await ToDtoAsync(run, includeKey: run.UserId == CurrentUserId, cancellationToken));
     }
 
     /// <summary>Zeroes the timer, clears all splits, and rotates the wheel back to slot 1.</summary>
@@ -187,7 +187,7 @@ public class OverlayController(AppDbContext context) : ControllerBase
         run.TimerUpdatedAt = null;
 
         await context.SaveChangesAsync(cancellationToken);
-        return Ok(ToDto(run, includeKey: run.UserId == CurrentUserId));
+        return Ok(await ToDtoAsync(run, includeKey: run.UserId == CurrentUserId, cancellationToken));
     }
 
     private bool CanControl(Run run, string? key) =>
@@ -210,7 +210,10 @@ public class OverlayController(AppDbContext context) : ControllerBase
         return (long)elapsed;
     }
 
-    private static OverlayStateDto ToDto(Run run, bool includeKey)
+    private async Task<OverlayStateDto> ToDtoAsync(
+        Run run,
+        bool includeKey,
+        CancellationToken cancellationToken)
     {
         var slots = run.Slots.OrderBy(s => s.Position).ToList();
         var currentIndex = slots.FindIndex(s => s.Status != RunSlotStatus.Won);
@@ -218,6 +221,13 @@ public class OverlayController(AppDbContext context) : ControllerBase
         {
             currentIndex = Math.Max(0, slots.Count - 1);
         }
+
+        var reactions = await context.RunReactions
+            .AsNoTracking()
+            .Where(x => x.RunId == run.Id)
+            .GroupBy(x => x.Type)
+            .Select(g => new { g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.Key, x => x.Count, cancellationToken);
 
         return new OverlayStateDto(
             run.Id,
@@ -234,7 +244,9 @@ public class OverlayController(AppDbContext context) : ControllerBase
                 s.Game?.Thumb,
                 s.Game?.BaseDifficulty ?? 0,
                 s.Status == RunSlotStatus.Won,
-                s.SplitTimeMs)).ToList(),
-            includeKey ? run.OverlayKey : null);
+                s.SplitTimeMs,
+                s.Status.ToString())).ToList(),
+            includeKey ? run.OverlayKey : null,
+            reactions);
     }
 }

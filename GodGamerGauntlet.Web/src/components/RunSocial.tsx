@@ -16,9 +16,9 @@ import {
 
 export const REACTIONS: { type: ReactionType; emoji: string; title: string }[] =
   [
-    { type: "fire", emoji: "🔥", title: "Fire run" },
-    { type: "skull", emoji: "💀", title: "Brutal death" },
-    { type: "crown", emoji: "👑", title: "God gamer" },
+    { type: "fire", emoji: "🔥", title: "Spicy lineup" },
+    { type: "skull", emoji: "💀", title: "Respect the DNF" },
+    { type: "crown", emoji: "👑", title: "New PB" },
     { type: "gg", emoji: "🫡", title: "GG" },
   ];
 
@@ -138,7 +138,7 @@ export function ReactionBar({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+    <div className="flex flex-wrap items-center gap-2">
       {REACTIONS.map(({ type, emoji, title }) => {
         const count = post.reactions[type] ?? 0;
         const mine = post.myReactions.includes(type);
@@ -148,14 +148,15 @@ export function ReactionBar({
             onClick={() => onToggleReaction(type)}
             disabled={!signedIn}
             title={signedIn ? title : "Sign in to react"}
-            className={`text-sm transition disabled:cursor-not-allowed disabled:opacity-40 ${
-              mine ? "text-ink" : "text-faint hover:text-ink"
+            className={`border px-2 py-0.5 text-sm tabular-nums transition disabled:cursor-not-allowed disabled:opacity-40 ${
+              mine
+                ? "border-gold text-gold"
+                : "border-gold/20 text-faint hover:border-gold/40 hover:text-ink"
             }`}
           >
             <span>{emoji}</span>
-            {count > 0 && (
-              <span className="ml-1 tabular-nums">{count}</span>
-            )}
+            <span className="ml-1">{count}</span>
+            <span className="sr-only"> {title}</span>
           </button>
         );
       })}

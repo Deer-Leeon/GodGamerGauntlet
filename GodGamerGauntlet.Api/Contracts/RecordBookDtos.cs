@@ -21,13 +21,32 @@ public record RunPlacementDto(
     double LeaderScore,
     double? PersonalBestScore,
     Guid? PersonalBestRunId,
-    int? PersonalBestRank);
+    int? PersonalBestRank,
+    string RecapTitle,
+    int? NextRank,
+    double? PointsToNext,
+    string? NextUsername);
 
 public record ProfileBoardDto(
     int Rank,
     double Score,
     Guid RunId,
-    int BoardSize);
+    int BoardSize,
+    int? NextRank,
+    double? PointsToNext,
+    string? NextUsername);
+
+public record ProfileGameDto(
+    Guid GameId,
+    string Title,
+    string? Thumb,
+    int Count);
+
+public record SeasonChampionDto(
+    string Season,
+    string Label,
+    LeaderboardEntryDto? Standard,
+    LeaderboardEntryDto? Lite);
 
 public record ProfileModeDto(
     int Attempts,
@@ -51,7 +70,8 @@ public record ProfileRunDto(
     long ElapsedMs,
     IReadOnlyList<string> SlotStatuses,
     IReadOnlyList<string> SlotTitles,
-    IReadOnlyList<string?> SlotThumbs);
+    IReadOnlyList<string?> SlotThumbs,
+    IReadOnlyList<string> Moments);
 
 /// <summary>Public roster row. Email is never included.</summary>
 public record PlayerCardDto(
@@ -73,6 +93,10 @@ public record UserProfileDto(
     int ClearCount,
     int DnfCount,
     int GamesBeaten,
+    string? Title,
+    IReadOnlyList<string> Titles,
+    IReadOnlyList<ProfileGameDto> Beaten,
+    IReadOnlyList<ProfileGameDto> Killers,
     ProfileModeDto Standard,
     ProfileModeDto Lite,
     IReadOnlyList<ProfileRunDto> Runs);

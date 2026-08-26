@@ -3,15 +3,27 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
+  getHallOfFame,
   getLeaderboard,
+  getSurvivalBoard,
   RUN_TYPE_SLOTS,
   type LeaderboardEntry,
   type RunType,
+  type SeasonChampion,
 } from "@/lib/api";
 
-const BOARDS: { id: RunType; label: string }[] = [
+const MODES: { id: RunType; label: string }[] = [
   { id: "Standard", label: `Standard (${RUN_TYPE_SLOTS.Standard} games)` },
   { id: "Lite", label: `Lite (${RUN_TYPE_SLOTS.Lite} games)` },
+];
+
+type View = "all" | "current" | "survival" | "seasons";
+
+const VIEWS: { id: View; label: string }[] = [
+  { id: "all", label: "All-time" },
+  { id: "current", label: "This month" },
+  { id: "survival", label: "Furthest DNF" },
+  { id: "seasons", label: "Hall of fame" },
 ];
 
 function formatScore(value: number): string {
@@ -32,7 +44,9 @@ function formatDate(iso: string | null): string {
 
 export default function LeaderboardPage() {
   const [runType, setRunType] = useState<RunType>("Standard");
+  const [view, setView] = useState<View>("all");
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
+  const [seasons, setSeasons] = useState<SeasonChampion[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -41,10 +55,25 @@ export default function LeaderboardPage() {
     setLoading(true);
     setLoadError(null);
 
-    getLeaderboard(runType)
-      .then((fetched) => {
-        if (!cancelled) setEntries(fetched);
-      })
+    const request =
+      view === "seasons"
+        ? getHallOfFame().then((fetched) => {
+            if (!cancelled) {
+              setSeasons(fetched);
+              setEntries([]);
+            }
+          })
+        : (view === "survival"
+            ? getSurvivalBoard(runType)
+            : getLeaderboard(runType, 50, view)
+          ).then((fetched) => {
+            if (!cancelled) {
+              setEntries(fetched);
+              setSeasons([]);
+            }
+          });
+
+    request
       .catch((error: unknown) => {
         if (!cancelled) {
           setLoadError(
@@ -61,16 +90,23 @@ export default function LeaderboardPage() {
     return () => {
       cancelled = true;
     };
-  }, [runType]);
+  }, [runType, view]);
+
+  const blurb =
+    view === "survival"
+      ? "Deepest DNF per player. How far they walked before the lineup ended them."
+      : view === "current"
+        ? "Best Clear this month. Harder lineups rank higher."
+        : view === "seasons"
+          ? "Monthly #1s. All-time PBs still live on profiles."
+          : "Best Clear per player. Harder lineups rank higher.";
 
   return (
     <main className="mx-auto w-full max-w-4xl flex-1 px-6 py-10 sm:px-8">
       <header className="flex flex-wrap items-end justify-between gap-4 border-b border-gold/20 pb-6">
         <div>
           <h1 className="text-2xl font-semibold">Leaderboard</h1>
-          <p className="mt-2 text-sm leading-relaxed text-muted">
-            Best Clear per player. Harder lineups rank higher.
-          </p>
+          <p className="mt-2 text-sm leading-relaxed text-muted">{blurb}</p>
         </div>
         <Link
           href="/draft"
@@ -82,51 +118,107 @@ export default function LeaderboardPage() {
 
       <div
         role="tablist"
-        aria-label="Gauntlet mode"
-        className="mt-8 flex gap-6 border-b border-gold/20 text-sm"
+        aria-label="Board"
+        className="mt-8 flex flex-wrap gap-6 border-b border-gold/20 text-sm"
       >
-        {BOARDS.map((board) => (
+        {VIEWS.map((item) => (
           <button
-            key={board.id}
+            key={item.id}
             role="tab"
-            aria-selected={runType === board.id}
-            onClick={() => setRunType(board.id)}
+            aria-selected={view === item.id}
+            onClick={() => setView(item.id)}
             className={`-mb-px border-b-2 pb-3 transition ${
-              runType === board.id
+              view === item.id
                 ? "border-gold text-gold"
                 : "border-transparent text-faint hover:text-ink"
             }`}
           >
-            {board.label}
+            {item.label}
           </button>
         ))}
       </div>
+
+      {view !== "seasons" && (
+        <div
+          role="tablist"
+          aria-label="Gauntlet mode"
+          className="mt-6 flex gap-6 border-b border-gold/20 text-sm"
+        >
+          {MODES.map((board) => (
+            <button
+              key={board.id}
+              role="tab"
+              aria-selected={runType === board.id}
+              onClick={() => setRunType(board.id)}
+              className={`-mb-px border-b-2 pb-3 transition ${
+                runType === board.id
+                  ? "border-gold text-gold"
+                  : "border-transparent text-faint hover:text-ink"
+              }`}
+            >
+              {board.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {loadError && (
         <p className="py-6 text-sm text-red-400/90">{loadError}</p>
       )}
 
-      <div className="feed-list mt-5">
-        <div className="feed-head grid grid-cols-[3rem_1fr_6rem_5rem_8rem] gap-3 border-b border-gold/20 py-3.5 text-sm text-faint sm:grid-cols-[3rem_1fr_7rem_6rem_8rem]">
-          <span>#</span>
-          <span>Player</span>
-          <span className="text-right">Lineup</span>
-          <span className="text-center">Slots</span>
-          <span className="hidden text-right sm:block">Finished</span>
-        </div>
+      {view === "seasons" ? (
+        <HallOfFame loading={loading} seasons={seasons} />
+      ) : (
+        <BoardTable
+          loading={loading}
+          loadError={loadError}
+          entries={entries}
+          empty={
+            view === "survival"
+              ? `No ${runType} DNFs yet.`
+              : `No ${runType === "Lite" ? "Lite" : "Standard"} Clears yet.`
+          }
+          slotsLabel={view === "survival" ? "Furthest" : "Slots"}
+        />
+      )}
+    </main>
+  );
+}
 
-        {loading && (
-          <p className="py-14 text-sm text-faint">Loading…</p>
-        )}
+function BoardTable({
+  loading,
+  loadError,
+  entries,
+  empty,
+  slotsLabel,
+}: {
+  loading: boolean;
+  loadError: string | null;
+  entries: LeaderboardEntry[];
+  empty: string;
+  slotsLabel: string;
+}) {
+  return (
+    <div className="feed-list mt-5">
+      <div className="feed-head grid grid-cols-[3rem_1fr_6rem_5rem_8rem] gap-3 border-b border-gold/20 py-3.5 text-sm text-faint sm:grid-cols-[3rem_1fr_7rem_6rem_8rem]">
+        <span>#</span>
+        <span>Player</span>
+        <span className="text-right">Lineup</span>
+        <span className="text-center">{slotsLabel}</span>
+        <span className="hidden text-right sm:block">Finished</span>
+      </div>
 
-        {!loading && !loadError && entries.length === 0 && (
-          <p className="py-14 text-sm text-faint">
-            No {runType === "Lite" ? "Lite" : "Standard"} Clears yet.
-          </p>
-        )}
+      {loading && <p className="py-14 text-sm text-faint">Loading…</p>}
 
-        <ol>
-          {entries.map((entry) => (
+      {!loading && !loadError && entries.length === 0 && (
+        <p className="py-14 text-sm text-faint">{empty}</p>
+      )}
+
+      <ol>
+        {entries.map((entry, index) => {
+          const gap =
+            index === 0 ? null : entries[index - 1].totalScore - entry.totalScore;
+          return (
             <li key={entry.runId} className="feed-row">
               <div className="grid grid-cols-[3rem_1fr_6rem_5rem_8rem] items-center gap-3 py-3.5 text-sm sm:grid-cols-[3rem_1fr_7rem_6rem_8rem]">
                 <Link
@@ -146,6 +238,11 @@ export default function LeaderboardPage() {
                   className="text-right font-mono tabular-nums text-muted"
                 >
                   {formatScore(entry.totalScore)}
+                  {gap != null && gap > 0 && (
+                    <span className="mt-0.5 block text-[11px] text-faint">
+                      {formatScore(gap)} behind
+                    </span>
+                  )}
                 </Link>
                 <Link
                   href={`/run/${entry.runId}`}
@@ -161,9 +258,54 @@ export default function LeaderboardPage() {
                 </Link>
               </div>
             </li>
-          ))}
-        </ol>
+          );
+        })}
+      </ol>
+    </div>
+  );
+}
+
+function HallOfFame({
+  loading,
+  seasons,
+}: {
+  loading: boolean;
+  seasons: SeasonChampion[];
+}) {
+  return (
+    <div className="feed-list mt-5">
+      <div className="feed-head grid grid-cols-[7rem_1fr_1fr] gap-3 border-b border-gold/20 py-3.5 text-sm text-faint">
+        <span>Month</span>
+        <span>Standard</span>
+        <span>Lite</span>
       </div>
-    </main>
+      {loading && <p className="py-14 text-sm text-faint">Loading…</p>}
+      {!loading && seasons.length === 0 && (
+        <p className="py-14 text-sm text-faint">No monthly champions yet.</p>
+      )}
+      <ol>
+        {seasons.map((season) => (
+          <li key={season.season} className="feed-row">
+            <div className="grid grid-cols-[7rem_1fr_1fr] items-center gap-3 py-3.5 text-sm">
+              <span className="text-muted">{season.label}</span>
+              <ChampCell entry={season.standard} />
+              <ChampCell entry={season.lite} />
+            </div>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
+function ChampCell({ entry }: { entry: LeaderboardEntry | null }) {
+  if (!entry) return <span className="text-faint">—</span>;
+  return (
+    <Link href={`/u/${encodeURIComponent(entry.streamerName)}`} className="hover:text-gold">
+      <span className="text-ink">{entry.streamerName}</span>
+      <span className="ml-2 font-mono text-faint tabular-nums">
+        {formatScore(entry.totalScore)}
+      </span>
+    </Link>
   );
 }

@@ -168,6 +168,22 @@ html:has(.obs-control-root) .site-nav {
   display: none !important;
 }
 
+@keyframes overlay-death {
+  0% {
+    box-shadow: inset 0 0 0 0 rgb(224 122 104 / 0);
+  }
+  25% {
+    box-shadow: inset 0 0 90px 24px rgb(224 122 104 / 0.55);
+  }
+  100% {
+    box-shadow: inset 0 0 0 0 rgb(224 122 104 / 0);
+  }
+}
+
+.overlay-death-sting {
+  animation: overlay-death 0.9s ease-out;
+}
+
 @media (min-width: 1024px) {
   html.ggg-has-control-rail .site-shell {
     padding-right: 20rem;

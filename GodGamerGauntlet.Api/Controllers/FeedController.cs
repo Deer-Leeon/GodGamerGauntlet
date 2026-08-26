@@ -102,11 +102,17 @@ public class FeedController(AppDbContext context, IRecordBook recordBook) : Cont
 
         if (pageIds.Count == 0)
         {
-            return Ok(new FeedPageDto([], page, false));
+            var emptyLive = page == 1
+                ? await LoadLiveAsync(cancellationToken)
+                : [];
+            return Ok(new FeedPageDto([], page, false, emptyLive));
         }
 
         var posts = await BuildPostsAsync(pageIds, cancellationToken);
-        return Ok(new FeedPageDto(posts, page, hasMore));
+        var live = page == 1
+            ? await LoadLiveAsync(cancellationToken)
+            : [];
+        return Ok(new FeedPageDto(posts, page, hasMore, live));
     }
 
     /// <summary>One finished run as a feed post — used by the run detail page.</summary>
@@ -115,9 +121,9 @@ public class FeedController(AppDbContext context, IRecordBook recordBook) : Cont
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetPost(Guid id, CancellationToken cancellationToken)
     {
-        if (!await FinishedRunExistsAsync(id, cancellationToken))
+        if (!await context.Runs.AnyAsync(r => r.Id == id, cancellationToken))
         {
-            return NotFound("Run not found or not finished yet.");
+            return NotFound("Run not found.");
         }
 
         var posts = await BuildPostsAsync([id], cancellationToken);
@@ -193,9 +199,9 @@ public class FeedController(AppDbContext context, IRecordBook recordBook) : Cont
 
         var userId = CurrentUserId!.Value;
 
-        if (!await FinishedRunExistsAsync(id, cancellationToken))
+        if (!await context.Runs.AnyAsync(r => r.Id == id, cancellationToken))
         {
-            return NotFound("Run not found or not finished yet.");
+            return NotFound("Run not found.");
         }
 
         var existing = await context.RunReactions.FirstOrDefaultAsync(
@@ -387,6 +393,16 @@ public class FeedController(AppDbContext context, IRecordBook recordBook) : Cont
         var reactionsByRun = reactions.ToLookup(x => x.RunId);
         var runsById = runs.ToDictionary(r => r.Id);
         var boards = await recordBook.GetAllBoardsAsync(cancellationToken);
+        var userIds = runs.Select(r => r.UserId).Distinct().ToList();
+        var clears = await context.Runs
+            .AsNoTracking()
+            .Where(r => r.Status == RunStatus.Completed && userIds.Contains(r.UserId))
+            .Select(r => new { r.Id, r.UserId, r.RunType, r.EndTime })
+            .ToListAsync(cancellationToken);
+        var firstClearIds = clears
+            .GroupBy(c => (c.UserId, c.RunType))
+            .Select(g => g.OrderBy(x => x.EndTime).ThenBy(x => x.Id).First().Id)
+            .ToHashSet();
 
         var posts = new List<FeedPostDto>(runIds.Count);
         foreach (var runId in runIds)
@@ -395,14 +411,17 @@ public class FeedController(AppDbContext context, IRecordBook recordBook) : Cont
 
             var slots = run.Slots.OrderBy(s => s.Position).ToList();
             var earnedScore = SlotScores.Earned(slots);
+            var won = slots.Count(s => s.Status == RunSlotStatus.Won);
+            var totalSlots = run.RunType.SlotCount();
 
             int? boardRank = null;
             int? wouldBeRank = null;
+            var isPb = false;
             if (run.Status == RunStatus.Completed)
             {
                 var board = boards[run.RunType];
                 var pb = board.FirstOrDefault(p => p.UserId == run.UserId);
-                var isPb = pb is not null && pb.RunId == run.Id;
+                isPb = pb is not null && pb.RunId == run.Id;
                 boardRank = isPb ? pb!.Rank : null;
                 wouldBeRank = RecordBook.WouldBeRank(board, run.UserId, earnedScore, run.EndTime);
             }
@@ -418,8 +437,8 @@ public class FeedController(AppDbContext context, IRecordBook recordBook) : Cont
                 run.RunType.ToString(),
                 run.EndTime,
                 earnedScore,
-                slots.Count(s => s.Status == RunSlotStatus.Won),
-                run.RunType.SlotCount(),
+                won,
+                totalSlots,
                 slots.Select(s => s.Status.ToString()).ToList(),
                 slots.Select(s => s.Game?.Title ?? "Unknown game").ToList(),
                 slots.Select(s => s.Game?.Thumb).ToList(),
@@ -433,9 +452,46 @@ public class FeedController(AppDbContext context, IRecordBook recordBook) : Cont
                     ? []
                     : runReactions.Where(x => x.UserId == viewerId).Select(x => x.Type).ToList(),
                 boardRank,
-                wouldBeRank));
+                wouldBeRank,
+                RunMoments.For(
+                    run.Status,
+                    run.RunType,
+                    won,
+                    totalSlots,
+                    isPb,
+                    firstClearIds.Contains(run.Id))));
         }
 
         return posts;
+    }
+
+    private async Task<IReadOnlyList<LiveRunDto>> LoadLiveAsync(CancellationToken cancellationToken)
+    {
+        var live = await context.Runs
+            .AsNoTracking()
+            .Include(r => r.User)
+            .Include(r => r.Slots)
+            .ThenInclude(s => s.Game)
+            .Where(r => r.Status == RunStatus.Active)
+            .OrderByDescending(r => r.StartTime)
+            .Take(8)
+            .ToListAsync(cancellationToken);
+
+        return live.Select(run =>
+        {
+            var slots = run.Slots.OrderBy(s => s.Position).ToList();
+            var current = slots.FindIndex(s => s.Status != RunSlotStatus.Won);
+            if (current < 0) current = Math.Max(0, slots.Count - 1);
+            var currentSlot = slots.ElementAtOrDefault(current);
+            return new LiveRunDto(
+                run.Id,
+                run.User?.Username ?? "unknown",
+                run.RunType.ToString(),
+                slots.Count(s => s.Status == RunSlotStatus.Won),
+                run.RunType.SlotCount(),
+                current + 1,
+                currentSlot?.Game?.Title,
+                currentSlot?.Game?.Thumb);
+        }).ToList();
     }
 }

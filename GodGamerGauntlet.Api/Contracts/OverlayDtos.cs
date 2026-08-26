@@ -8,13 +8,9 @@ public record OverlaySlotDto(
     string? Thumb,
     int BaseDifficulty,
     bool Completed,
-    long? SplitTimeMs);
+    long? SplitTimeMs,
+    string Status);
 
-/// <summary>
-/// The synchronized run state shared by the OBS overlay and the control deck.
-/// ElapsedMs is computed server-side at response time; while the timer is
-/// running, clients extrapolate locally between polls.
-/// </summary>
 public record OverlayStateDto(
     Guid RunId,
     string StreamerName,
@@ -25,4 +21,5 @@ public record OverlayStateDto(
     string TimerStatus,
     long ElapsedMs,
     IReadOnlyList<OverlaySlotDto> Games,
-    string? OverlayKey);
+    string? OverlayKey,
+    IReadOnlyDictionary<string, int> Reactions);

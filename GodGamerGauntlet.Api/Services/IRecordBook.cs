@@ -8,6 +8,15 @@ public interface IRecordBook
     Task<IReadOnlyList<LeaderboardEntryDto>> GetBoardAsync(
         RunType runType,
         int limit,
+        CancellationToken cancellationToken = default,
+        string? season = null);
+
+    Task<IReadOnlyList<LeaderboardEntryDto>> GetSurvivalBoardAsync(
+        RunType runType,
+        int limit,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<SeasonChampionDto>> GetHallOfFameAsync(
         CancellationToken cancellationToken = default);
 
     Task<RunPlacementDto?> GetPlacementAsync(

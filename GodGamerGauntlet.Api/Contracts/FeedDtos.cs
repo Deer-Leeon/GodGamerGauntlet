@@ -29,12 +29,25 @@ public record FeedPostDto(
     IReadOnlyDictionary<string, int> Reactions,
     IReadOnlyList<string> MyReactions,
     int? BoardRank,
-    int? WouldBeRank);
+    int? WouldBeRank,
+    IReadOnlyList<string> Moments);
 
 public record FeedPageDto(
     IReadOnlyList<FeedPostDto> Posts,
     int Page,
-    bool HasMore);
+    bool HasMore,
+    IReadOnlyList<LiveRunDto> Live);
+
+/// <summary>An in-progress gauntlet shown above the finished feed.</summary>
+public record LiveRunDto(
+    Guid RunId,
+    string StreamerName,
+    string RunType,
+    int SlotsCompleted,
+    int TotalSlots,
+    int CurrentSlot,
+    string? CurrentTitle,
+    string? CurrentThumb);
 
 public record VoteRequest([Range(-1, 1)] int Value);
 

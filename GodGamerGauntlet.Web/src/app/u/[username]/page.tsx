@@ -4,9 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { getProfile, type ProfileMode, type ProfileRun, type RunType, type UserProfile } from "@/lib/api";
+import { getProfile, type ProfileGame, type ProfileMode, type ProfileRun, type RunType, type UserProfile } from "@/lib/api";
 import { timeAgo } from "@/components/RunSocial";
 import { formatSpeedrunTime } from "@/components/SpeedrunTimer";
+import MomentChips from "@/components/MomentChips";
+import SurvivalMeter from "@/components/SurvivalMeter";
 
 type HistoryFilter = "All" | RunType;
 
@@ -97,6 +99,25 @@ export default function ProfilePage() {
 
       <header className="border-b border-gold/20 pb-6">
         <h1 className="text-2xl font-semibold">{profile.username}</h1>
+        {profile.title && (
+          <p className="mt-1 text-sm font-medium text-gold">{profile.title}</p>
+        )}
+        {(profile.titles ?? []).length > 1 && (
+          <ul className="mt-2 flex flex-wrap gap-1.5">
+            {profile.titles.map((earned) => (
+              <li
+                key={earned}
+                className={`border px-2 py-0.5 text-[11px] uppercase tracking-wide ${
+                  earned === profile.title
+                    ? "border-gold text-gold"
+                    : "border-gold/25 text-faint"
+                }`}
+              >
+                {earned}
+              </li>
+            ))}
+          </ul>
+        )}
         <p className="mt-2 text-sm leading-relaxed text-muted">
           Joined {formatJoined(profile.createdAt)}
           {profile.lastRunAt
@@ -120,6 +141,8 @@ export default function ProfilePage() {
         <ModeCard label="Standard" mode={profile.standard} />
         <ModeCard label="Lite" mode={profile.lite} />
       </section>
+
+      <Bestiary beaten={profile.beaten ?? []} killers={profile.killers ?? []} />
 
       <section className="mt-10">
         <h2 className="text-sm font-medium text-ink">Gauntlet history</h2>
@@ -194,11 +217,106 @@ function ModeCard({ label, mode }: { label: string; mode: ProfileMode }) {
       ) : (
         <p className="mt-2 text-sm text-faint">No Clear yet.</p>
       )}
+      {board?.nextRank != null && (board.pointsToNext ?? 0) > 0 && (
+        <p className="mt-1 text-sm text-faint">
+          {formatScore(board.pointsToNext ?? 0)} behind #{board.nextRank}
+          {board.nextUsername ? ` · ${board.nextUsername}` : ""}
+        </p>
+      )}
+      {board?.rank === 1 && (
+        <p className="mt-1 text-sm text-gold">Holds 1st</p>
+      )}
+      <div className="mt-4">
+        <SurvivalMeter
+          label="Furthest"
+          survived={mode.bestSurvival}
+          total={mode.bestSurvivalTotal}
+        />
+      </div>
       <p className="mt-2 text-sm text-faint">
         {mode.attempts === 0
           ? "No attempts."
-          : `${mode.attempts} attempt${mode.attempts === 1 ? "" : "s"} · ${mode.clears} Clear${mode.clears === 1 ? "" : "s"} · furthest ${mode.bestSurvival}/${mode.bestSurvivalTotal}`}
+          : `${mode.attempts} attempt${mode.attempts === 1 ? "" : "s"} · ${mode.clears} Clear${mode.clears === 1 ? "" : "s"}`}
       </p>
+    </div>
+  );
+}
+
+function Bestiary({
+  beaten,
+  killers,
+}: {
+  beaten: ProfileGame[];
+  killers: ProfileGame[];
+}) {
+  if (beaten.length === 0 && killers.length === 0) return null;
+  return (
+    <section className="mt-10 grid gap-8 sm:grid-cols-2">
+      <GameShelf
+        label="Beaten"
+        empty="No games beaten yet."
+        games={beaten}
+      />
+      <GameShelf
+        label="Ended runs"
+        empty="No run-ending games yet."
+        games={killers}
+        danger
+      />
+    </section>
+  );
+}
+
+function GameShelf({
+  label,
+  empty,
+  games,
+  danger = false,
+}: {
+  label: string;
+  empty: string;
+  games: ProfileGame[];
+  danger?: boolean;
+}) {
+  return (
+    <div>
+      <h2 className="mb-3 text-sm font-medium text-ink">{label}</h2>
+      {games.length === 0 ? (
+        <p className="text-sm text-faint">{empty}</p>
+      ) : (
+        <ul className="flex flex-wrap gap-1">
+          {games.map((game) => (
+            <li
+              key={game.gameId}
+              title={`${game.title} ×${game.count}`}
+              className="relative h-10 w-10 overflow-hidden bg-white/5"
+            >
+              {game.thumb ? (
+                <Image
+                  src={game.thumb}
+                  alt=""
+                  fill
+                  unoptimized
+                  sizes="40px"
+                  className="object-cover"
+                />
+              ) : (
+                <span className="flex h-full items-center justify-center font-mono text-[10px] text-faint">
+                  {game.title.slice(0, 1)}
+                </span>
+              )}
+              {danger && (
+                <span aria-hidden className="absolute inset-0 bg-red-950/45" />
+              )}
+              {game.count > 1 && (
+                <span className="absolute bottom-0 right-0 bg-black/70 px-0.5 font-mono text-[9px] text-ink">
+                  {game.count}
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
@@ -243,6 +361,12 @@ function HistoryCard({ run }: { run: ProfileRun }) {
           <span className="text-faint/70">·</span>
           <span className="text-faint">{timeAgo(run.endTime)}</span>
         </div>
+
+        {(run.moments ?? []).length > 0 && (
+          <div className="mt-2">
+            <MomentChips moments={run.moments} />
+          </div>
+        )}
 
         <div className="mt-1.5 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
           <p className="text-sm leading-snug text-ink">
