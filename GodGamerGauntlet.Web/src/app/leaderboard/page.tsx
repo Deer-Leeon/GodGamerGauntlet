@@ -70,7 +70,7 @@ export default function LeaderboardPage() {
         <div>
           <h1 className="text-2xl font-semibold">Leaderboard</h1>
           <p className="mt-1 text-sm text-muted">
-            Top finished runs, ranked by earned score.
+            Best Clear per player, ranked by earned score.
           </p>
         </div>
         <Link
@@ -108,61 +108,61 @@ export default function LeaderboardPage() {
       )}
 
       <div className="feed-list">
-        <div className="grid grid-cols-[3rem_1fr_6rem_5rem_4rem] gap-2 border-b border-gold/20 px-0 py-3 text-[12px] text-muted sm:grid-cols-[3rem_1fr_7rem_6rem_5rem_8rem]">
+        <div className="grid grid-cols-[3rem_1fr_6rem_5rem_8rem] gap-2 border-b border-gold/20 px-0 py-3 text-[12px] text-muted sm:grid-cols-[3rem_1fr_7rem_6rem_8rem]">
           <span>#</span>
-          <span>Streamer</span>
+          <span>Player</span>
           <span className="text-right">Score</span>
           <span className="text-center">Slots</span>
-          <span className="text-center">Result</span>
           <span className="hidden text-right sm:block">Finished</span>
         </div>
 
         {loading && (
-          <p className="py-12 text-sm text-gray-500">Loading…</p>
+          <p className="py-12 text-sm text-muted">Loading…</p>
         )}
 
         {!loading && !loadError && entries.length === 0 && (
-          <p className="py-12 text-sm text-gray-500">
-            No finished {runType === "Lite" ? "Lite" : "Standard"} runs yet.
+          <p className="py-12 text-sm text-muted">
+            No {runType === "Lite" ? "Lite" : "Standard"} Clears yet.
           </p>
         )}
 
         <ol>
-          {entries.map((entry, index) => {
-            const rank = index + 1;
-            const completed = entry.status === "Completed";
-            return (
-              <li key={entry.runId} className="feed-row">
+          {entries.map((entry) => (
+            <li key={entry.runId} className="feed-row">
+              <div className="grid grid-cols-[3rem_1fr_6rem_5rem_8rem] items-center gap-2 py-3 text-sm sm:grid-cols-[3rem_1fr_7rem_6rem_8rem]">
                 <Link
                   href={`/run/${entry.runId}`}
-                  className="grid grid-cols-[3rem_1fr_6rem_5rem_4rem] items-center gap-2 py-3 text-sm sm:grid-cols-[3rem_1fr_7rem_6rem_5rem_8rem]"
+                  className="font-mono tabular-nums text-gold"
                 >
-                  <span className="font-mono tabular-nums text-gray-500">
-                    {rank}
-                  </span>
-                  <span className="truncate font-medium text-ink">
-                    {entry.streamerName}
-                  </span>
-                  <span className="text-right font-mono tabular-nums text-gold">
-                    {formatScore(entry.totalScore)}
-                  </span>
-                  <span className="text-center font-mono text-sm tabular-nums text-gray-500">
-                    {entry.slotsCompleted}/{entry.totalSlots}
-                  </span>
-                  <span
-                    className={`text-center text-[13px] ${
-                      completed ? "text-gold" : "text-red-400/80"
-                    }`}
-                  >
-                    {completed ? "Clear" : "DNF"}
-                  </span>
-                  <span className="hidden text-right font-mono text-xs text-gray-500 sm:block">
-                    {formatDate(entry.endTime)}
-                  </span>
+                  {entry.rank}
                 </Link>
-              </li>
-            );
-          })}
+                <Link
+                  href={`/u/${encodeURIComponent(entry.streamerName)}`}
+                  className="truncate font-medium text-ink hover:text-gold"
+                >
+                  {entry.streamerName}
+                </Link>
+                <Link
+                  href={`/run/${entry.runId}`}
+                  className="text-right font-mono tabular-nums text-gold"
+                >
+                  {formatScore(entry.totalScore)}
+                </Link>
+                <Link
+                  href={`/run/${entry.runId}`}
+                  className="text-center font-mono text-sm tabular-nums text-muted"
+                >
+                  {entry.slotsCompleted}/{entry.totalSlots}
+                </Link>
+                <Link
+                  href={`/run/${entry.runId}`}
+                  className="hidden text-right font-mono text-xs text-muted sm:block"
+                >
+                  {formatDate(entry.endTime)}
+                </Link>
+              </div>
+            </li>
+          ))}
         </ol>
       </div>
     </main>

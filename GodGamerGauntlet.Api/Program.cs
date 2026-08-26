@@ -27,6 +27,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddScoped<IGameRepository, GameRepository>();
 builder.Services.AddScoped<IRunRepository, RunRepository>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IRecordBook, RecordBook>();
 
 // JWT auth. The signing key comes from Jwt:Secret (user secrets locally,
 // Jwt__Secret env var on Railway). Missing secret falls back to a random

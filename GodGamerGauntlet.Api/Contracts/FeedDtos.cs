@@ -27,7 +27,9 @@ public record FeedPostDto(
     int MyVote,
     int CommentCount,
     IReadOnlyDictionary<string, int> Reactions,
-    IReadOnlyList<string> MyReactions);
+    IReadOnlyList<string> MyReactions,
+    int? BoardRank,
+    int? WouldBeRank);
 
 public record FeedPageDto(
     IReadOnlyList<FeedPostDto> Posts,

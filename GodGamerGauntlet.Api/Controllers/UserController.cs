@@ -1,5 +1,6 @@
 using GodGamerGauntlet.Api.Contracts;
 using GodGamerGauntlet.Api.Repositories;
+using GodGamerGauntlet.Api.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GodGamerGauntlet.Api.Controllers;
@@ -8,7 +9,7 @@ namespace GodGamerGauntlet.Api.Controllers;
 // create endpoint would let anyone squat usernames.
 [ApiController]
 [Route("api/users")]
-public class UserController(IUserRepository userRepository) : ControllerBase
+public class UserController(IUserRepository userRepository, IRecordBook recordBook) : ControllerBase
 {
     [HttpGet]
     [ProducesResponseType(typeof(IEnumerable<UserResponse>), StatusCodes.Status200OK)]
@@ -16,6 +17,15 @@ public class UserController(IUserRepository userRepository) : ControllerBase
     {
         var users = await userRepository.GetAllAsync(cancellationToken);
         return Ok(users.Select(UserResponse.FromEntity));
+    }
+
+    [HttpGet("by-username/{username}")]
+    [ProducesResponseType(typeof(UserProfileDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetProfile(string username, CancellationToken cancellationToken)
+    {
+        var profile = await recordBook.GetProfileAsync(username, cancellationToken);
+        return profile is null ? NotFound() : Ok(profile);
     }
 
     [HttpGet("{id:guid}")]

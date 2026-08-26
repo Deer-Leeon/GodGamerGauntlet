@@ -10,7 +10,7 @@ import {
   timeAgo,
 } from "@/components/RunSocial";
 import { formatSpeedrunTime } from "@/components/SpeedrunTimer";
-import { getFeed, type FeedPost, type FeedSort } from "@/lib/api";
+import { getFeed, getLeaderboard, type FeedPost, type FeedSort, type LeaderboardEntry, type RunType } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 
 const SORTS: { id: FeedSort; label: string }[] = [
@@ -97,6 +97,8 @@ export default function FeedPage() {
           Draft a run
         </Link>
       </header>
+
+      <TopBoards />
 
       <div
         role="tablist"
@@ -188,13 +190,34 @@ function PostCard({
 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-[13px]">
-            <span className="font-medium text-ink">{post.streamerName}</span>
+            <Link
+              href={`/u/${encodeURIComponent(post.streamerName)}`}
+              className="font-medium text-ink hover:text-gold"
+            >
+              {post.streamerName}
+            </Link>
             <span className="text-gray-600">·</span>
             <span className="text-gray-500">{timeAgo(post.endTime)}</span>
             <span className="text-gray-600">·</span>
             <span className={completed ? "text-gold" : "text-red-400/80"}>
               {completed ? "Clear" : "DNF"}
             </span>
+            {completed && post.boardRank != null && (
+              <>
+                <span className="text-gray-600">·</span>
+                <span className="font-mono tabular-nums text-gold">
+                  #{post.boardRank}
+                </span>
+              </>
+            )}
+            {completed && post.boardRank == null && post.wouldBeRank != null && (
+              <>
+                <span className="text-gray-600">·</span>
+                <span className="tabular-nums text-muted">
+                  would #{post.wouldBeRank}
+                </span>
+              </>
+            )}
             {isLite && (
               <>
                 <span className="text-gray-600">·</span>
@@ -359,6 +382,90 @@ function FooterBar({
           onCountChange={(count) => onPatch({ commentCount: count })}
         />
       )}
+    </div>
+  );
+}
+
+function TopBoards() {
+  const [standard, setStandard] = useState<LeaderboardEntry[] | null>(null);
+  const [lite, setLite] = useState<LeaderboardEntry[] | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([
+      getLeaderboard("Standard", 5),
+      getLeaderboard("Lite", 5),
+    ]).then(([s, l]) => {
+      if (cancelled) return;
+      setStandard(s);
+      setLite(l);
+    }).catch(() => {
+      if (cancelled) return;
+      setStandard([]);
+      setLite([]);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (standard === null || lite === null) return null;
+  if (standard.length === 0 && lite.length === 0) return null;
+
+  return (
+    <section className="mt-6 grid gap-6 sm:grid-cols-2">
+      <TopColumn title="Top Standard" runType="Standard" entries={standard} />
+      <TopColumn title="Top Lite" runType="Lite" entries={lite} />
+    </section>
+  );
+}
+
+function TopColumn({
+  title,
+  runType,
+  entries,
+}: {
+  title: string;
+  runType: RunType;
+  entries: LeaderboardEntry[];
+}) {
+  return (
+    <div>
+      <div className="mb-2 flex items-baseline justify-between">
+        <h2 className="text-sm text-muted">{title}</h2>
+        <Link
+          href="/leaderboard"
+          className="text-xs text-muted hover:text-gold"
+        >
+          Full board
+        </Link>
+      </div>
+      {entries.length === 0 ? (
+        <p className="text-sm text-muted">No Clears yet.</p>
+      ) : (
+        <ol className="feed-list">
+          {entries.map((entry) => (
+            <li key={entry.runId} className="feed-row flex items-baseline gap-3 py-1.5 text-sm">
+              <span className="w-6 shrink-0 font-mono tabular-nums text-gold">
+                {entry.rank}
+              </span>
+              <Link
+                href={`/u/${encodeURIComponent(entry.streamerName)}`}
+                className="min-w-0 flex-1 truncate text-ink hover:text-gold"
+              >
+                {entry.streamerName}
+              </Link>
+              <Link
+                href={`/run/${entry.runId}`}
+                className="shrink-0 font-mono tabular-nums text-gold"
+              >
+                {formatPts(entry.totalScore)}
+              </Link>
+            </li>
+          ))}
+        </ol>
+      )}
+      <span className="sr-only">{runType}</span>
     </div>
   );
 }

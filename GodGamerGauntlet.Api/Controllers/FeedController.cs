@@ -2,6 +2,7 @@ using System.Security.Claims;
 using GodGamerGauntlet.Api.Contracts;
 using GodGamerGauntlet.Api.Data;
 using GodGamerGauntlet.Api.Models;
+using GodGamerGauntlet.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -10,7 +11,7 @@ namespace GodGamerGauntlet.Api.Controllers;
 
 [ApiController]
 [Route("api")]
-public class FeedController(AppDbContext context) : ControllerBase
+public class FeedController(AppDbContext context, IRecordBook recordBook) : ControllerBase
 {
     private const int PageSize = 20;
 
@@ -385,6 +386,7 @@ public class FeedController(AppDbContext context) : ControllerBase
         var votesByRun = votes.ToLookup(v => v.RunId);
         var reactionsByRun = reactions.ToLookup(x => x.RunId);
         var runsById = runs.ToDictionary(r => r.Id);
+        var boards = await recordBook.GetAllBoardsAsync(cancellationToken);
 
         var posts = new List<FeedPostDto>(runIds.Count);
         foreach (var runId in runIds)
@@ -392,11 +394,18 @@ public class FeedController(AppDbContext context) : ControllerBase
             if (!runsById.TryGetValue(runId, out var run)) continue;
 
             var slots = run.Slots.OrderBy(s => s.Position).ToList();
+            var earnedScore = SlotScores.Earned(slots);
 
-            // Earned score: same formula as the leaderboard — won slots only.
-            var earnedScore = slots
-                .Where(s => s.Status == RunSlotStatus.Won)
-                .Sum(s => (s.Game?.BaseDifficulty ?? 0) * (1 + 0.1 * Math.Pow(s.Position - 1, 2)));
+            int? boardRank = null;
+            int? wouldBeRank = null;
+            if (run.Status == RunStatus.Completed)
+            {
+                var board = boards[run.RunType];
+                var pb = board.FirstOrDefault(p => p.UserId == run.UserId);
+                var isPb = pb is not null && pb.RunId == run.Id;
+                boardRank = isPb ? pb!.Rank : null;
+                wouldBeRank = RecordBook.WouldBeRank(board, run.UserId, earnedScore, run.EndTime);
+            }
 
             var runVotes = votesByRun[runId].ToList();
             var runReactions = reactionsByRun[runId].ToList();
@@ -422,7 +431,9 @@ public class FeedController(AppDbContext context) : ControllerBase
                 runReactions.GroupBy(x => x.Type).ToDictionary(g => g.Key, g => g.Count()),
                 viewerId is null
                     ? []
-                    : runReactions.Where(x => x.UserId == viewerId).Select(x => x.Type).ToList()));
+                    : runReactions.Where(x => x.UserId == viewerId).Select(x => x.Type).ToList(),
+                boardRank,
+                wouldBeRank));
         }
 
         return posts;

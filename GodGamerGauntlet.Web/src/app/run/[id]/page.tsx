@@ -6,11 +6,13 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import {
   getFeedPost,
+  getPlacement,
   getRun,
   reportSlotMatch,
   RUN_TYPE_SLOTS,
   type FeedPost,
   type Run,
+  type RunPlacement,
   type RunSlot,
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -43,6 +45,15 @@ function formatScore(value: number): string {
     minimumFractionDigits: 1,
     maximumFractionDigits: 1,
   });
+}
+
+function formatDelta(pts: number): string {
+  const abs = Math.abs(pts).toLocaleString("en-US", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  });
+  if (pts === 0) return "tied with 1st";
+  return pts < 0 ? `−${abs} pts vs 1st` : `+${abs} pts vs 1st`;
 }
 
 function formatDuration(startIso: string, endIso: string | null): string | null {
@@ -92,6 +103,7 @@ export default function LiveRunTrackerPage() {
   const [reporting, setReporting] = useState(false);
   const [reportError, setReportError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [placement, setPlacement] = useState<RunPlacement | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -106,6 +118,12 @@ export default function LiveRunTrackerPage() {
             if (!cancelled) setPost(feedPost);
           } catch {
             if (!cancelled) setPost(null);
+          }
+          try {
+            const place = await getPlacement(fetchedRun.id);
+            if (!cancelled) setPlacement(place);
+          } catch {
+            if (!cancelled) setPlacement(null);
           }
         }
       })
@@ -245,7 +263,14 @@ export default function LiveRunTrackerPage() {
             {isOver ? "Lineup" : "Live run"}
           </p>
           <div className="flex flex-wrap items-baseline gap-2">
-            <h1 className="text-2xl font-semibold">{run.streamerName}</h1>
+            <h1 className="text-2xl font-semibold">
+              <Link
+                href={`/u/${encodeURIComponent(run.streamerName)}`}
+                className="hover:text-gold"
+              >
+                {run.streamerName}
+              </Link>
+            </h1>
             <RunTypeBadge runType={run.runType} />
             <span
               className={
@@ -264,6 +289,32 @@ export default function LiveRunTrackerPage() {
             {run.endTime ? ` · Finished ${formatWhen(run.endTime)}` : ""}
             {duration ? ` · ${duration}` : ""}
           </p>
+          {isOver && placement && run.status === "Completed" && (
+            <p className="mt-1 text-xs text-muted">
+              {placement.isPersonalBest ? (
+                <>
+                  #{placement.boardRank} of {placement.boardSize} on{" "}
+                  {placement.runType}
+                  {placement.boardRank !== 1 && placement.leaderScore > 0
+                    ? ` · ${formatDelta(earnedScore - placement.leaderScore)}`
+                    : null}
+                </>
+              ) : (
+                <>
+                  This run would be #{placement.wouldBeRank}
+                  {placement.personalBestScore != null ? (
+                    <>
+                      {" "}
+                      · PB still {formatScore(placement.personalBestScore)}
+                      {placement.personalBestRank != null
+                        ? ` (#${placement.personalBestRank})`
+                        : ""}
+                    </>
+                  ) : null}
+                </>
+              )}
+            </p>
+          )}
         </div>
         <div className="flex flex-wrap items-center gap-3">
           {isOwner && (

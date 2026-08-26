@@ -1,4 +1,3 @@
-using GodGamerGauntlet.Api.Contracts;
 using GodGamerGauntlet.Api.Data;
 using GodGamerGauntlet.Api.Models;
 using Microsoft.EntityFrameworkCore;
@@ -7,47 +6,6 @@ namespace GodGamerGauntlet.Api.Repositories;
 
 public class RunRepository(AppDbContext context) : IRunRepository
 {
-    public async Task<IReadOnlyList<LeaderboardEntryDto>> GetLeaderboardAsync(
-        RunType runType,
-        int limit,
-        CancellationToken cancellationToken = default)
-    {
-        var entries = await context.Runs
-            .AsNoTracking()
-            // Standard and Lite runs are ranked separately: a 5-game run can
-            // never match a 10-game run's score, so mixing them is meaningless.
-            .Where(r => r.Status != RunStatus.Active && r.RunType == runType)
-            .Select(r => new
-            {
-                r.Id,
-                StreamerName = r.User!.Username,
-                r.Status,
-                r.EndTime,
-                // Earned score: only slots actually won count, using the slot formula.
-                TotalScore = r.Slots
-                    .Where(s => s.Status == RunSlotStatus.Won)
-                    .Sum(s => (double?)(s.Game!.BaseDifficulty * (1 + 0.1 * Math.Pow(s.Position - 1, 2)))) ?? 0,
-                SlotsCompleted = r.Slots.Count(s => s.Status == RunSlotStatus.Won)
-            })
-            .OrderByDescending(x => x.TotalScore)
-            .ThenBy(x => x.Status == RunStatus.Completed ? 0 : 1)
-            .ThenByDescending(x => x.EndTime)
-            .Take(limit)
-            .ToListAsync(cancellationToken);
-
-        return entries
-            .Select(x => new LeaderboardEntryDto(
-                x.Id,
-                x.StreamerName,
-                x.TotalScore,
-                x.Status.ToString(),
-                runType.ToString(),
-                x.SlotsCompleted,
-                runType.SlotCount(),
-                x.EndTime))
-            .ToList();
-    }
-
     public async Task<Run?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         return await context.Runs

@@ -47,7 +47,14 @@ export default function SiteNav() {
         <div className="ml-auto flex items-center gap-3 text-sm">
           {loading ? null : user ? (
             <>
-              <span className="text-muted/80">{user.username}</span>
+              <span className="text-muted/80">
+                <Link
+                  href={`/u/${encodeURIComponent(user.username)}`}
+                  className="hover:text-gold"
+                >
+                  {user.username}
+                </Link>
+              </span>
               <button
                 onClick={logout}
                 className="border border-gold/25 px-3 py-1.5 text-muted transition hover:border-gold/50 hover:text-ink"

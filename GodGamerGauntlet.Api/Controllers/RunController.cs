@@ -2,6 +2,7 @@ using System.Security.Claims;
 using GodGamerGauntlet.Api.Contracts;
 using GodGamerGauntlet.Api.Models;
 using GodGamerGauntlet.Api.Repositories;
+using GodGamerGauntlet.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -9,7 +10,7 @@ namespace GodGamerGauntlet.Api.Controllers;
 
 [ApiController]
 [Route("api/runs")]
-public class RunController(IRunRepository runRepository, IGameRepository gameRepository) : ControllerBase
+public class RunController(IRunRepository runRepository, IGameRepository gameRepository, IRecordBook recordBook) : ControllerBase
 {
     private Guid CurrentUserId => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
@@ -64,7 +65,7 @@ public class RunController(IRunRepository runRepository, IGameRepository gameRep
             var position = index + 1;
             var game = gamesById[request.GameIds[index]];
 
-            totalDifficultyScore += game.BaseDifficulty * (1 + 0.1 * Math.Pow(position - 1, 2));
+            totalDifficultyScore += SlotScores.ForSlot(game.BaseDifficulty, position);
 
             run.Slots.Add(new RunSlot
             {
@@ -101,6 +102,15 @@ public class RunController(IRunRepository runRepository, IGameRepository gameRep
     {
         var run = await runRepository.GetByIdAsync(id, cancellationToken);
         return run is null ? NotFound() : Ok(RunResponse.FromEntity(run));
+    }
+
+    [HttpGet("{id:guid}/placement")]
+    [ProducesResponseType(typeof(RunPlacementDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetPlacement(Guid id, CancellationToken cancellationToken)
+    {
+        var placement = await recordBook.GetPlacementAsync(id, cancellationToken);
+        return placement is null ? NotFound() : Ok(placement);
     }
 
     [HttpPost("{id:guid}/report")]

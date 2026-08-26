@@ -156,6 +156,7 @@ export function initializeRun(
 
 export interface LeaderboardEntry {
   runId: string;
+  userId: string;
   streamerName: string;
   totalScore: number;
   status: "Completed" | "Failed";
@@ -163,14 +164,68 @@ export interface LeaderboardEntry {
   slotsCompleted: number;
   totalSlots: number;
   endTime: string | null;
+  rank: number;
 }
 
-/** Standard and Lite runs are ranked on separate boards. */
+/** Best Clear per player on one board. */
 export function getLeaderboard(
   runType: RunType = "Standard",
+  limit = 50,
 ): Promise<LeaderboardEntry[]> {
   return request<LeaderboardEntry[]>(
-    `/api/leaderboard?runType=${encodeURIComponent(runType)}`,
+    `/api/leaderboard?runType=${encodeURIComponent(runType)}&limit=${limit}`,
+  );
+}
+
+export interface RunPlacement {
+  runType: RunType;
+  isPersonalBest: boolean;
+  boardRank: number | null;
+  boardSize: number;
+  wouldBeRank: number | null;
+  leaderScore: number;
+  personalBestScore: number | null;
+  personalBestRunId: string | null;
+  personalBestRank: number | null;
+}
+
+export function getPlacement(runId: string): Promise<RunPlacement> {
+  return request<RunPlacement>(`/api/runs/${runId}/placement`);
+}
+
+export interface ProfileBoard {
+  rank: number;
+  score: number;
+  runId: string;
+  boardSize: number;
+}
+
+export interface ProfileRun {
+  runId: string;
+  status: "Completed" | "Failed";
+  runType: RunType;
+  endTime: string | null;
+  totalScore: number;
+  slotsCompleted: number;
+  totalSlots: number;
+  boardRank: number | null;
+  wouldBeRank: number | null;
+}
+
+export interface UserProfile {
+  id: string;
+  username: string;
+  createdAt: string;
+  standard: ProfileBoard | null;
+  lite: ProfileBoard | null;
+  clearCount: number;
+  dnfCount: number;
+  recentRuns: ProfileRun[];
+}
+
+export function getProfile(username: string): Promise<UserProfile> {
+  return request<UserProfile>(
+    `/api/users/by-username/${encodeURIComponent(username)}`,
   );
 }
 
@@ -268,6 +323,8 @@ export interface FeedPost {
   commentCount: number;
   reactions: Record<string, number>;
   myReactions: string[];
+  boardRank: number | null;
+  wouldBeRank: number | null;
 }
 
 export interface FeedPage {
