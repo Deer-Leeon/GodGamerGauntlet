@@ -69,7 +69,7 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-10">
+      <main className="site-content flex-1 px-6 py-10">
         <p className="text-sm text-muted">Loading…</p>
       </main>
     );
@@ -77,7 +77,7 @@ export default function ProfilePage() {
 
   if (missing || !profile) {
     return (
-      <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-16 text-center">
+      <main className="site-content flex-1 px-6 py-16 text-center">
         <h1 className="text-2xl font-semibold">Player not found</h1>
         <Link
           href="/players"
@@ -90,7 +90,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-10 sm:px-8">
+    <main className="site-content flex-1 px-6 py-10 sm:px-8">
       <p className="mb-4 text-sm text-faint">
         <Link href="/players" className="hover:text-gold">
           Players

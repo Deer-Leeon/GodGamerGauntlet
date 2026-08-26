@@ -85,7 +85,7 @@ export default function FeedPage() {
   }
 
   return (
-    <main className="feed-page mx-auto w-full max-w-3xl flex-1 px-5 py-10 sm:px-8">
+    <main className="feed-page site-content flex-1 px-5 py-10 sm:px-8">
       <header className="flex flex-wrap items-end justify-between gap-4 border-b border-gold/20 pb-6">
         <div>
           <h1 className="text-2xl font-semibold text-ink">Feed</h1>

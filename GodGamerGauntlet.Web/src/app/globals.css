@@ -41,6 +41,13 @@ body {
   background: var(--color-dark);
 }
 
+/* Browse pages share one column so the nav and feed line up. */
+.site-content {
+  width: 100%;
+  max-width: 90rem;
+  margin-inline: auto;
+}
+
 .site-nav {
   font-size: 0.8125rem;
   letter-spacing: 0.01em;

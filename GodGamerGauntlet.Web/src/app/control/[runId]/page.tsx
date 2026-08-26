@@ -43,7 +43,7 @@ function ControlStudio({ runId }: { runId: string }) {
   const { state } = useOverlayRun(runId);
 
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-1 gap-8 px-6 py-8">
+    <main className="site-content flex flex-1 gap-8 px-6 py-8">
       <aside className="w-80 shrink-0">
         <div className="sticky top-20">
           <ControlBoard runId={runId} variant="panel" showSetup={false} />

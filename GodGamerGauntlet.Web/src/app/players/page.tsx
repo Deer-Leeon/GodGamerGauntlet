@@ -45,7 +45,7 @@ export default function PlayersPage() {
   }, [players, query]);
 
   return (
-    <main className="mx-auto w-full max-w-4xl flex-1 px-6 py-10 sm:px-8">
+    <main className="site-content flex-1 px-6 py-10 sm:px-8">
       <header className="border-b border-gold/20 pb-6">
         <h1 className="text-2xl font-semibold">Players</h1>
         <p className="mt-2 text-sm leading-relaxed text-muted">

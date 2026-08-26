@@ -182,7 +182,7 @@ export default function LiveRunTrackerPage() {
 
   if (loading) {
     return (
-      <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-10">
+      <main className="site-content flex-1 px-6 py-10">
         <div className="h-24 animate-pulse border-b border-white/12" />
         <div className="mt-6 space-y-0">
           {Array.from({ length: RUN_TYPE_SLOTS.Standard }).map((_, i) => (
@@ -248,7 +248,7 @@ export default function LiveRunTrackerPage() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-10 sm:px-8">
+    <main className="site-content flex-1 px-6 py-10 sm:px-8">
       <Link
         href="/"
         className="mb-5 inline-block text-sm text-faint transition hover:text-ink"
