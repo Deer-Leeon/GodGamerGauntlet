@@ -26,7 +26,7 @@ const MODES: { id: RunType; label: string; blurb: string }[] = [
   {
     id: "Standard",
     label: "Standard",
-    blurb: "Ten games. Later slots multiply the score.",
+    blurb: "Ten games. Survive them in order.",
   },
   {
     id: "Lite",
@@ -35,15 +35,9 @@ const MODES: { id: RunType; label: string; blurb: string }[] = [
   },
 ];
 
-/** Slot score: BaseDifficulty * (1 + 0.1 * (Position - 1)^2) */
-function slotScore(baseDifficulty: number, position: number): number {
-  return baseDifficulty * (1 + 0.1 * Math.pow(position - 1, 2));
-}
-
 function formatScore(value: number): string {
   return value.toLocaleString("en-US", {
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 1,
+    maximumFractionDigits: 0,
   });
 }
 
@@ -194,11 +188,7 @@ export default function DraftRoomPage() {
 
   const totalProjectedScore = useMemo(
     () =>
-      slots.reduce(
-        (sum, game, index) =>
-          game ? sum + slotScore(game.baseDifficulty, index + 1) : sum,
-        0,
-      ),
+      slots.reduce((sum, game) => sum + (game ? game.baseDifficulty : 0), 0),
     [slots],
   );
 
@@ -278,7 +268,7 @@ export default function DraftRoomPage() {
             </dd>
           </div>
           <div className="flex items-baseline justify-between gap-4 border-b border-gold/20 py-4">
-            <dt className="text-sm text-muted">Projected score</dt>
+            <dt className="text-sm text-muted">Lineup</dt>
             <dd className="font-mono text-xl tabular-nums text-gold">
               {formatScore(createdRun.totalDifficultyScore)}
             </dd>
@@ -306,16 +296,16 @@ export default function DraftRoomPage() {
         <div>
           <h1 className="text-2xl font-semibold">Draft Room</h1>
           <p className="mt-2 text-sm leading-relaxed text-muted">
-            Build a {slotCount}-game gauntlet. Later slots multiply the score.
+            Build a {slotCount}-game gauntlet. Survive the lineup.
           </p>
         </div>
         <div className="text-right">
-          <p className="text-sm text-faint">Projected</p>
+          <p className="text-sm text-faint">Slots</p>
           <p className="font-mono text-2xl tabular-nums text-gold">
-            {formatScore(totalProjectedScore)}
+            {filledCount}/{slotCount}
           </p>
           <p className="mt-1 font-mono text-sm tabular-nums text-faint">
-            {filledCount}/{slotCount} slots
+            {formatScore(totalProjectedScore)} if cleared
           </p>
         </div>
       </header>
@@ -530,7 +520,6 @@ export default function DraftRoomPage() {
           <ol className="feed-list">
             {slots.map((game, index) => {
               const position = index + 1;
-              const multiplier = 1 + 0.1 * Math.pow(position - 1, 2);
               return (
                 <li
                   key={position}
@@ -543,11 +532,8 @@ export default function DraftRoomPage() {
                     <>
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm text-ink">{game.title}</p>
-                        <p className="mt-0.5 font-mono text-xs tabular-nums text-muted">
-                          {game.baseDifficulty} × {multiplier.toFixed(1)} ={" "}
-                          <span className="text-gold">
-                            {formatScore(slotScore(game.baseDifficulty, position))}
-                          </span>
+                        <p className="mt-0.5 font-mono text-xs tabular-nums text-faint">
+                          {game.baseDifficulty}
                         </p>
                       </div>
                       <div className="flex items-center gap-1">
@@ -580,9 +566,7 @@ export default function DraftRoomPage() {
                       </div>
                     </>
                   ) : (
-                    <span className="flex-1 text-sm text-faint">
-                      Empty — {multiplier.toFixed(1)}×
-                    </span>
+                    <span className="flex-1 text-sm text-faint">Empty</span>
                   )}
                 </li>
               );

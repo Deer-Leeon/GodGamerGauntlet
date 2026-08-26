@@ -231,19 +231,19 @@ function PostCard({
             className="mt-2.5 block outline-none"
           >
             <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-              <p className="text-base leading-snug text-muted">
+              <p className="text-base leading-snug text-ink">
                 {completed
                   ? `${post.totalSlots}/${post.totalSlots} games`
                   : `Stopped on game ${post.slotsCompleted + 1} of ${post.totalSlots}`}
               </p>
-              <p className="font-mono text-sm tabular-nums text-gold">
-                <span>{formatPts(post.totalScore)} pts</span>
+              <p className="font-mono text-sm tabular-nums text-faint">
                 {elapsedMs !== null && (
                   <>
-                    <span className="mx-2 text-gold/35">/</span>
-                    <span className="text-muted">{formatSpeedrunTime(elapsedMs)}</span>
+                    <span>{formatSpeedrunTime(elapsedMs)}</span>
+                    <span className="mx-2 text-faint/50">·</span>
                   </>
                 )}
+                <span>{formatPts(post.totalScore)}</span>
               </p>
             </div>
 
@@ -299,8 +299,7 @@ function PostCard({
 
 function formatPts(value: number): string {
   return value.toLocaleString("en-US", {
-    minimumFractionDigits: value % 1 === 0 ? 0 : 1,
-    maximumFractionDigits: 1,
+    maximumFractionDigits: 0,
   });
 }
 
@@ -457,7 +456,7 @@ function TopColumn({
               </Link>
               <Link
                 href={`/run/${entry.runId}`}
-                className="shrink-0 font-mono tabular-nums text-gold"
+                className="shrink-0 font-mono tabular-nums text-faint"
               >
                 {formatPts(entry.totalScore)}
               </Link>

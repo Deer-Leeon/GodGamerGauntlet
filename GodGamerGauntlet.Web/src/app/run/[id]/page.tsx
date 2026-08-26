@@ -25,11 +25,6 @@ import {
 import { RunTypeBadge } from "@/components/RunTypeBadge";
 import { formatSpeedrunTime } from "@/components/SpeedrunTimer";
 
-/** Slot score: BaseDifficulty * (1 + 0.1 * (Position - 1)^2) */
-function slotScore(baseDifficulty: number, position: number): number {
-  return baseDifficulty * (1 + 0.1 * Math.pow(position - 1, 2));
-}
-
 function formatWhen(iso: string | null): string {
   if (!iso) return "—";
   return new Date(iso).toLocaleString("en-US", {
@@ -42,18 +37,16 @@ function formatWhen(iso: string | null): string {
 
 function formatScore(value: number): string {
   return value.toLocaleString("en-US", {
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 1,
+    maximumFractionDigits: 0,
   });
 }
 
 function formatDelta(pts: number): string {
   const abs = Math.abs(pts).toLocaleString("en-US", {
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 1,
+    maximumFractionDigits: 0,
   });
   if (pts === 0) return "tied with 1st";
-  return pts < 0 ? `−${abs} pts vs 1st` : `+${abs} pts vs 1st`;
+  return pts < 0 ? `−${abs} vs 1st` : `+${abs} vs 1st`;
 }
 
 function formatDuration(startIso: string, endIso: string | null): string | null {
@@ -153,7 +146,12 @@ export default function LiveRunTrackerPage() {
     () =>
       orderedSlots
         .filter((s) => s.status === "Won")
-        .reduce((sum, s) => sum + slotScore(s.baseDifficulty, s.position), 0),
+        .reduce((sum, s) => sum + s.baseDifficulty, 0),
+    [orderedSlots],
+  );
+
+  const lineupScore = useMemo(
+    () => orderedSlots.reduce((sum, s) => sum + s.baseDifficulty, 0),
     [orderedSlots],
   );
 
@@ -343,21 +341,24 @@ export default function LiveRunTrackerPage() {
           </button>
           <div className="text-right">
             <p className="text-sm text-faint">
-              {isOver ? "Earned" : "Projected"}
+              {run.status === "Completed"
+                ? "Cleared"
+                : run.status === "Failed"
+                  ? "Survived"
+                  : "Progress"}
             </p>
             <p className="font-mono text-2xl tabular-nums text-gold">
-              {formatScore(isOver ? earnedScore : run.totalDifficultyScore)}
+              {wonCount}/{run.totalSlots}
             </p>
             {runElapsedMs !== null && (
               <p className="font-mono text-sm tabular-nums text-muted">
                 {formatSpeedrunTime(runElapsedMs)}
               </p>
             )}
-            {isOver && (
-              <p className="mt-1 font-mono text-sm text-faint">
-                {formatScore(run.totalDifficultyScore)} projected
-              </p>
-            )}
+            <p className="mt-1 font-mono text-sm text-faint">
+              {formatScore(isOver ? earnedScore : lineupScore)}
+              {isOver ? " beaten" : " if cleared"}
+            </p>
           </div>
         </div>
       </header>
@@ -370,8 +371,6 @@ export default function LiveRunTrackerPage() {
         {orderedSlots.map((slot) => {
           const title = slot.title;
           const base = slot.baseDifficulty;
-          const multiplier = 1 + 0.1 * Math.pow(slot.position - 1, 2);
-          const score = slotScore(base, slot.position);
           const isActive = slot.position === activePosition;
           const isFuture = slot.status === "Pending" && !isActive;
 
@@ -388,8 +387,7 @@ export default function LiveRunTrackerPage() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm text-ink">{title}</p>
                   <p className="mt-0.5 font-mono text-xs tabular-nums text-muted">
-                    {base} × {multiplier.toFixed(1)} ={" "}
-                    <span className="text-gold">+{formatScore(score)}</span>
+                    +{base}
                   </p>
                 </div>
                 {slot.splitTimeMs != null && (
@@ -414,7 +412,7 @@ export default function LiveRunTrackerPage() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm text-red-400/80">{title}</p>
                   <p className="mt-0.5 font-mono text-xs text-faint">
-                    Run ended here — {formatScore(score)} at stake
+                    Run ended here
                   </p>
                 </div>
               </li>
@@ -434,7 +432,7 @@ export default function LiveRunTrackerPage() {
                       {title}
                     </p>
                     <p className="mt-0.5 font-mono text-xs tabular-nums text-faint">
-                      {base} × {multiplier.toFixed(1)} = {formatScore(score)}
+                      {base}
                     </p>
                   </div>
                 </div>
@@ -479,9 +477,7 @@ export default function LiveRunTrackerPage() {
               <GameThumb slot={slot} />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm text-muted">{title}</p>
-                <p className="mt-0.5 font-mono text-xs text-faint">
-                  {formatScore(score)} at stake
-                </p>
+                <p className="mt-0.5 font-mono text-xs text-faint">{base}</p>
               </div>
             </li>
           );

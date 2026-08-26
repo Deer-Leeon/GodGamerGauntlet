@@ -16,8 +16,7 @@ const BOARDS: { id: RunType; label: string }[] = [
 
 function formatScore(value: number): string {
   return value.toLocaleString("en-US", {
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 1,
+    maximumFractionDigits: 0,
   });
 }
 
@@ -70,7 +69,7 @@ export default function LeaderboardPage() {
         <div>
           <h1 className="text-2xl font-semibold">Leaderboard</h1>
           <p className="mt-2 text-sm leading-relaxed text-muted">
-            Best Clear per player, ranked by earned score.
+            Best Clear per player. Harder lineups rank higher.
           </p>
         </div>
         <Link
@@ -111,7 +110,7 @@ export default function LeaderboardPage() {
         <div className="feed-head grid grid-cols-[3rem_1fr_6rem_5rem_8rem] gap-3 border-b border-gold/20 py-3.5 text-sm text-faint sm:grid-cols-[3rem_1fr_7rem_6rem_8rem]">
           <span>#</span>
           <span>Player</span>
-          <span className="text-right">Score</span>
+          <span className="text-right">Lineup</span>
           <span className="text-center">Slots</span>
           <span className="hidden text-right sm:block">Finished</span>
         </div>
@@ -144,7 +143,7 @@ export default function LeaderboardPage() {
                 </Link>
                 <Link
                   href={`/run/${entry.runId}`}
-                  className="text-right font-mono tabular-nums text-gold"
+                  className="text-right font-mono tabular-nums text-muted"
                 >
                   {formatScore(entry.totalScore)}
                 </Link>

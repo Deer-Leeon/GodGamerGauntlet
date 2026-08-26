@@ -147,7 +147,7 @@ public class RecordBook(AppDbContext context) : IRecordBook
                 r.EndTime,
                 Score = r.Slots
                     .Where(s => s.Status == RunSlotStatus.Won)
-                    .Sum(s => (double?)(s.Game!.BaseDifficulty * (1 + 0.1 * Math.Pow(s.Position - 1, 2)))) ?? 0,
+                    .Sum(s => (double?)s.Game!.BaseDifficulty) ?? 0,
                 SlotsCompleted = r.Slots.Count(s => s.Status == RunSlotStatus.Won)
             })
             .ToListAsync(cancellationToken);
@@ -165,7 +165,7 @@ public class RecordBook(AppDbContext context) : IRecordBook
                 x.UserId,
                 x.Username,
                 runType,
-                Math.Round(x.Score, 1),
+                x.Score,
                 x.SlotsCompleted,
                 x.EndTime,
                 index + 1))

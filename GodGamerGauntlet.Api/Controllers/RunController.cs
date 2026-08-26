@@ -65,7 +65,7 @@ public class RunController(IRunRepository runRepository, IGameRepository gameRep
             var position = index + 1;
             var game = gamesById[request.GameIds[index]];
 
-            totalDifficultyScore += SlotScores.ForSlot(game.BaseDifficulty, position);
+            totalDifficultyScore += SlotScores.ForGame(game.BaseDifficulty);
 
             run.Slots.Add(new RunSlot
             {

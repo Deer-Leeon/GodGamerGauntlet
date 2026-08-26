@@ -417,7 +417,7 @@ public class FeedController(AppDbContext context, IRecordBook recordBook) : Cont
                 run.Status.ToString(),
                 run.RunType.ToString(),
                 run.EndTime,
-                Math.Round(earnedScore, 1),
+                earnedScore,
                 slots.Count(s => s.Status == RunSlotStatus.Won),
                 run.RunType.SlotCount(),
                 slots.Select(s => s.Status.ToString()).ToList(),

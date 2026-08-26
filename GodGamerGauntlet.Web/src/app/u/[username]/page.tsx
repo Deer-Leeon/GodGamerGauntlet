@@ -8,8 +8,7 @@ import { timeAgo } from "@/components/RunSocial";
 
 function formatScore(value: number): string {
   return value.toLocaleString("en-US", {
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 1,
+    maximumFractionDigits: 0,
   });
 }
 
@@ -106,7 +105,7 @@ export default function ProfilePage() {
                         : ""}
                     {` · ${run.slotsCompleted}/${run.totalSlots}`}
                   </Link>
-                  <span className="shrink-0 font-mono tabular-nums text-gold">
+                  <span className="shrink-0 font-mono tabular-nums text-faint">
                     {formatScore(run.totalScore)}
                   </span>
                   <span className="hidden w-16 shrink-0 text-right text-sm text-faint sm:block">
@@ -135,10 +134,12 @@ function PbCard({
       {board ? (
         <p className="mt-2">
           <Link href={`/run/${board.runId}`} className="font-mono text-xl tabular-nums text-gold">
-            {formatScore(board.score)}
+            #{board.rank}
           </Link>
           <span className="ml-2 text-sm text-muted">
-            #{board.rank} of {board.boardSize}
+            of {board.boardSize}
+            {" · "}
+            {formatScore(board.score)}
           </span>
         </p>
       ) : (
