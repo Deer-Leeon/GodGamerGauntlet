@@ -5,7 +5,7 @@ export default function MomentChips({ moments }: { moments: string[] | null | un
       {moments.map((moment) => (
         <li
           key={moment}
-          className="border border-gold/30 px-2 py-0.5 text-[11px] uppercase tracking-wide text-gold"
+          className="border border-gold/25 px-2 py-0.5 text-xs text-gold"
         >
           {moment}
         </li>

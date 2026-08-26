@@ -22,7 +22,7 @@ export default function SiteNav() {
   return (
     <header className="site-nav sticky top-0 z-40 border-b border-gold/25 bg-surface/95">
       <nav className="mx-auto flex w-full max-w-6xl items-center gap-6 px-6 py-4 sm:px-8">
-        <Link href="/" className="text-sm font-semibold text-gold">
+        <Link href="/" className="brand text-gold">
           GGG
         </Link>
 
