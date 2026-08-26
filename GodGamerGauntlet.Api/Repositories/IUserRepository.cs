@@ -18,5 +18,10 @@ public interface IUserRepository
 
     Task<User> AddAsync(User user, CancellationToken cancellationToken = default);
 
+    Task ReplaceStreamLinksAsync(
+        Guid userId,
+        IReadOnlyList<(string Platform, string Url)> links,
+        CancellationToken cancellationToken = default);
+
     Task SaveChangesAsync(CancellationToken cancellationToken = default);
 }

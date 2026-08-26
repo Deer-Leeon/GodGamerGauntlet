@@ -66,6 +66,31 @@ public class UserRepository(AppDbContext context) : IUserRepository
         return user;
     }
 
+    public async Task ReplaceStreamLinksAsync(
+        Guid userId,
+        IReadOnlyList<(string Platform, string Url)> links,
+        CancellationToken cancellationToken = default)
+    {
+        var existing = await context.UserStreamLinks
+            .Where(l => l.UserId == userId)
+            .ToListAsync(cancellationToken);
+        context.UserStreamLinks.RemoveRange(existing);
+
+        for (var i = 0; i < links.Count; i++)
+        {
+            context.UserStreamLinks.Add(new UserStreamLink
+            {
+                Id = Guid.NewGuid(),
+                UserId = userId,
+                Platform = links[i].Platform,
+                Url = links[i].Url,
+                SortOrder = i,
+            });
+        }
+
+        await context.SaveChangesAsync(cancellationToken);
+    }
+
     public Task SaveChangesAsync(CancellationToken cancellationToken = default) =>
         context.SaveChangesAsync(cancellationToken);
 }

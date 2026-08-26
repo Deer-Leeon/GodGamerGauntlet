@@ -179,37 +179,17 @@ public class AuthController(
         [FromBody] ChangeStreamLinksRequest? request,
         CancellationToken cancellationToken)
     {
-        try
+        if (!StreamLinkRules.TryNormalize(request?.Links, out var links, out var error))
         {
-            if (!StreamLinkRules.TryNormalize(request?.Links, out var links, out var error))
-            {
-                return BadRequest(error);
-            }
-
-            var user = await userRepository.GetForUpdateAsync(CurrentUserId, cancellationToken);
-            if (user is null) return Unauthorized();
-
-            user.StreamLinks ??= new List<UserStreamLink>();
-            user.StreamLinks.Clear();
-            for (var i = 0; i < links.Count; i++)
-            {
-                user.StreamLinks.Add(new UserStreamLink
-                {
-                    Id = Guid.NewGuid(),
-                    UserId = user.Id,
-                    Platform = links[i].Platform,
-                    Url = links[i].Url,
-                    SortOrder = i,
-                });
-            }
-
-            await userRepository.SaveChangesAsync(cancellationToken);
-            return Ok(SignedIn(user));
+            return BadRequest(error);
         }
-        catch (Exception ex)
-        {
-            return BadRequest(ex.GetBaseException().Message);
-        }
+
+        var user = await userRepository.GetByIdAsync(CurrentUserId, cancellationToken);
+        if (user is null) return Unauthorized();
+
+        await userRepository.ReplaceStreamLinksAsync(user.Id, links, cancellationToken);
+        var saved = await userRepository.GetByIdAsync(user.Id, cancellationToken);
+        return Ok(SignedIn(saved ?? user));
     }
 
     private Guid CurrentUserId => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);

@@ -40,6 +40,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
         modelBuilder.Entity<UserStreamLink>(entity =>
         {
+            entity.Property(l => l.Id).ValueGeneratedNever();
             entity.Property(l => l.Platform)
                 .HasMaxLength(UserStreamLink.PlatformMaxLength)
                 .IsRequired();
