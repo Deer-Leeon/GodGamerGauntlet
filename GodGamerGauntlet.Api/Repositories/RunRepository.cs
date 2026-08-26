@@ -11,6 +11,7 @@ public class RunRepository(AppDbContext context) : IRunRepository
         return await context.Runs
             .AsNoTracking()
             .Include(r => r.User)
+            .ThenInclude(u => u!.StreamLinks)
             .Include(r => r.Slots.OrderBy(s => s.Position))
             .ThenInclude(s => s.Game)
             .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
@@ -20,6 +21,7 @@ public class RunRepository(AppDbContext context) : IRunRepository
     {
         return await context.Runs
             .Include(r => r.User)
+            .ThenInclude(u => u!.StreamLinks)
             .Include(r => r.Slots.OrderBy(s => s.Position))
             .ThenInclude(s => s.Game)
             .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);

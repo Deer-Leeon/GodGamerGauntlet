@@ -140,6 +140,7 @@ export default function FeedPage() {
               <span className="shrink-0 text-faint">
                 on game {row.currentSlot} of {row.totalSlots}
                 {row.runType === "Lite" ? " · Lite" : ""}
+                {(row.streamLinks?.length ?? 0) > 0 ? " · streaming" : ""}
               </span>
             </Link>
           ))}

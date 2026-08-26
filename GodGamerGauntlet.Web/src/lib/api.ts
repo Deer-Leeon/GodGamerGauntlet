@@ -22,6 +22,20 @@ export interface User {
   email: string | null;
   createdAt: string;
   needsUsername: boolean;
+  streamLinks?: StreamLink[];
+}
+
+export type StreamPlatform = "twitch" | "youtube";
+
+export interface StreamLink {
+  platform: StreamPlatform;
+  url: string;
+  label: string;
+}
+
+export interface StreamLinkInput {
+  platform: StreamPlatform;
+  url: string;
 }
 
 export interface Game {
@@ -80,6 +94,7 @@ export interface Run {
   /** Frozen overlay clock in ms; 0 when the run never used the timer. */
   elapsedMs: number;
   slots: RunSlot[];
+  streamLinks?: StreamLink[];
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -178,6 +193,15 @@ export function changePassword(
   return request<AuthResponse>("/api/auth/password", {
     method: "PUT",
     body: JSON.stringify({ currentPassword, newPassword }),
+  });
+}
+
+export function changeStreamLinks(
+  links: StreamLinkInput[],
+): Promise<AuthResponse> {
+  return request<AuthResponse>("/api/auth/stream-links", {
+    method: "PUT",
+    body: JSON.stringify({ links }),
   });
 }
 
@@ -338,6 +362,7 @@ export interface UserProfile {
   standard: ProfileMode;
   lite: ProfileMode;
   runs: ProfileRun[];
+  streamLinks?: StreamLink[];
 }
 
 export function getProfile(username: string): Promise<UserProfile> {
@@ -456,6 +481,7 @@ export interface LiveRun {
   currentSlot: number;
   currentTitle: string | null;
   currentThumb: string | null;
+  streamLinks?: StreamLink[];
 }
 
 export interface FeedPage {

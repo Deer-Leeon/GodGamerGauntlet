@@ -9,6 +9,8 @@ import { timeAgo } from "@/components/RunSocial";
 import { formatSpeedrunTime } from "@/components/SpeedrunTimer";
 import MomentChips from "@/components/MomentChips";
 import SurvivalMeter from "@/components/SurvivalMeter";
+import { StreamLinkEditor, StreamLinkList } from "@/components/StreamLinks";
+import { useAuth } from "@/lib/auth";
 
 type HistoryFilter = "All" | RunType;
 
@@ -33,6 +35,7 @@ function clearRate(clears: number, attempts: number): string {
 export default function ProfilePage() {
   const { username } = useParams<{ username: string }>();
   const decoded = decodeURIComponent(username ?? "");
+  const { user } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [missing, setMissing] = useState(false);
@@ -124,7 +127,28 @@ export default function ProfilePage() {
             ? ` · Last run ${timeAgo(profile.lastRunAt)}`
             : " · No finished gauntlets yet"}
         </p>
+        <StreamLinkList links={profile.streamLinks} />
       </header>
+
+      {user?.id === profile.id && (
+        <section className="mt-8 border-b border-gold/20 pb-8">
+          <h2 className="text-sm font-medium text-ink">Stream links</h2>
+          <p className="mt-2 text-sm leading-relaxed text-muted">
+            Twitch and YouTube URLs show here and on your live runs so people
+            can watch.
+          </p>
+          <div className="mt-4">
+            <StreamLinkEditor
+              initial={profile.streamLinks}
+              onSaved={(streamLinks) =>
+                setProfile((current) =>
+                  current ? { ...current, streamLinks } : current,
+                )
+              }
+            />
+          </div>
+        </section>
+      )}
 
       <section className="mt-8 grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-5">
         <Stat label="Attempts" value={String(profile.attemptCount)} />

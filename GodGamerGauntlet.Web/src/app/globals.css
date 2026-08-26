@@ -108,6 +108,21 @@ body {
   border-top: 1px solid rgb(255 255 255 / 0.08);
 }
 
+.stream-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1rem;
+  margin-top: 0.75rem;
+}
+
+.stream-links a {
+  color: var(--color-gold);
+}
+
+.stream-links a:hover {
+  color: var(--color-ink);
+}
+
 /* Page titles vs section titles vs recap headlines. */
 .site-shell main h1 {
   font-family: var(--font-heading);

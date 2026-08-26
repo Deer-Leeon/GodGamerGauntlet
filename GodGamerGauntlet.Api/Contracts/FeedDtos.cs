@@ -47,7 +47,8 @@ public record LiveRunDto(
     int TotalSlots,
     int CurrentSlot,
     string? CurrentTitle,
-    string? CurrentThumb);
+    string? CurrentThumb,
+    IReadOnlyList<StreamLinkDto> StreamLinks);
 
 public record VoteRequest([Range(-1, 1)] int Value);
 

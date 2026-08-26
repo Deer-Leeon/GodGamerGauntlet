@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import * as api from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { StreamLinkEditor } from "@/components/StreamLinks";
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -113,7 +114,8 @@ export default function SettingsPage() {
       <header className="border-b border-gold/20 pb-6">
         <h1 className="text-2xl font-semibold">Account settings</h1>
         <p className="mt-2 text-sm leading-relaxed text-muted">
-          Your username is public. Email is only for signing in.
+          Your username and stream links are public. Email is only for signing
+          in.
         </p>
       </header>
 
@@ -154,6 +156,14 @@ export default function SettingsPage() {
           {savingUsername ? "Saving…" : "Save username"}
         </button>
       </form>
+
+      <section className="mt-10 flex flex-col gap-4 border-t border-gold/20 pt-8">
+        <h2 className="text-sm font-medium text-ink">Stream links</h2>
+        <p className="text-sm leading-relaxed text-muted">
+          Add Twitch and YouTube so they show on your profile and live runs.
+        </p>
+        <StreamLinkEditor initial={user.streamLinks} />
+      </section>
 
       <form
         onSubmit={saveEmail}

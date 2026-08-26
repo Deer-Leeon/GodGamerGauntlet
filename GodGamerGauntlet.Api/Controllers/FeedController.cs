@@ -470,6 +470,7 @@ public class FeedController(AppDbContext context, IRecordBook recordBook) : Cont
         var live = await context.Runs
             .AsNoTracking()
             .Include(r => r.User)
+            .ThenInclude(u => u!.StreamLinks)
             .Include(r => r.Slots)
             .ThenInclude(s => s.Game)
             .Where(r => r.Status == RunStatus.Active)
@@ -491,7 +492,8 @@ public class FeedController(AppDbContext context, IRecordBook recordBook) : Cont
                 run.RunType.SlotCount(),
                 current + 1,
                 currentSlot?.Game?.Title,
-                currentSlot?.Game?.Thumb);
+                currentSlot?.Game?.Thumb,
+                StreamLinkDto.FromUser(run.User));
         }).ToList();
     }
 }

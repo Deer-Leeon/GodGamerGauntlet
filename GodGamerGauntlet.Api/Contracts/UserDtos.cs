@@ -9,13 +9,28 @@ public record UserResponse(Guid Id, string Username, DateTime CreatedAt)
         new(user.Id, user.Username, user.CreatedAt);
 }
 
+public record StreamLinkDto(string Platform, string Url, string Label)
+{
+    public static IReadOnlyList<StreamLinkDto> FromUser(User? user) =>
+        user?.StreamLinks is { Count: > 0 } links
+            ? links
+                .OrderBy(l => l.SortOrder)
+                .Select(l => new StreamLinkDto(
+                    l.Platform,
+                    l.Url,
+                    StreamLinkRules.Label(l.Platform, l.Url)))
+                .ToList()
+            : [];
+}
+
 /// <summary>The signed-in account. Email is never shown on public profiles.</summary>
 public record AccountDto(
     Guid Id,
     string Username,
     string? Email,
     DateTime CreatedAt,
-    bool NeedsUsername)
+    bool NeedsUsername,
+    IReadOnlyList<StreamLinkDto> StreamLinks)
 {
     public static AccountDto FromEntity(User user) =>
         new(
@@ -23,5 +38,6 @@ public record AccountDto(
             user.Username,
             user.Email,
             user.CreatedAt,
-            AccountRules.NeedsPublicUsername(user));
+            AccountRules.NeedsPublicUsername(user),
+            StreamLinkDto.FromUser(user));
 }

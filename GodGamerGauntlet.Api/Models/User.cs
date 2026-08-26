@@ -18,4 +18,6 @@ public class User
     public DateTime CreatedAt { get; set; }
 
     public ICollection<Run> Runs { get; set; } = new List<Run>();
+
+    public ICollection<UserStreamLink> StreamLinks { get; set; } = new List<UserStreamLink>();
 }

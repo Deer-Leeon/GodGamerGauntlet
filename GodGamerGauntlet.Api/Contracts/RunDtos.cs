@@ -52,7 +52,8 @@ public record RunResponse(
     double TotalDifficultyScore,
     // Frozen overlay clock; 0 when the run never used the speedrun timer.
     long ElapsedMs,
-    IReadOnlyList<RunSlotResponse> Slots)
+    IReadOnlyList<RunSlotResponse> Slots,
+    IReadOnlyList<StreamLinkDto> StreamLinks)
 {
     public static RunResponse FromEntity(Run run, string? streamerName = null) =>
         new(
@@ -66,5 +67,6 @@ public record RunResponse(
             run.RunType.SlotCount(),
             run.TotalDifficultyScore,
             run.TimerElapsedMs,
-            run.Slots.OrderBy(s => s.Position).Select(RunSlotResponse.FromEntity).ToList());
+            run.Slots.OrderBy(s => s.Position).Select(RunSlotResponse.FromEntity).ToList(),
+            StreamLinkDto.FromUser(run.User));
 }

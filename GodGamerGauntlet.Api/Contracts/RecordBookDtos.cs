@@ -99,4 +99,5 @@ public record UserProfileDto(
     IReadOnlyList<ProfileGameDto> Killers,
     ProfileModeDto Standard,
     ProfileModeDto Lite,
-    IReadOnlyList<ProfileRunDto> Runs);
+    IReadOnlyList<ProfileRunDto> Runs,
+    IReadOnlyList<StreamLinkDto> StreamLinks);

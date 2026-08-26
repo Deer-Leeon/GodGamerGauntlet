@@ -17,6 +17,7 @@ import {
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { pinControlRun } from "@/lib/controlSession";
+import { StreamLinkList } from "@/components/StreamLinks";
 import {
   CommentThread,
   ReactionBar,
@@ -288,6 +289,7 @@ export default function LiveRunTrackerPage() {
             {run.endTime ? ` · Finished ${formatWhen(run.endTime)}` : ""}
             {duration ? ` · ${duration}` : ""}
           </p>
+          <StreamLinkList links={run.streamLinks} live={!isOver} />
           {isOver && placement && run.status === "Completed" && (
             <p className="mt-2 text-sm text-muted">
               {placement.isPersonalBest ? (

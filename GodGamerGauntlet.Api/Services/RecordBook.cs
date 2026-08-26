@@ -167,6 +167,7 @@ public class RecordBook(AppDbContext context) : IRecordBook
     {
         var user = await context.Users
             .AsNoTracking()
+            .Include(u => u.StreamLinks)
             .FirstOrDefaultAsync(
                 u => u.Username.ToLower() == username.ToLower(),
                 cancellationToken);
@@ -231,7 +232,8 @@ public class RecordBook(AppDbContext context) : IRecordBook
             Catalog(finished, RunSlotStatus.Lost),
             BuildMode(ordered, RunType.Standard, boards[RunType.Standard], user.Id),
             BuildMode(ordered, RunType.Lite, boards[RunType.Lite], user.Id),
-            runs);
+            runs,
+            StreamLinkDto.FromUser(user));
     }
 
     public async Task<IReadOnlyList<PlayerCardDto>> GetDirectoryAsync(

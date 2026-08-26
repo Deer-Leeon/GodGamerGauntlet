@@ -10,12 +10,14 @@ public class UserRepository(AppDbContext context) : IUserRepository
     {
         return await context.Users
             .AsNoTracking()
+            .Include(u => u.StreamLinks)
             .FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
     }
 
     public async Task<User?> GetForUpdateAsync(Guid id, CancellationToken cancellationToken = default)
     {
         return await context.Users
+            .Include(u => u.StreamLinks)
             .FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
     }
 
@@ -24,6 +26,7 @@ public class UserRepository(AppDbContext context) : IUserRepository
         var key = username.Trim().ToLower();
         return await context.Users
             .AsNoTracking()
+            .Include(u => u.StreamLinks)
             .FirstOrDefaultAsync(u => u.Username.ToLower() == key, cancellationToken);
     }
 
@@ -32,6 +35,7 @@ public class UserRepository(AppDbContext context) : IUserRepository
         var key = email.Trim().ToLower();
         return await context.Users
             .AsNoTracking()
+            .Include(u => u.StreamLinks)
             .FirstOrDefaultAsync(u => u.Email != null && u.Email.ToLower() == key, cancellationToken);
     }
 

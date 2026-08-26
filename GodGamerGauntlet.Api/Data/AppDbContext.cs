@@ -12,6 +12,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<RunVote> RunVotes => Set<RunVote>();
     public DbSet<RunComment> RunComments => Set<RunComment>();
     public DbSet<RunReaction> RunReactions => Set<RunReaction>();
+    public DbSet<UserStreamLink> UserStreamLinks => Set<UserStreamLink>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -30,6 +31,22 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                   .WithOne(r => r.User)
                   .HasForeignKey(r => r.UserId)
                   .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasMany(u => u.StreamLinks)
+                  .WithOne(l => l.User)
+                  .HasForeignKey(l => l.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<UserStreamLink>(entity =>
+        {
+            entity.Property(l => l.Platform)
+                .HasMaxLength(UserStreamLink.PlatformMaxLength)
+                .IsRequired();
+            entity.Property(l => l.Url)
+                .HasMaxLength(UserStreamLink.UrlMaxLength)
+                .IsRequired();
+            entity.HasIndex(l => new { l.UserId, l.SortOrder });
         });
 
         modelBuilder.Entity<Game>(entity =>

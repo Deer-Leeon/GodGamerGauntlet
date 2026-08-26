@@ -171,6 +171,39 @@ public class AuthController(
         return Ok(SignedIn(user));
     }
 
+    [HttpPut("stream-links")]
+    [Authorize]
+    [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ChangeStreamLinks(
+        ChangeStreamLinksRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!StreamLinkRules.TryNormalize(request.Links, out var links, out var error))
+        {
+            return BadRequest(error);
+        }
+
+        var user = await userRepository.GetForUpdateAsync(CurrentUserId, cancellationToken);
+        if (user is null) return Unauthorized();
+
+        user.StreamLinks.Clear();
+        for (var i = 0; i < links.Count; i++)
+        {
+            user.StreamLinks.Add(new UserStreamLink
+            {
+                Id = Guid.NewGuid(),
+                UserId = user.Id,
+                Platform = links[i].Platform,
+                Url = links[i].Url,
+                SortOrder = i,
+            });
+        }
+
+        await userRepository.SaveChangesAsync(cancellationToken);
+        return Ok(SignedIn(user));
+    }
+
     private Guid CurrentUserId => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
     private AuthResponse SignedIn(User user) =>
