@@ -134,6 +134,21 @@ if (app.Environment.IsDevelopment())
 // CORS must run before HTTPS redirection so OPTIONS preflights are answered,
 // never redirected (browsers refuse redirects on preflight requests).
 app.UseCors("AllowFrontend");
+app.Use(async (context, next) =>
+{
+    try
+    {
+        await next();
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogError(ex, "Unhandled request exception");
+        if (context.Response.HasStarted) throw;
+        context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+        context.Response.ContentType = "application/json";
+        await context.Response.WriteAsJsonAsync("Something went wrong. Try again.");
+    }
+});
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();

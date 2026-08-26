@@ -176,7 +176,7 @@ public class AuthController(
     [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> ChangeStreamLinks(
-        ChangeStreamLinksRequest request,
+        [FromBody] ChangeStreamLinksRequest request,
         CancellationToken cancellationToken)
     {
         if (!StreamLinkRules.TryNormalize(request.Links, out var links, out var error))

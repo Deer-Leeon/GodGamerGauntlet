@@ -100,14 +100,21 @@ export interface Run {
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const token = getToken();
 
-  const response = await fetch(`${API_URL}${path}`, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...init?.headers,
-    },
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}${path}`, {
+      ...init,
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...init?.headers,
+      },
+    });
+  } catch {
+    throw new Error(
+      "Couldn't reach the server. Wait a few seconds and try again.",
+    );
+  }
 
   if (!response.ok) {
     const body = await response.text();
@@ -122,13 +129,17 @@ function readApiError(body: string, response: Response): string {
     try {
       const parsed = JSON.parse(body) as unknown;
       if (typeof parsed === "string" && parsed.trim()) return parsed;
-      if (
-        parsed &&
-        typeof parsed === "object" &&
-        "title" in parsed &&
-        typeof parsed.title === "string"
-      ) {
-        return parsed.title;
+      if (parsed && typeof parsed === "object") {
+        if (
+          "detail" in parsed &&
+          typeof parsed.detail === "string" &&
+          parsed.detail.trim()
+        ) {
+          return parsed.detail;
+        }
+        if ("title" in parsed && typeof parsed.title === "string") {
+          return parsed.title;
+        }
       }
     } catch {
       if (body.trim()) return body;

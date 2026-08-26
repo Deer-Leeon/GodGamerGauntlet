@@ -68,6 +68,14 @@ export function StreamLinkEditor({
         url: row.url.trim(),
       }))
       .filter((row) => row.url.length > 0);
+    const localError = links
+      .map((row) => incompleteLinkMessage(row.platform, row.url))
+      .find((message) => message != null);
+    if (localError) {
+      setError(localError);
+      setSaving(false);
+      return;
+    }
     try {
       const result = await changeStreamLinks(links);
       const savedLinks = result.user.streamLinks ?? [];
@@ -160,4 +168,22 @@ function toRows(links: StreamLink[] | null | undefined): StreamLinkInput[] {
     platform: link.platform === "youtube" ? "youtube" : "twitch",
     url: link.url,
   }));
+}
+
+function incompleteLinkMessage(
+  platform: StreamPlatform,
+  url: string,
+): string | null {
+  const value = url.toLowerCase();
+  if (platform === "twitch" && !/twitch\.tv\/[a-z0-9_]{1,25}/i.test(value)) {
+    return "Use a channel URL like twitch.tv/yourname.";
+  }
+  if (
+    platform === "youtube" &&
+    !/youtube\.com\//i.test(value) &&
+    !/youtu\.be\//i.test(value)
+  ) {
+    return "Use a YouTube URL like youtube.com/@you/live.";
+  }
+  return null;
 }
