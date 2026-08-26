@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 
@@ -48,32 +49,17 @@ export default function SiteNav() {
         <div className="ml-auto flex items-center gap-4 text-sm">
           {loading ? null : user ? (
             <>
-              <span className="text-muted">
-                <Link
-                  href={`/u/${encodeURIComponent(user.username)}`}
-                  className="hover:text-gold"
-                >
-                  {user.username}
-                </Link>
-              </span>
               <Link
-                href="/settings"
-                className={
-                  pathname === "/settings"
-                    ? "text-gold"
-                    : user.needsUsername
-                      ? "text-gold hover:text-ink"
-                      : "text-faint hover:text-ink"
-                }
+                href={`/u/${encodeURIComponent(user.username)}`}
+                className="text-muted hover:text-gold"
               >
-                {user.needsUsername ? "Set username" : "Settings"}
+                {user.username}
               </Link>
-              <button
-                onClick={logout}
-                className="border border-gold/25 px-4 py-2 text-muted transition hover:border-gold/50 hover:text-ink"
-              >
-                Log out
-              </button>
+              <AccountMenu
+                needsUsername={user.needsUsername}
+                settingsActive={pathname === "/settings"}
+                onLogout={logout}
+              />
             </>
           ) : (
             <Link
@@ -86,5 +72,80 @@ export default function SiteNav() {
         </div>
       </nav>
     </header>
+  );
+}
+
+function AccountMenu({
+  needsUsername,
+  settingsActive,
+  onLogout,
+}: {
+  needsUsername: boolean;
+  settingsActive: boolean;
+  onLogout: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const pathname = usePathname();
+
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    function onPointerDown(event: PointerEvent) {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <div className="account-menu" ref={rootRef}>
+      <button
+        type="button"
+        className={`account-menu-trigger ${
+          open || settingsActive || needsUsername
+            ? "text-gold"
+            : "text-faint hover:text-ink"
+        }`}
+        aria-expanded={open}
+        aria-haspopup="menu"
+        onClick={() => setOpen((value) => !value)}
+      >
+        {needsUsername ? "Set username" : "Settings"}
+      </button>
+      {open ? (
+        <div className="account-menu-panel" role="menu">
+          <Link
+            role="menuitem"
+            href="/settings"
+            onClick={() => setOpen(false)}
+          >
+            Account settings
+          </Link>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setOpen(false);
+              onLogout();
+            }}
+          >
+            Log out
+          </button>
+        </div>
+      ) : null}
+    </div>
   );
 }

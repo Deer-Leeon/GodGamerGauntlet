@@ -60,6 +60,54 @@ body {
   letter-spacing: -0.03em;
 }
 
+.account-menu {
+  position: relative;
+}
+
+.account-menu-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+}
+
+.account-menu-trigger::after {
+  content: "";
+  display: inline-block;
+  border: 0.28em solid transparent;
+  border-top-color: currentColor;
+  border-bottom-width: 0;
+  transform: translateY(0.12em);
+}
+
+.account-menu-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.55rem);
+  z-index: 50;
+  min-width: 13rem;
+  background: var(--color-surface);
+  border: 1px solid rgb(255 255 255 / 0.12);
+}
+
+.account-menu-panel a,
+.account-menu-panel button {
+  display: block;
+  width: 100%;
+  padding: 0.7rem 0.95rem;
+  text-align: left;
+  color: var(--color-muted);
+}
+
+.account-menu-panel a:hover,
+.account-menu-panel button:hover {
+  background: rgb(255 255 255 / 0.04);
+  color: var(--color-ink);
+}
+
+.account-menu-panel button:last-child {
+  border-top: 1px solid rgb(255 255 255 / 0.08);
+}
+
 /* Page titles vs section titles vs recap headlines. */
 .site-shell main h1 {
   font-family: var(--font-heading);
