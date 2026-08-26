@@ -111,4 +111,6 @@ public record ProfileLiveRunDto(
     int TotalSlots,
     int CurrentSlot,
     string? CurrentTitle,
-    string? CurrentThumb);
+    string? CurrentThumb,
+    string TimerStatus,
+    long ElapsedMs);

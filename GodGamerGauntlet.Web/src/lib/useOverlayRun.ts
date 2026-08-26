@@ -51,6 +51,7 @@ export function useOverlayRun(
   }, []);
 
   useEffect(() => {
+    if (!runId) return;
     if (typeof BroadcastChannel === "undefined") return;
     const channel = new BroadcastChannel(`ggg-overlay-${runId}`);
     channelRef.current = channel;
@@ -73,6 +74,7 @@ export function useOverlayRun(
   }, [runId]);
 
   useEffect(() => {
+    if (!runId) return;
     let cancelled = false;
 
     const load = async () => {

@@ -24,8 +24,9 @@ import {
   VoteColumn,
 } from "@/components/RunSocial";
 import { RunTypeBadge } from "@/components/RunTypeBadge";
-import { formatSpeedrunTime } from "@/components/SpeedrunTimer";
+import SpeedrunTimer, { formatSpeedrunTime } from "@/components/SpeedrunTimer";
 import MomentChips from "@/components/MomentChips";
+import { useOverlayRun } from "@/lib/useOverlayRun";
 
 function formatWhen(iso: string | null): string {
   if (!iso) return "—";
@@ -165,6 +166,26 @@ export default function LiveRunTrackerPage() {
       ? (orderedSlots.find((s) => s.status === "Pending")?.position ?? null)
       : null;
 
+  const overlay = useOverlayRun(run?.status === "Active" ? id : "");
+  const overlayBySlot = useMemo(() => {
+    const map = new Map<
+      number,
+      { completed: boolean; splitTimeMs: number | null; status?: string }
+    >();
+    for (const game of overlay.state?.games ?? []) {
+      map.set(game.slotNumber, {
+        completed: game.completed,
+        splitTimeMs: game.splitTimeMs,
+        status: game.status,
+      });
+    }
+    return map;
+  }, [overlay.state]);
+  const liveActivePosition =
+    overlay.state && run?.status === "Active"
+      ? overlay.state.currentSlotIndex + 1
+      : activePosition;
+
   async function report(position: number, result: "Won" | "Lost") {
     if (!run || reporting) return;
     setReporting(true);
@@ -216,13 +237,19 @@ export default function LiveRunTrackerPage() {
   const isOwner = user?.id === run.userId;
   const duration = formatDuration(run.startTime, run.endTime);
   const streamerName = run.streamerName;
+  const overlayElapsed = overlay.state?.elapsedMs;
+  const overlayStatus = overlay.state?.timerStatus;
   const runElapsedMs =
-    run.elapsedMs > 0
-      ? run.elapsedMs
-      : (orderedSlots
-          .map((s) => s.splitTimeMs)
-          .filter((t): t is number => t != null && t > 0)
-          .sort((a, b) => b - a)[0] ?? null);
+    overlayElapsed != null && overlayElapsed > 0
+      ? overlayElapsed
+      : run.elapsedMs > 0
+        ? run.elapsedMs
+        : (orderedSlots
+            .map((s) => overlayBySlot.get(s.position)?.splitTimeMs ?? s.splitTimeMs)
+            .filter((t): t is number => t != null && t > 0)
+            .sort((a, b) => b - a)[0] ?? null);
+  const liveTimerStatus = overlayStatus ?? run.timerStatus ?? "idle";
+  const showLiveClock = !isOver && (overlay.syncedAt > 0 || liveTimerStatus !== "idle");
 
   async function copyLink() {
     const url = window.location.href;
@@ -368,11 +395,19 @@ export default function LiveRunTrackerPage() {
             <p className="font-mono text-2xl tabular-nums text-gold">
               {wonCount}/{run.totalSlots}
             </p>
-            {runElapsedMs !== null && (
+            {showLiveClock ? (
+              <SpeedrunTimer
+                elapsedMs={overlayElapsed ?? run.elapsedMs}
+                timerStatus={liveTimerStatus}
+                syncedAt={overlay.syncedAt}
+                tone="site"
+                className="text-xl"
+              />
+            ) : runElapsedMs !== null ? (
               <p className="font-mono text-sm tabular-nums text-muted">
                 {formatSpeedrunTime(runElapsedMs)}
               </p>
-            )}
+            ) : null}
             <p className="mt-1 font-mono text-sm text-faint">
               {formatScore(isOver ? earnedScore : lineupScore)}
               {isOver ? " beaten" : " if cleared"}
@@ -405,10 +440,18 @@ export default function LiveRunTrackerPage() {
         {orderedSlots.map((slot) => {
           const title = slot.title;
           const base = slot.baseDifficulty;
-          const isActive = slot.position === activePosition;
-          const isFuture = slot.status === "Pending" && !isActive;
+          const overlaySlot = overlayBySlot.get(slot.position);
+          const status =
+            overlaySlot?.completed
+              ? "Won"
+              : overlaySlot?.status === "Lost"
+                ? "Lost"
+                : slot.status;
+          const splitTimeMs = overlaySlot?.splitTimeMs ?? slot.splitTimeMs;
+          const isActive = slot.position === liveActivePosition;
+          const isFuture = status === "Pending" && !isActive;
 
-          if (slot.status === "Won") {
+          if (status === "Won") {
             return (
               <li
                 key={slot.id}
@@ -425,16 +468,14 @@ export default function LiveRunTrackerPage() {
                     +{base}
                   </p>
                 </div>
-                {slot.splitTimeMs != null && (
-                  <span className="shrink-0 font-mono text-sm tabular-nums text-gold">
-                    {formatSpeedrunTime(slot.splitTimeMs)}
-                  </span>
-                )}
+                <span className="shrink-0 font-mono text-sm tabular-nums text-gold">
+                  {splitTimeMs != null ? formatSpeedrunTime(splitTimeMs) : "—"}
+                </span>
               </li>
             );
           }
 
-          if (slot.status === "Lost") {
+          if (status === "Lost") {
             return (
               <li
                 key={slot.id}
@@ -451,6 +492,11 @@ export default function LiveRunTrackerPage() {
                     Run ended here
                   </p>
                 </div>
+                {splitTimeMs != null && (
+                  <span className="shrink-0 font-mono text-sm tabular-nums text-red-400/80">
+                    {formatSpeedrunTime(splitTimeMs)}
+                  </span>
+                )}
               </li>
             );
           }
@@ -475,6 +521,19 @@ export default function LiveRunTrackerPage() {
                       {base}
                     </p>
                   </div>
+                  {showLiveClock ? (
+                    <SpeedrunTimer
+                      elapsedMs={overlayElapsed ?? run.elapsedMs}
+                      timerStatus={liveTimerStatus}
+                      syncedAt={overlay.syncedAt}
+                      tone="site"
+                      className="shrink-0 text-sm"
+                    />
+                  ) : (
+                    <span className="shrink-0 font-mono text-sm tabular-nums text-faint">
+                      —
+                    </span>
+                  )}
                 </div>
                 {isOwner ? (
                   <div className="slot-actions">
@@ -519,6 +578,9 @@ export default function LiveRunTrackerPage() {
                 <p className="truncate text-sm text-muted">{title}</p>
                 <p className="mt-0.5 font-mono text-xs text-faint">{base}</p>
               </div>
+              <span className="shrink-0 font-mono text-sm tabular-nums text-faint">
+                —
+              </span>
             </li>
           );
         })}

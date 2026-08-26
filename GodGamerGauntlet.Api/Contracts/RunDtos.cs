@@ -50,13 +50,17 @@ public record RunResponse(
     // Games this run is made of: 10 for Standard, 5 for Lite.
     int TotalSlots,
     double TotalDifficultyScore,
-    // Frozen overlay clock; 0 when the run never used the speedrun timer.
+    // Live overlay clock; 0 when the run never used the speedrun timer.
     long ElapsedMs,
+    // idle | running | paused | finished — running clocks tick on the client.
+    string TimerStatus,
     IReadOnlyList<RunSlotResponse> Slots,
     IReadOnlyList<StreamLinkDto> StreamLinks)
 {
-    public static RunResponse FromEntity(Run run, string? streamerName = null) =>
-        new(
+    public static RunResponse FromEntity(Run run, string? streamerName = null)
+    {
+        var now = DateTime.UtcNow;
+        return new(
             run.Id,
             run.UserId,
             streamerName ?? run.User?.Username ?? "unknown",
@@ -66,7 +70,9 @@ public record RunResponse(
             run.RunType.ToString(),
             run.RunType.SlotCount(),
             run.TotalDifficultyScore,
-            run.TimerElapsedMs,
+            run.CurrentElapsedMs(now),
+            run.TimerStatus,
             run.Slots.OrderBy(s => s.Position).Select(RunSlotResponse.FromEntity).ToList(),
             StreamLinkDto.FromUser(run.User));
+    }
 }

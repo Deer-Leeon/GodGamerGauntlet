@@ -41,4 +41,17 @@ public class Run
     public ICollection<RunComment> Comments { get; set; } = new List<RunComment>();
 
     public ICollection<RunReaction> Reactions { get; set; } = new List<RunReaction>();
+
+    /// <summary>
+    /// Live overlay clock: stored elapsed, plus time since last play if running.
+    /// </summary>
+    public long CurrentElapsedMs(DateTime utcNow)
+    {
+        var elapsed = (double)TimerElapsedMs;
+        if (TimerStatus == "running" && TimerUpdatedAt is DateTime since)
+        {
+            elapsed += Math.Max(0, (utcNow - since).TotalMilliseconds);
+        }
+        return (long)elapsed;
+    }
 }

@@ -7,7 +7,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import ControlBoard from "@/components/ControlBoard";
 import { RunTypeBadge } from "@/components/RunTypeBadge";
 import { useOverlayRun } from "@/lib/useOverlayRun";
-import { formatSpeedrunTime } from "@/components/SpeedrunTimer";
+import SpeedrunTimer, { formatSpeedrunTime } from "@/components/SpeedrunTimer";
 
 export default function ControlDeckPage() {
   return (
@@ -40,7 +40,7 @@ function ControlDeckView() {
 }
 
 function ControlStudio({ runId }: { runId: string }) {
-  const { state } = useOverlayRun(runId);
+  const { state, syncedAt } = useOverlayRun(runId);
 
   return (
     <main className="site-content flex flex-1 gap-8 px-6 py-8">
@@ -108,15 +108,25 @@ function ControlStudio({ runId }: { runId: string }) {
                     >
                       {game.title}
                     </p>
-                    <span className="shrink-0 font-mono text-xs tabular-nums text-faint">
-                      {game.completed
-                        ? game.splitTimeMs !== null
+                    {game.completed ? (
+                      <span className="shrink-0 font-mono text-xs tabular-nums text-gold">
+                        {game.splitTimeMs !== null
                           ? formatSpeedrunTime(game.splitTimeMs)
-                          : "cleared"
-                        : now
-                          ? "now"
-                          : "queued"}
-                    </span>
+                          : "cleared"}
+                      </span>
+                    ) : now ? (
+                      <SpeedrunTimer
+                        elapsedMs={state.elapsedMs}
+                        timerStatus={state.timerStatus}
+                        syncedAt={syncedAt}
+                        tone="site"
+                        className="shrink-0 text-xs"
+                      />
+                    ) : (
+                      <span className="shrink-0 font-mono text-xs tabular-nums text-faint">
+                        —
+                      </span>
+                    )}
                   </div>
                 );
               })}

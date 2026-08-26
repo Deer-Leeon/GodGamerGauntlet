@@ -6,10 +6,11 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { getProfile, type ProfileGame, type ProfileLiveRun, type ProfileMode, type ProfileRun, type RunType, type UserProfile } from "@/lib/api";
 import { timeAgo } from "@/components/RunSocial";
-import { formatSpeedrunTime } from "@/components/SpeedrunTimer";
+import SpeedrunTimer, { formatSpeedrunTime } from "@/components/SpeedrunTimer";
 import MomentChips from "@/components/MomentChips";
 import SurvivalMeter from "@/components/SurvivalMeter";
 import { StreamLinkList } from "@/components/StreamLinks";
+import { useOverlayRun } from "@/lib/useOverlayRun";
 
 type HistoryFilter = "All" | RunType;
 
@@ -196,8 +197,16 @@ export default function ProfilePage() {
 }
 
 function LiveRunCallout({ live }: { live: ProfileLiveRun }) {
-  const isLite = live.runType === "Lite";
-  const title = live.currentTitle ?? "the next game";
+  const { state, syncedAt } = useOverlayRun(live.runId);
+  const isLite = (state?.runType ?? live.runType) === "Lite";
+  const title = state?.games[state.currentSlotIndex]?.title ?? live.currentTitle ?? "the next game";
+  const thumb =
+    state?.games[state.currentSlotIndex]?.thumb ?? live.currentThumb;
+  const currentSlot = state ? state.currentSlotIndex + 1 : live.currentSlot;
+  const totalSlots = state?.games.length ?? live.totalSlots;
+  const elapsedMs = state?.elapsedMs ?? live.elapsedMs ?? 0;
+  const timerStatus = state?.timerStatus ?? live.timerStatus ?? "idle";
+  const clockReady = syncedAt > 0 || (live.elapsedMs ?? 0) > 0 || timerStatus !== "idle";
 
   return (
     <Link href={`/run/${live.runId}`} className="live-run-banner">
@@ -205,10 +214,10 @@ function LiveRunCallout({ live }: { live: ProfileLiveRun }) {
         <span className="live-run-dot" aria-hidden />
         Live run
       </span>
-      {live.currentThumb ? (
+      {thumb ? (
         <span className="live-run-thumb">
           <Image
-            src={live.currentThumb}
+            src={thumb}
             alt=""
             fill
             unoptimized
@@ -219,11 +228,23 @@ function LiveRunCallout({ live }: { live: ProfileLiveRun }) {
       ) : null}
       <span className="live-run-copy">
         <span className="live-run-title">
-          On game {live.currentSlot} of {live.totalSlots}
+          On game {currentSlot} of {totalSlots}
           {isLite ? " · Lite" : ""}
         </span>
         <span className="live-run-game">{title}</span>
       </span>
+      {clockReady ? (
+        <span className="live-run-clock">
+          <span className="live-run-clock-label">Gauntlet</span>
+          <SpeedrunTimer
+            elapsedMs={elapsedMs}
+            timerStatus={timerStatus}
+            syncedAt={syncedAt || 0}
+            tone="site"
+            className="text-[1.35rem]"
+          />
+        </span>
+      ) : null}
       <span className="live-run-cta">Open the gauntlet</span>
     </Link>
   );

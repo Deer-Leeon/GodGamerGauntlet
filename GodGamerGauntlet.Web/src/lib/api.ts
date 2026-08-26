@@ -54,6 +54,7 @@ export interface Game {
 
 export type RunStatus = "Active" | "Failed" | "Completed";
 export type RunSlotStatus = "Pending" | "Won" | "Lost";
+export type TimerStatus = "idle" | "running" | "paused" | "finished";
 
 /** Standard is the full 10-game gauntlet; Lite is the 5-game variant. */
 export type RunType = "Standard" | "Lite";
@@ -93,6 +94,8 @@ export interface Run {
   totalDifficultyScore: number;
   /** Frozen overlay clock in ms; 0 when the run never used the timer. */
   elapsedMs: number;
+  /** Present on live runs so the client can keep ticking. */
+  timerStatus?: TimerStatus;
   slots: RunSlot[];
   streamLinks?: StreamLink[];
 }
@@ -385,6 +388,8 @@ export interface ProfileLiveRun {
   currentSlot: number;
   currentTitle: string | null;
   currentThumb: string | null;
+  timerStatus?: TimerStatus;
+  elapsedMs?: number;
 }
 
 export function getProfile(username: string): Promise<UserProfile> {
@@ -409,8 +414,6 @@ export function reportSlotMatch(
 }
 
 // ---------- OBS overlay & control deck ----------
-
-export type TimerStatus = "idle" | "running" | "paused" | "finished";
 
 export interface OverlaySlot {
   gameId: string;

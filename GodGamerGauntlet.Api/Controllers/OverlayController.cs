@@ -60,7 +60,7 @@ public class OverlayController(AppDbContext context) : ControllerBase
         switch (run.TimerStatus)
         {
             case "running":
-                run.TimerElapsedMs = ComputeElapsedMs(run, now);
+                run.TimerElapsedMs = run.CurrentElapsedMs(now);
                 run.TimerStatus = "paused";
                 run.TimerUpdatedAt = now;
                 break;
@@ -103,7 +103,7 @@ public class OverlayController(AppDbContext context) : ControllerBase
         }
 
         var now = DateTime.UtcNow;
-        var elapsed = ComputeElapsedMs(run, now);
+        var elapsed = run.CurrentElapsedMs(now);
 
         current.Status = RunSlotStatus.Won;
         current.SplitTimeMs = elapsed;
@@ -200,16 +200,6 @@ public class OverlayController(AppDbContext context) : ControllerBase
             .ThenInclude(s => s.Game)
             .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
 
-    private static long ComputeElapsedMs(Run run, DateTime now)
-    {
-        var elapsed = (double)run.TimerElapsedMs;
-        if (run.TimerStatus == "running" && run.TimerUpdatedAt is DateTime since)
-        {
-            elapsed += Math.Max(0, (now - since).TotalMilliseconds);
-        }
-        return (long)elapsed;
-    }
-
     private async Task<OverlayStateDto> ToDtoAsync(
         Run run,
         bool includeKey,
@@ -236,7 +226,7 @@ public class OverlayController(AppDbContext context) : ControllerBase
             run.RunType.ToString(),
             currentIndex,
             run.TimerStatus,
-            ComputeElapsedMs(run, DateTime.UtcNow),
+            run.CurrentElapsedMs(DateTime.UtcNow),
             slots.Select(s => new OverlaySlotDto(
                 s.GameId,
                 s.Position,

@@ -258,7 +258,9 @@ public class RecordBook(AppDbContext context) : IRecordBook
             run.RunType.SlotCount(),
             current + 1,
             currentSlot?.Game?.Title,
-            currentSlot?.Game?.Thumb);
+            currentSlot?.Game?.Thumb,
+            run.TimerStatus,
+            run.CurrentElapsedMs(DateTime.UtcNow));
     }
 
     public async Task<IReadOnlyList<PlayerCardDto>> GetDirectoryAsync(

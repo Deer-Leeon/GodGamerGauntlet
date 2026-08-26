@@ -166,15 +166,29 @@ public class RunController(IRunRepository runRepository, IGameRepository gameRep
 
         target.Status = result;
 
+        var now = DateTime.UtcNow;
+        var elapsed = run.CurrentElapsedMs(now);
+
+        if (result == RunSlotStatus.Won)
+        {
+            target.SplitTimeMs = elapsed;
+        }
+
         if (result == RunSlotStatus.Lost)
         {
             run.Status = RunStatus.Failed;
-            run.EndTime = DateTime.UtcNow;
+            run.EndTime = now;
+            run.TimerElapsedMs = elapsed;
+            run.TimerStatus = "finished";
+            run.TimerUpdatedAt = now;
         }
         else if (request.SlotPosition == run.RunType.SlotCount())
         {
             run.Status = RunStatus.Completed;
-            run.EndTime = DateTime.UtcNow;
+            run.EndTime = now;
+            run.TimerElapsedMs = elapsed;
+            run.TimerStatus = "finished";
+            run.TimerUpdatedAt = now;
         }
 
         await runRepository.SaveChangesAsync(cancellationToken);
