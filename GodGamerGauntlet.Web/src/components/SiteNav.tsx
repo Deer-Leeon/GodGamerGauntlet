@@ -55,6 +55,18 @@ export default function SiteNav() {
                   {user.username}
                 </Link>
               </span>
+              <Link
+                href="/settings"
+                className={
+                  pathname === "/settings"
+                    ? "text-gold"
+                    : user.needsUsername
+                      ? "text-gold hover:text-ink"
+                      : "text-faint hover:text-ink"
+                }
+              >
+                {user.needsUsername ? "Set username" : "Settings"}
+              </Link>
               <button
                 onClick={logout}
                 className="border border-gold/25 px-4 py-2 text-muted transition hover:border-gold/50 hover:text-ink"

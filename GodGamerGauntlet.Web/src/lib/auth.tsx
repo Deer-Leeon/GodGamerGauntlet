@@ -9,14 +9,15 @@ import {
   type ReactNode,
 } from "react";
 import * as api from "./api";
-import type { User } from "./api";
+import type { AuthResponse, User } from "./api";
 
 interface AuthContextValue {
   /** Undefined while the stored token is still being validated. */
   user: User | null;
   loading: boolean;
-  login: (username: string, password: string) => Promise<void>;
-  register: (username: string, password: string) => Promise<void>;
+  login: (username: string, password: string) => Promise<User>;
+  register: (username: string, email: string, password: string) => Promise<User>;
+  applyAuth: (result: AuthResponse) => User;
   logout: () => void;
 }
 
@@ -40,17 +41,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     validate.finally(() => setLoading(false));
   }, []);
 
-  const login = useCallback(async (username: string, password: string) => {
-    const result = await api.login(username, password);
+  const applyAuth = useCallback((result: AuthResponse) => {
     api.setToken(result.token);
     setUser(result.user);
+    return result.user;
   }, []);
 
-  const register = useCallback(async (username: string, password: string) => {
-    const result = await api.register(username, password);
-    api.setToken(result.token);
-    setUser(result.user);
-  }, []);
+  const login = useCallback(
+    async (username: string, password: string) => {
+      return applyAuth(await api.login(username, password));
+    },
+    [applyAuth],
+  );
+
+  const register = useCallback(
+    async (username: string, email: string, password: string) => {
+      return applyAuth(await api.register(username, email, password));
+    },
+    [applyAuth],
+  );
 
   const logout = useCallback(() => {
     api.setToken(null);
@@ -58,7 +67,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider
+      value={{ user, loading, login, register, applyAuth, logout }}
+    >
       {children}
     </AuthContext.Provider>
   );

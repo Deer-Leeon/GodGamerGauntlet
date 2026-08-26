@@ -19,6 +19,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             entity.Property(u => u.Username).HasMaxLength(50).IsRequired();
             entity.HasIndex(u => u.Username).IsUnique();
+            entity.Property(u => u.Email).HasMaxLength(254);
+            entity.HasIndex(u => u.Email)
+                .IsUnique()
+                .HasFilter("\"Email\" IS NOT NULL");
             entity.Property(u => u.PasswordHash).HasMaxLength(500);
 
             // A User has many Runs.

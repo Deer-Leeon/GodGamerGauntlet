@@ -19,7 +19,9 @@ export function setToken(token: string | null) {
 export interface User {
   id: string;
   username: string;
+  email: string | null;
   createdAt: string;
+  needsUsername: boolean;
 }
 
 export interface Game {
@@ -94,12 +96,30 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
   if (!response.ok) {
     const body = await response.text();
-    throw new Error(
-      body || `API request failed: ${response.status} ${response.statusText}`,
-    );
+    throw new Error(readApiError(body, response));
   }
 
   return (await response.json()) as T;
+}
+
+function readApiError(body: string, response: Response): string {
+  if (body) {
+    try {
+      const parsed = JSON.parse(body) as unknown;
+      if (typeof parsed === "string" && parsed.trim()) return parsed;
+      if (
+        parsed &&
+        typeof parsed === "object" &&
+        "title" in parsed &&
+        typeof parsed.title === "string"
+      ) {
+        return parsed.title;
+      }
+    } catch {
+      if (body.trim()) return body;
+    }
+  }
+  return `API request failed: ${response.status} ${response.statusText}`;
 }
 
 // ---------- Auth ----------
@@ -111,11 +131,12 @@ export interface AuthResponse {
 
 export function register(
   username: string,
+  email: string,
   password: string,
 ): Promise<AuthResponse> {
   return request<AuthResponse>("/api/auth/register", {
     method: "POST",
-    body: JSON.stringify({ username, password }),
+    body: JSON.stringify({ username, email, password }),
   });
 }
 
@@ -131,6 +152,33 @@ export function login(
 
 export function getMe(): Promise<User> {
   return request<User>("/api/auth/me");
+}
+
+export function changeUsername(username: string): Promise<AuthResponse> {
+  return request<AuthResponse>("/api/auth/username", {
+    method: "PUT",
+    body: JSON.stringify({ username }),
+  });
+}
+
+export function changeEmail(
+  email: string,
+  currentPassword: string,
+): Promise<AuthResponse> {
+  return request<AuthResponse>("/api/auth/email", {
+    method: "PUT",
+    body: JSON.stringify({ email, currentPassword }),
+  });
+}
+
+export function changePassword(
+  currentPassword: string,
+  newPassword: string,
+): Promise<AuthResponse> {
+  return request<AuthResponse>("/api/auth/password", {
+    method: "PUT",
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
 }
 
 // ---------- Games & runs ----------
