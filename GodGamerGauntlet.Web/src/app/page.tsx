@@ -82,17 +82,17 @@ export default function FeedPage() {
   }
 
   return (
-    <main className="feed-page mx-auto w-full max-w-3xl flex-1 px-4 py-10 sm:px-6">
-      <header className="flex flex-wrap items-end justify-between gap-3 border-b border-gold/20 pb-5">
+    <main className="feed-page mx-auto w-full max-w-3xl flex-1 px-5 py-10 sm:px-8">
+      <header className="flex flex-wrap items-end justify-between gap-4 border-b border-gold/20 pb-6">
         <div>
           <h1 className="text-2xl font-semibold text-ink">Feed</h1>
-          <p className="mt-1 max-w-md text-sm text-muted">
+          <p className="mt-2 max-w-md text-sm leading-relaxed text-muted">
             Finished gauntlets from the community.
           </p>
         </div>
         <Link
           href="/draft"
-          className="bg-gold px-3 py-1.5 text-sm text-dark transition hover:bg-gold/90"
+          className="bg-gold px-4 py-2 text-sm text-dark transition hover:bg-gold/90"
         >
           Draft a run
         </Link>
@@ -103,7 +103,7 @@ export default function FeedPage() {
       <div
         role="tablist"
         aria-label="Sort feed"
-        className="mt-5 flex gap-5 border-b border-gold/20 text-sm"
+        className="mt-8 flex gap-6 border-b border-gold/20 text-sm"
       >
         {SORTS.map((s) => (
           <button
@@ -111,10 +111,10 @@ export default function FeedPage() {
             role="tab"
             aria-selected={sort === s.id}
             onClick={() => changeSort(s.id)}
-            className={`-mb-px border-b-2 pb-2 transition ${
+            className={`-mb-px border-b-2 pb-3 transition ${
               sort === s.id
                 ? "border-gold text-gold"
-                : "border-transparent text-muted/70 hover:text-ink"
+                : "border-transparent text-faint hover:text-ink"
             }`}
           >
             {s.label}
@@ -122,9 +122,9 @@ export default function FeedPage() {
         ))}
       </div>
 
-      <div className="feed-list">
+      <div className="feed-list mt-5">
         {loading && (
-          <p className="py-12 text-sm text-gray-500">Loading the feed…</p>
+          <p className="py-14 text-sm text-faint">Loading the feed…</p>
         )}
 
         {!loading && error && (
@@ -132,7 +132,7 @@ export default function FeedPage() {
         )}
 
         {!loading && !error && posts.length === 0 && (
-          <p className="py-12 text-sm text-gray-500">
+          <p className="py-14 text-sm text-faint">
             No finished runs yet.{" "}
             <Link href="/draft" className="text-gold underline underline-offset-2">
               Draft a gauntlet
@@ -155,7 +155,7 @@ export default function FeedPage() {
         <button
           onClick={loadMore}
           disabled={loadingMore}
-          className="mt-6 w-full border border-gold/25 py-2.5 text-sm text-muted transition hover:border-gold/50 hover:text-gold disabled:opacity-50"
+          className="mt-8 w-full border border-gold/25 px-4 py-3 text-sm text-muted transition hover:border-gold/50 hover:text-gold disabled:opacity-50"
         >
           {loadingMore ? "Loading…" : "Load more"}
         </button>
@@ -179,8 +179,8 @@ function PostCard({
   const isLite = post.runType === "Lite";
 
   return (
-    <article className="feed-row py-5">
-      <div className="flex gap-4">
+    <article className="feed-row py-6">
+      <div className="flex gap-5">
         <VoteColumn
           post={post}
           signedIn={signedIn}
@@ -189,22 +189,22 @@ function PostCard({
         />
 
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-[13px]">
+          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm">
             <Link
               href={`/u/${encodeURIComponent(post.streamerName)}`}
               className="font-medium text-ink hover:text-gold"
             >
               {post.streamerName}
             </Link>
-            <span className="text-gray-600">·</span>
-            <span className="text-gray-500">{timeAgo(post.endTime)}</span>
-            <span className="text-gray-600">·</span>
+            <span className="text-faint/70">·</span>
+            <span className="text-faint">{timeAgo(post.endTime)}</span>
+            <span className="text-faint/70">·</span>
             <span className={completed ? "text-gold" : "text-red-400/80"}>
               {completed ? "Clear" : "DNF"}
             </span>
             {completed && post.boardRank != null && (
               <>
-                <span className="text-gray-600">·</span>
+                <span className="text-faint/70">·</span>
                 <span className="font-mono tabular-nums text-gold">
                   #{post.boardRank}
                 </span>
@@ -212,31 +212,31 @@ function PostCard({
             )}
             {completed && post.boardRank == null && post.wouldBeRank != null && (
               <>
-                <span className="text-gray-600">·</span>
-                <span className="tabular-nums text-muted">
+                <span className="text-faint/70">·</span>
+                <span className="tabular-nums text-faint">
                   would #{post.wouldBeRank}
                 </span>
               </>
             )}
             {isLite && (
               <>
-                <span className="text-gray-600">·</span>
-                <span className="text-gray-500">Lite</span>
+                <span className="text-faint/70">·</span>
+                <span className="text-faint">Lite</span>
               </>
             )}
           </div>
 
           <Link
             href={`/run/${post.runId}`}
-            className="mt-2 block outline-none"
+            className="mt-2.5 block outline-none"
           >
             <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-              <p className="text-[15px] leading-snug text-muted">
+              <p className="text-base leading-snug text-muted">
                 {completed
                   ? `${post.totalSlots}/${post.totalSlots} games`
                   : `Stopped on game ${post.slotsCompleted + 1} of ${post.totalSlots}`}
               </p>
-              <p className="font-mono text-[13px] tabular-nums text-gold">
+              <p className="font-mono text-sm tabular-nums text-gold">
                 <span>{formatPts(post.totalScore)} pts</span>
                 {elapsedMs !== null && (
                   <>
@@ -247,7 +247,7 @@ function PostCard({
               </p>
             </div>
 
-            <ol className="mt-3 flex flex-wrap gap-px">
+            <ol className="mt-4 flex flex-wrap gap-0.5">
               {post.slotStatuses.map((status, i) => {
                 const thumb = post.slotThumbs?.[i] ?? null;
                 const title = post.slotTitles?.[i] ?? `Slot ${i + 1}`;
@@ -255,8 +255,8 @@ function PostCard({
                   <li
                     key={i}
                     title={`${i + 1}. ${title} — ${status}`}
-                    className={`relative h-9 w-9 overflow-hidden bg-white/5 ${
-                      status === "Pending" ? "opacity-35" : ""
+                    className={`relative h-10 w-10 overflow-hidden bg-white/5 ${
+                      status === "Pending" ? "opacity-40" : ""
                     } ${status === "Lost" ? "opacity-80" : ""}`}
                   >
                     {thumb ? (
@@ -265,11 +265,11 @@ function PostCard({
                         alt=""
                         fill
                         unoptimized
-                        sizes="36px"
+                        sizes="40px"
                         className="object-cover"
                       />
                     ) : (
-                      <span className="flex h-full items-center justify-center font-mono text-[10px] text-gray-500">
+                      <span className="flex h-full items-center justify-center font-mono text-[11px] text-faint">
                         {i + 1}
                       </span>
                     )}
@@ -321,7 +321,7 @@ function FeedSplits({ post }: { post: FeedPost }) {
   if (!hasAny) return null;
 
   return (
-    <table className="mt-3 w-full border-collapse text-[12px]">
+    <table className="mt-4 w-full border-collapse text-[13px]">
       <caption className="sr-only">Splits</caption>
       <tbody>
         {titles.map((title, i) => {
@@ -331,19 +331,19 @@ function FeedSplits({ post }: { post: FeedPost }) {
           return (
             <tr
               key={i}
-              className="border-t border-white/8 text-gray-500 first:border-t-0"
+              className="border-t border-gold/15 text-faint first:border-t-0"
             >
-              <td className="w-6 py-0.5 pr-2 font-mono tabular-nums text-gray-600">
+              <td className="w-6 py-1.5 pr-3 font-mono tabular-nums text-faint">
                 {i + 1}
               </td>
               <td
-                className={`max-w-0 truncate py-0.5 pr-3 ${
-                  status === "Lost" ? "text-red-400/70" : "text-gray-400"
+                className={`max-w-0 truncate py-1.5 pr-3 ${
+                  status === "Lost" ? "text-red-400/80" : "text-muted"
                 }`}
               >
                 {title}
               </td>
-              <td className="py-0.5 text-right font-mono tabular-nums text-gray-500">
+              <td className="py-1.5 text-right font-mono tabular-nums text-faint">
                 {time != null ? formatSpeedrunTime(time) : "—"}
               </td>
             </tr>
@@ -366,7 +366,7 @@ function FooterBar({
   const [showComments, setShowComments] = useState(false);
 
   return (
-    <div className="mt-3">
+    <div className="mt-4">
       <ReactionBar
         post={post}
         currentUserId={currentUserId}
@@ -413,7 +413,7 @@ function TopBoards() {
   if (standard.length === 0 && lite.length === 0) return null;
 
   return (
-    <section className="mt-6 grid gap-6 sm:grid-cols-2">
+    <section className="mt-8 grid gap-8 sm:grid-cols-2">
       <TopColumn title="Top Standard" runType="Standard" entries={standard} />
       <TopColumn title="Top Lite" runType="Lite" entries={lite} />
     </section>
@@ -431,21 +431,21 @@ function TopColumn({
 }) {
   return (
     <div>
-      <div className="mb-2 flex items-baseline justify-between">
-        <h2 className="text-sm text-muted">{title}</h2>
+      <div className="mb-3 flex items-baseline justify-between gap-3">
+        <h2 className="text-sm font-medium text-ink">{title}</h2>
         <Link
           href="/leaderboard"
-          className="text-xs text-muted hover:text-gold"
+          className="text-sm text-faint hover:text-gold"
         >
           Full board
         </Link>
       </div>
       {entries.length === 0 ? (
-        <p className="text-sm text-muted">No Clears yet.</p>
+        <p className="text-sm text-faint">No Clears yet.</p>
       ) : (
         <ol className="feed-list">
           {entries.map((entry) => (
-            <li key={entry.runId} className="feed-row flex items-baseline gap-3 py-1.5 text-sm">
+            <li key={entry.runId} className="feed-row flex items-baseline gap-3 py-2.5 text-sm">
               <span className="w-6 shrink-0 font-mono tabular-nums text-gold">
                 {entry.rank}
               </span>

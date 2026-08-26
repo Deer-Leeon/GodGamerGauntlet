@@ -11,7 +11,7 @@ export function RunTypeBadge({
 }) {
   if (runType !== "Lite") return null;
   return (
-    <span title="Gauntlet Lite — a 5-game run" className="text-sm text-gray-500">
+    <span title="Gauntlet Lite — a 5-game run" className="text-sm text-faint">
       Lite
     </span>
   );

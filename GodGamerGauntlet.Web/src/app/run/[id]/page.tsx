@@ -74,7 +74,7 @@ function GameThumb({ slot }: { slot: RunSlot }) {
     return (
       <span
         aria-hidden
-        className="flex h-12 w-16 shrink-0 items-center justify-center bg-white/5 text-lg font-semibold text-gray-600"
+        className="flex h-12 w-16 shrink-0 items-center justify-center bg-white/5 text-lg font-semibold text-faint"
       >
         {slot.title.charAt(0)}
       </span>
@@ -200,7 +200,7 @@ export default function LiveRunTrackerPage() {
         <h1 className="text-2xl font-semibold">
           Run not found
         </h1>
-        <p className="text-sm text-gray-500">{loadError}</p>
+        <p className="text-sm text-faint">{loadError}</p>
         <Link
           href="/"
           className="border border-white/20 px-4 py-2 text-sm text-ink transition hover:bg-white/5"
@@ -249,15 +249,15 @@ export default function LiveRunTrackerPage() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-8">
+    <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-10 sm:px-8">
       <Link
         href="/"
-        className="mb-4 inline-block text-sm text-gray-500 transition hover:text-ink"
+        className="mb-5 inline-block text-sm text-faint transition hover:text-ink"
       >
         ← Back to feed
       </Link>
 
-      <header className="mb-8 flex flex-wrap items-end justify-between gap-4 border-b border-gold/20 pb-5">
+      <header className="mb-8 flex flex-wrap items-end justify-between gap-4 border-b border-gold/20 pb-6">
         <div>
           <p className="text-sm text-muted">
             {isOver ? "Lineup" : "Live run"}
@@ -284,13 +284,13 @@ export default function LiveRunTrackerPage() {
                   : "Live"}
             </span>
           </div>
-          <p className="mt-1 text-xs text-gray-500">
+          <p className="mt-2 text-sm text-faint">
             {wonCount}/{run.totalSlots} cleared · Started {formatWhen(run.startTime)}
             {run.endTime ? ` · Finished ${formatWhen(run.endTime)}` : ""}
             {duration ? ` · ${duration}` : ""}
           </p>
           {isOver && placement && run.status === "Completed" && (
-            <p className="mt-1 text-xs text-muted">
+            <p className="mt-2 text-sm text-muted">
               {placement.isPersonalBest ? (
                 <>
                   #{placement.boardRank} of {placement.boardSize} on{" "}
@@ -322,13 +322,13 @@ export default function LiveRunTrackerPage() {
               <button
                 type="button"
                 onClick={() => pinControlRun(run.id)}
-                className="border border-white/20 px-3 py-1.5 text-xs text-ink transition hover:bg-white/5"
+                className="border border-gold/30 px-4 py-2 text-sm text-ink transition hover:bg-gold/10"
               >
                 Show live controls
               </button>
               <Link
                 href={`/control/${run.id}`}
-                className="border border-white/15 px-3 py-1.5 text-xs text-gray-400 transition hover:text-ink"
+                className="border border-gold/25 px-4 py-2 text-sm text-faint transition hover:text-ink"
               >
                 Control room
               </Link>
@@ -337,24 +337,24 @@ export default function LiveRunTrackerPage() {
           <button
             type="button"
             onClick={copyLink}
-            className="border border-white/15 px-3 py-1.5 text-xs text-gray-400 transition hover:text-ink"
+            className="border border-gold/25 px-4 py-2 text-sm text-faint transition hover:text-ink"
           >
             {copied ? "Copied" : "Share"}
           </button>
           <div className="text-right">
-            <p className="text-xs text-gray-500">
+            <p className="text-sm text-faint">
               {isOver ? "Earned" : "Projected"}
             </p>
             <p className="font-mono text-2xl tabular-nums text-gold">
               {formatScore(isOver ? earnedScore : run.totalDifficultyScore)}
             </p>
             {runElapsedMs !== null && (
-              <p className="font-mono text-sm tabular-nums text-gray-400">
+              <p className="font-mono text-sm tabular-nums text-muted">
                 {formatSpeedrunTime(runElapsedMs)}
               </p>
             )}
             {isOver && (
-              <p className="font-mono text-xs text-gray-500">
+              <p className="mt-1 font-mono text-sm text-faint">
                 {formatScore(run.totalDifficultyScore)} projected
               </p>
             )}
@@ -379,15 +379,15 @@ export default function LiveRunTrackerPage() {
             return (
               <li
                 key={slot.id}
-                className="feed-row flex items-center gap-4 py-3"
+                className="feed-row flex items-center gap-4 py-4"
               >
-                <span className="w-6 font-mono text-sm tabular-nums text-gray-500">
+                <span className="w-6 font-mono text-sm tabular-nums text-faint">
                   {slot.position}
                 </span>
                 <GameThumb slot={slot} />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm text-ink">{title}</p>
-                  <p className="font-mono text-xs tabular-nums text-muted">
+                  <p className="mt-0.5 font-mono text-xs tabular-nums text-muted">
                     {base} × {multiplier.toFixed(1)} ={" "}
                     <span className="text-gold">+{formatScore(score)}</span>
                   </p>
@@ -405,7 +405,7 @@ export default function LiveRunTrackerPage() {
             return (
               <li
                 key={slot.id}
-                className="feed-row flex items-center gap-4 py-3"
+                className="feed-row flex items-center gap-4 py-4"
               >
                 <span className="w-6 font-mono text-sm tabular-nums text-red-400/80">
                   {slot.position}
@@ -413,7 +413,7 @@ export default function LiveRunTrackerPage() {
                 <GameThumb slot={slot} />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm text-red-400/80">{title}</p>
-                  <p className="font-mono text-xs text-gray-500">
+                  <p className="mt-0.5 font-mono text-xs text-faint">
                     Run ended here — {formatScore(score)} at stake
                   </p>
                 </div>
@@ -423,7 +423,7 @@ export default function LiveRunTrackerPage() {
 
           if (isActive) {
             return (
-              <li key={slot.id} className="feed-row py-4">
+              <li key={slot.id} className="feed-row py-5">
                 <div className="flex items-center gap-4">
                   <span className="w-6 font-mono text-sm tabular-nums text-ink">
                     {slot.position}
@@ -433,18 +433,18 @@ export default function LiveRunTrackerPage() {
                     <p className="truncate text-sm font-medium text-ink">
                       {title}
                     </p>
-                    <p className="font-mono text-xs tabular-nums text-gray-500">
+                    <p className="mt-0.5 font-mono text-xs tabular-nums text-faint">
                       {base} × {multiplier.toFixed(1)} = {formatScore(score)}
                     </p>
                   </div>
                 </div>
                 {isOwner ? (
-                  <div className="mt-4 grid grid-cols-2 gap-2">
+                  <div className="mt-5 grid grid-cols-2 gap-3">
                     <button
                       type="button"
                       onClick={() => report(slot.position, "Won")}
                       disabled={reporting}
-                      className="border border-gold/40 bg-gold py-2 text-sm text-dark hover:bg-gold/90 disabled:opacity-50"
+                      className="border border-gold/40 bg-gold py-2.5 text-sm text-dark hover:bg-gold/90 disabled:opacity-50"
                     >
                       {reporting ? "…" : "Record win"}
                     </button>
@@ -452,13 +452,13 @@ export default function LiveRunTrackerPage() {
                       type="button"
                       onClick={() => report(slot.position, "Lost")}
                       disabled={reporting}
-                      className="border border-white/15 py-2 text-sm text-gray-400 hover:text-red-400/80 disabled:opacity-50"
+                      className="border border-gold/25 py-2.5 text-sm text-faint hover:text-red-400/80 disabled:opacity-50"
                     >
                       {reporting ? "…" : "Record loss"}
                     </button>
                   </div>
                 ) : (
-                  <p className="mt-4 text-center text-xs text-gray-500">
+                  <p className="mt-5 text-center text-sm text-faint">
                     Spectating — only {run.streamerName} can record results.
                   </p>
                 )}
@@ -469,17 +469,17 @@ export default function LiveRunTrackerPage() {
           return (
             <li
               key={slot.id}
-              className={`feed-row flex items-center gap-4 py-3 ${
-                isFuture ? "opacity-40" : ""
+              className={`feed-row flex items-center gap-4 py-4 ${
+                isFuture ? "opacity-70" : ""
               }`}
             >
-              <span className="w-6 font-mono text-sm tabular-nums text-gray-600">
+              <span className="w-6 font-mono text-sm tabular-nums text-faint">
                 {slot.position}
               </span>
               <GameThumb slot={slot} />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm text-gray-400">{title}</p>
-                <p className="font-mono text-xs text-gray-600">
+                <p className="truncate text-sm text-muted">{title}</p>
+                <p className="mt-0.5 font-mono text-xs text-faint">
                   {formatScore(score)} at stake
                 </p>
               </div>
@@ -489,7 +489,7 @@ export default function LiveRunTrackerPage() {
       </ol>
 
       {isOver && post && (
-        <section className="mt-8 flex gap-4 border-t border-gold/20 pt-5">
+        <section className="mt-10 flex gap-5 border-t border-gold/20 pt-6">
           <VoteColumn
             post={post}
             signedIn={!!user}
@@ -519,16 +519,16 @@ export default function LiveRunTrackerPage() {
       )}
 
       {isOver && (
-        <div className="mt-8 flex flex-wrap gap-3 border-t border-gold/20 pt-5">
+        <div className="mt-10 flex flex-wrap gap-3 border-t border-gold/20 pt-6">
           <Link
             href="/draft"
-            className="bg-gold px-4 py-2 text-sm text-dark transition hover:bg-gold/90"
+            className="bg-gold px-4 py-2.5 text-sm text-dark transition hover:bg-gold/90"
           >
             Start a new run
           </Link>
           <Link
             href="/leaderboard"
-            className="border border-white/15 px-4 py-2 text-sm text-gray-400 transition hover:text-ink"
+            className="border border-gold/25 px-4 py-2.5 text-sm text-faint transition hover:text-ink"
           >
             Leaderboard
           </Link>

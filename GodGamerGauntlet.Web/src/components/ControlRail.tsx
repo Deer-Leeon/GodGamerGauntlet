@@ -37,7 +37,7 @@ export default function ControlRail() {
 
   return (
     <aside className="fixed top-0 right-0 z-30 hidden h-dvh w-80 flex-col border-l border-gold/25 bg-surface pt-14 lg:flex">
-      <div className="flex items-center justify-between gap-2 border-b border-gold/25 px-3 py-2">
+      <div className="flex items-center justify-between gap-2 border-b border-gold/25 px-4 py-3">
         <Link
           href={`/control/${runId}`}
           className="text-[12px] text-muted hover:text-gold"
@@ -52,7 +52,7 @@ export default function ControlRail() {
           Hide
         </button>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2">
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
         <ControlBoard
           runId={runId}
           variant="panel"

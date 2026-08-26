@@ -49,7 +49,7 @@ export default function LoginPage() {
       <h1 className="text-2xl font-semibold">
         {mode === "login" ? "Sign in" : "Create an account"}
       </h1>
-      <p className="mt-1 text-sm text-muted">
+      <p className="mt-2 text-sm leading-relaxed text-muted">
         {mode === "login"
           ? "Sign in to draft runs, vote, and comment."
           : "You’ll need an account to launch a gauntlet."}
@@ -57,7 +57,7 @@ export default function LoginPage() {
 
       <div
         role="tablist"
-        className="mt-6 flex gap-5 border-b border-gold/20 text-sm"
+        className="mt-8 flex gap-6 border-b border-gold/20 text-sm"
       >
         {(["login", "register"] as const).map((m) => (
           <button
@@ -68,10 +68,10 @@ export default function LoginPage() {
               setMode(m);
               setError(null);
             }}
-            className={`-mb-px border-b-2 pb-2 transition ${
+            className={`-mb-px border-b-2 pb-3 transition ${
               mode === m
                 ? "border-gold text-gold"
-                : "border-transparent text-muted/70 hover:text-ink"
+                : "border-transparent text-faint hover:text-ink"
             }`}
           >
             {m === "login" ? "Sign in" : "Create account"}
@@ -79,8 +79,8 @@ export default function LoginPage() {
         ))}
       </div>
 
-      <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-4">
-        <label className="flex flex-col gap-1.5 text-sm text-gray-500">
+      <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-5">
+        <label className="flex flex-col gap-2 text-sm text-faint">
           Username
           <input
             value={username}
@@ -89,11 +89,11 @@ export default function LoginPage() {
             minLength={3}
             maxLength={50}
             autoComplete="username"
-            className="panel px-3 py-2 text-ink outline-none"
+            className="panel px-3.5 py-2.5 text-ink outline-none"
           />
         </label>
 
-        <label className="flex flex-col gap-1.5 text-sm text-gray-500">
+        <label className="flex flex-col gap-2 text-sm text-faint">
           Password
           <input
             type="password"
@@ -104,10 +104,10 @@ export default function LoginPage() {
             autoComplete={
               mode === "login" ? "current-password" : "new-password"
             }
-            className="panel px-3 py-2 text-ink outline-none"
+            className="panel px-3.5 py-2.5 text-ink outline-none"
           />
           {mode === "register" && (
-            <span className="text-xs text-gray-500">
+            <span className="text-sm text-faint">
               At least 8 characters.
             </span>
           )}
@@ -118,7 +118,7 @@ export default function LoginPage() {
         <button
           type="submit"
           disabled={submitting}
-          className="mt-2 bg-gold px-4 py-2 text-sm text-dark transition hover:bg-gold/90 disabled:cursor-not-allowed disabled:opacity-50"
+          className="mt-2 bg-gold px-4 py-2.5 text-sm text-dark transition hover:bg-gold/90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {submitting
             ? "One sec…"

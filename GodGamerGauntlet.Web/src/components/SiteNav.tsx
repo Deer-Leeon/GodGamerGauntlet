@@ -20,12 +20,12 @@ export default function SiteNav() {
 
   return (
     <header className="site-nav sticky top-0 z-40 border-b border-gold/25 bg-surface/95">
-      <nav className="mx-auto flex w-full max-w-6xl items-center gap-6 px-6 py-3">
+      <nav className="mx-auto flex w-full max-w-6xl items-center gap-6 px-6 py-4 sm:px-8">
         <Link href="/" className="text-sm font-semibold text-gold">
           GGG
         </Link>
 
-        <div className="flex items-center gap-5 text-sm">
+        <div className="flex items-center gap-6 text-sm">
           {links.map((link) => {
             const active = pathname === link.href;
             return (
@@ -34,8 +34,8 @@ export default function SiteNav() {
                 href={link.href}
                 className={
                   active
-                    ? "-mb-px border-b-2 border-gold pb-0.5 text-gold"
-                    : "text-muted/70 transition hover:text-ink"
+                    ? "-mb-px border-b-2 border-gold pb-1 text-gold"
+                    : "text-faint transition hover:text-ink"
                 }
               >
                 {link.label}
@@ -44,10 +44,10 @@ export default function SiteNav() {
           })}
         </div>
 
-        <div className="ml-auto flex items-center gap-3 text-sm">
+        <div className="ml-auto flex items-center gap-4 text-sm">
           {loading ? null : user ? (
             <>
-              <span className="text-muted/80">
+              <span className="text-muted">
                 <Link
                   href={`/u/${encodeURIComponent(user.username)}`}
                   className="hover:text-gold"
@@ -57,7 +57,7 @@ export default function SiteNav() {
               </span>
               <button
                 onClick={logout}
-                className="border border-gold/25 px-3 py-1.5 text-muted transition hover:border-gold/50 hover:text-ink"
+                className="border border-gold/25 px-4 py-2 text-muted transition hover:border-gold/50 hover:text-ink"
               >
                 Log out
               </button>
@@ -65,7 +65,7 @@ export default function SiteNav() {
           ) : (
             <Link
               href="/login"
-              className="bg-gold px-3 py-1.5 text-dark transition hover:bg-gold/90"
+              className="bg-gold px-4 py-2 text-dark transition hover:bg-gold/90"
             >
               Sign in
             </Link>

@@ -65,17 +65,17 @@ export default function LeaderboardPage() {
   }, [runType]);
 
   return (
-    <main className="mx-auto w-full max-w-4xl flex-1 px-6 py-10">
-      <header className="flex flex-wrap items-end justify-between gap-3 border-b border-gold/20 pb-5">
+    <main className="mx-auto w-full max-w-4xl flex-1 px-6 py-10 sm:px-8">
+      <header className="flex flex-wrap items-end justify-between gap-4 border-b border-gold/20 pb-6">
         <div>
           <h1 className="text-2xl font-semibold">Leaderboard</h1>
-          <p className="mt-1 text-sm text-muted">
+          <p className="mt-2 text-sm leading-relaxed text-muted">
             Best Clear per player, ranked by earned score.
           </p>
         </div>
         <Link
           href="/draft"
-          className="bg-gold px-3 py-1.5 text-sm text-dark transition hover:bg-gold/90"
+          className="bg-gold px-4 py-2 text-sm text-dark transition hover:bg-gold/90"
         >
           Draft a run
         </Link>
@@ -84,7 +84,7 @@ export default function LeaderboardPage() {
       <div
         role="tablist"
         aria-label="Gauntlet mode"
-        className="mt-5 flex gap-5 border-b border-gold/20 text-sm"
+        className="mt-8 flex gap-6 border-b border-gold/20 text-sm"
       >
         {BOARDS.map((board) => (
           <button
@@ -92,10 +92,10 @@ export default function LeaderboardPage() {
             role="tab"
             aria-selected={runType === board.id}
             onClick={() => setRunType(board.id)}
-            className={`-mb-px border-b-2 pb-2 transition ${
+            className={`-mb-px border-b-2 pb-3 transition ${
               runType === board.id
                 ? "border-gold text-gold"
-                : "border-transparent text-muted/70 hover:text-ink"
+                : "border-transparent text-faint hover:text-ink"
             }`}
           >
             {board.label}
@@ -107,8 +107,8 @@ export default function LeaderboardPage() {
         <p className="py-6 text-sm text-red-400/90">{loadError}</p>
       )}
 
-      <div className="feed-list">
-        <div className="grid grid-cols-[3rem_1fr_6rem_5rem_8rem] gap-2 border-b border-gold/20 px-0 py-3 text-[12px] text-muted sm:grid-cols-[3rem_1fr_7rem_6rem_8rem]">
+      <div className="feed-list mt-5">
+        <div className="feed-head grid grid-cols-[3rem_1fr_6rem_5rem_8rem] gap-3 border-b border-gold/20 py-3.5 text-sm text-faint sm:grid-cols-[3rem_1fr_7rem_6rem_8rem]">
           <span>#</span>
           <span>Player</span>
           <span className="text-right">Score</span>
@@ -117,11 +117,11 @@ export default function LeaderboardPage() {
         </div>
 
         {loading && (
-          <p className="py-12 text-sm text-muted">Loading…</p>
+          <p className="py-14 text-sm text-faint">Loading…</p>
         )}
 
         {!loading && !loadError && entries.length === 0 && (
-          <p className="py-12 text-sm text-muted">
+          <p className="py-14 text-sm text-faint">
             No {runType === "Lite" ? "Lite" : "Standard"} Clears yet.
           </p>
         )}
@@ -129,7 +129,7 @@ export default function LeaderboardPage() {
         <ol>
           {entries.map((entry) => (
             <li key={entry.runId} className="feed-row">
-              <div className="grid grid-cols-[3rem_1fr_6rem_5rem_8rem] items-center gap-2 py-3 text-sm sm:grid-cols-[3rem_1fr_7rem_6rem_8rem]">
+              <div className="grid grid-cols-[3rem_1fr_6rem_5rem_8rem] items-center gap-3 py-3.5 text-sm sm:grid-cols-[3rem_1fr_7rem_6rem_8rem]">
                 <Link
                   href={`/run/${entry.runId}`}
                   className="font-mono tabular-nums text-gold"

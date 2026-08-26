@@ -10,6 +10,7 @@
   --color-surface: #4d4438;
   --color-ink: #fff8ea;
   --color-muted: #ebe0c8;
+  --color-faint: #d4c8ae;
   --color-gold: #f0c14d;
 
   --color-accent-streak: #f0c14d;
@@ -30,6 +31,7 @@ body {
   background-color: var(--color-dark);
   color: var(--color-muted);
   font-family: var(--font-sans);
+  line-height: 1.55;
 }
 
 .site-shell {
@@ -59,16 +61,45 @@ body {
 }
 
 .feed-list {
-  border-top: 1px solid rgb(240 193 77 / 0.28);
-  background: rgb(255 248 234 / 0.04);
+  border: 1px solid rgb(240 193 77 / 0.28);
+  background: rgb(255 248 234 / 0.05);
 }
 
 .feed-row {
   border-bottom: 1px solid rgb(240 193 77 / 0.22);
+  padding-left: 1.25rem;
+  padding-right: 1.25rem;
+}
+
+.feed-head {
+  padding-left: 1.25rem;
+  padding-right: 1.25rem;
+}
+
+.feed-list > p,
+.feed-list > li {
+  padding-left: 1.25rem;
+  padding-right: 1.25rem;
+}
+
+.feed-list > .feed-row:last-child,
+.feed-list > ol > .feed-row:last-child,
+.feed-list > ul > .feed-row:last-child {
+  border-bottom: none;
 }
 
 .feed-row:hover {
   background: rgb(240 193 77 / 0.1);
+}
+
+@media (min-width: 640px) {
+  .feed-row,
+  .feed-head,
+  .feed-list > p,
+  .feed-list > li {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
 }
 
 /*

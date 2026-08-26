@@ -65,30 +65,30 @@ export default function ProfilePage() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-10">
-      <header className="border-b border-gold/20 pb-5">
+    <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-10 sm:px-8">
+      <header className="border-b border-gold/20 pb-6">
         <h1 className="text-2xl font-semibold">{profile.username}</h1>
-        <p className="mt-1 text-sm text-muted">
+        <p className="mt-2 text-sm leading-relaxed text-muted">
           {profile.clearCount} Clear{profile.clearCount === 1 ? "" : "s"} ·{" "}
           {profile.dnfCount} DNF
         </p>
       </header>
 
-      <section className="mt-6 grid gap-6 sm:grid-cols-2">
+      <section className="mt-8 grid gap-8 sm:grid-cols-2">
         <PbCard label="Standard" board={profile.standard} />
         <PbCard label="Lite" board={profile.lite} />
       </section>
 
-      <section className="mt-8">
-        <h2 className="mb-3 text-sm text-muted">Recent attempts</h2>
+      <section className="mt-10">
+        <h2 className="mb-4 text-sm font-medium text-ink">Recent attempts</h2>
         {profile.recentRuns.length === 0 ? (
-          <p className="text-sm text-muted">No finished gauntlets yet.</p>
+          <p className="text-sm text-faint">No finished gauntlets yet.</p>
         ) : (
           <ol className="feed-list">
             {profile.recentRuns.map((run) => {
               const clear = run.status === "Completed";
               return (
-                <li key={run.runId} className="feed-row flex items-baseline gap-3 py-2.5 text-sm">
+                <li key={run.runId} className="feed-row flex items-baseline gap-3 py-3.5 text-sm">
                   <span
                     className={`w-12 shrink-0 ${clear ? "text-gold" : "text-red-400/80"}`}
                   >
@@ -109,7 +109,7 @@ export default function ProfilePage() {
                   <span className="shrink-0 font-mono tabular-nums text-gold">
                     {formatScore(run.totalScore)}
                   </span>
-                  <span className="hidden w-16 shrink-0 text-right text-xs text-muted sm:block">
+                  <span className="hidden w-16 shrink-0 text-right text-sm text-faint sm:block">
                     {timeAgo(run.endTime)}
                   </span>
                 </li>
@@ -130,10 +130,10 @@ function PbCard({
   board: UserProfile["standard"];
 }) {
   return (
-    <div className="border-t border-gold/20 pt-3">
-      <p className="text-sm text-muted">{label}</p>
+    <div className="border-t border-gold/20 pt-4">
+      <p className="text-sm text-faint">{label}</p>
       {board ? (
-        <p className="mt-1">
+        <p className="mt-2">
           <Link href={`/run/${board.runId}`} className="font-mono text-xl tabular-nums text-gold">
             {formatScore(board.score)}
           </Link>
@@ -142,7 +142,7 @@ function PbCard({
           </span>
         </p>
       ) : (
-        <p className="mt-1 text-sm text-muted">No Clear yet.</p>
+        <p className="mt-2 text-sm text-faint">No Clear yet.</p>
       )}
     </div>
   );

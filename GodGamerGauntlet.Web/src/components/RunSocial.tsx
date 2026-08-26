@@ -57,7 +57,7 @@ export function VoteColumn({
   }
 
   return (
-    <div className="flex flex-col items-center gap-0">
+    <div className="flex flex-col items-center gap-0.5 pt-0.5">
       <VoteArrow
         direction={1}
         active={post.myVote === 1}
@@ -103,7 +103,7 @@ function VoteArrow({
       disabled={disabled}
       title={disabled ? "Sign in to vote" : up ? "Upvote" : "Downvote"}
       className={`px-1 py-0.5 text-xs leading-none transition disabled:cursor-not-allowed disabled:opacity-40 ${
-        active ? "text-gold" : "text-muted/60 hover:text-ink"
+        active ? "text-gold" : "text-faint hover:text-ink"
       }`}
     >
       {up ? "▲" : "▼"}
@@ -138,7 +138,7 @@ export function ReactionBar({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+    <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
       {REACTIONS.map(({ type, emoji, title }) => {
         const count = post.reactions[type] ?? 0;
         const mine = post.myReactions.includes(type);
@@ -148,8 +148,8 @@ export function ReactionBar({
             onClick={() => onToggleReaction(type)}
             disabled={!signedIn}
             title={signedIn ? title : "Sign in to react"}
-            className={`text-[13px] transition disabled:cursor-not-allowed disabled:opacity-40 ${
-              mine ? "text-gray-100" : "text-gray-500 hover:text-gray-300"
+            className={`text-sm transition disabled:cursor-not-allowed disabled:opacity-40 ${
+              mine ? "text-ink" : "text-faint hover:text-ink"
             }`}
           >
             <span>{emoji}</span>
@@ -163,8 +163,8 @@ export function ReactionBar({
       {onToggleComments && (
         <button
           onClick={onToggleComments}
-          className={`ml-auto text-[13px] transition ${
-            commentsOpen ? "text-gray-100" : "text-gray-500 hover:text-gray-300"
+          className={`ml-auto text-sm transition ${
+            commentsOpen ? "text-ink" : "text-faint hover:text-ink"
           }`}
         >
           Comments {post.commentCount}
@@ -211,13 +211,13 @@ export function CommentThread({
   }
 
   return (
-    <div className="mt-4 border-t border-white/10 pt-4">
+    <div className="mt-5 border-t border-gold/20 pt-5">
       {comments === null ? (
-        <p className="text-sm text-gray-500">Loading comments…</p>
+        <p className="text-sm text-faint">Loading comments…</p>
       ) : comments.length === 0 ? (
-        <p className="text-sm text-gray-500">No comments yet.</p>
+        <p className="text-sm text-faint">No comments yet.</p>
       ) : (
-        <ul className="flex flex-col gap-3">
+        <ul className="flex flex-col gap-4">
           {comments.map((comment) => (
             <CommentItem
               key={comment.id}
@@ -241,24 +241,24 @@ export function CommentThread({
       )}
 
       {signedIn ? (
-        <form onSubmit={submit} className="mt-4 flex gap-2">
+        <form onSubmit={submit} className="mt-5 flex gap-2">
           <input
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             maxLength={1000}
             placeholder="Add a comment…"
-            className="panel min-w-0 flex-1 px-3 py-2 text-sm text-ink outline-none"
+            className="panel min-w-0 flex-1 px-3.5 py-2.5 text-sm text-ink outline-none"
           />
           <button
             type="submit"
             disabled={posting || !draft.trim()}
-            className="bg-gold px-4 py-2 text-sm text-dark transition hover:bg-gold/90 disabled:cursor-not-allowed disabled:opacity-40"
+            className="bg-gold px-4 py-2.5 text-sm text-dark transition hover:bg-gold/90 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {posting ? "…" : "Post"}
           </button>
         </form>
       ) : (
-        <p className="mt-4 text-sm text-gray-500">
+        <p className="mt-5 text-sm text-faint">
           <Link href="/login" className="text-ink underline underline-offset-2">
             Sign in
           </Link>{" "}
@@ -325,11 +325,11 @@ function CommentItem({
         <span className="font-medium text-ink">
           {comment.username}
         </span>
-        <span className="text-xs text-gray-500">
+        <span className="text-xs text-faint">
           {timeAgo(comment.createdAt)}
         </span>
         {isOwner && !editing && (
-          <span className="ml-auto flex gap-2 text-xs">
+          <span className="ml-auto flex gap-3 text-xs">
             <button
               type="button"
               onClick={() => {
@@ -337,7 +337,7 @@ function CommentItem({
                 setEditing(true);
                 setError(null);
               }}
-              className="text-gray-500 transition hover:text-ink"
+              className="text-faint transition hover:text-ink"
             >
               Edit
             </button>
@@ -345,7 +345,7 @@ function CommentItem({
               type="button"
               onClick={remove}
               disabled={saving}
-              className="text-gray-500 transition hover:text-accent-death disabled:opacity-40"
+              className="text-faint transition hover:text-accent-death disabled:opacity-40"
             >
               Delete
             </button>
@@ -361,13 +361,13 @@ function CommentItem({
             maxLength={1000}
             rows={3}
             autoFocus
-            className="panel w-full px-3 py-2 text-sm text-ink outline-none"
+            className="panel w-full px-3.5 py-2.5 text-sm text-ink outline-none"
           />
           <div className="flex gap-2">
             <button
               type="submit"
               disabled={saving || !draft.trim()}
-              className="border border-white/20 px-3 py-1 text-xs text-ink transition hover:bg-white/5 disabled:opacity-40"
+              className="border border-gold/30 px-3 py-1.5 text-xs text-ink transition hover:bg-gold/10 disabled:opacity-40"
             >
               {saving ? "Saving…" : "Save"}
             </button>
@@ -378,14 +378,14 @@ function CommentItem({
                 setDraft(comment.body);
                 setError(null);
               }}
-              className="px-3 py-1 text-xs text-gray-400 transition hover:text-gray-200"
+              className="px-3 py-1.5 text-xs text-faint transition hover:text-ink"
             >
               Cancel
             </button>
           </div>
         </form>
       ) : (
-        <p className="mt-0.5 whitespace-pre-wrap break-words text-gray-300">
+        <p className="mt-1 whitespace-pre-wrap break-words text-muted">
           {comment.body}
         </p>
       )}

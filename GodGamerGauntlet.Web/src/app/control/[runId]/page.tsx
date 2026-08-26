@@ -67,7 +67,7 @@ function ControlStudio({ runId }: { runId: string }) {
         <div className="mt-4 flex flex-wrap gap-3">
           <Link
             href={`/run/${runId}`}
-            className="border border-gold/35 px-3 py-1.5 text-sm text-gold transition hover:bg-gold/10"
+            className="border border-gold/35 px-4 py-2 text-sm text-gold transition hover:bg-gold/10"
           >
             Open run tracker
           </Link>
@@ -84,9 +84,9 @@ function ControlStudio({ runId }: { runId: string }) {
                 return (
                   <div
                     key={game.gameId}
-                    className="flex items-center gap-3 border-b border-white/8 py-2"
+                    className="flex items-center gap-3 border-b border-gold/15 py-3"
                   >
-                    <span className="w-6 shrink-0 font-mono text-xs tabular-nums text-gray-500">
+                    <span className="w-6 shrink-0 font-mono text-xs tabular-nums text-faint">
                       {game.slotNumber}
                     </span>
                     {game.thumb ? (
@@ -103,12 +103,12 @@ function ControlStudio({ runId }: { runId: string }) {
                     )}
                     <p
                       className={`min-w-0 flex-1 truncate text-sm ${
-                        now ? "text-ink" : "text-gray-400"
+                        now ? "text-ink" : "text-muted"
                       }`}
                     >
                       {game.title}
                     </p>
-                    <span className="shrink-0 font-mono text-xs tabular-nums text-gray-500">
+                    <span className="shrink-0 font-mono text-xs tabular-nums text-faint">
                       {game.completed
                         ? game.splitTimeMs !== null
                           ? formatSpeedrunTime(game.splitTimeMs)
@@ -173,14 +173,14 @@ function ObsSetup({
         <button
           type="button"
           onClick={() => void copy("overlay")}
-          className="border border-gold/35 px-3 py-1.5 text-sm text-gold hover:bg-gold/10"
+          className="border border-gold/35 px-4 py-2 text-sm text-gold hover:bg-gold/10"
         >
           {copied === "overlay" ? "Copied" : "Copy overlay URL"}
         </button>
         <button
           type="button"
           onClick={() => void copy("dock")}
-          className="border border-white/15 px-3 py-1.5 text-sm text-gray-400 hover:text-ink"
+          className="border border-gold/25 px-4 py-2 text-sm text-faint hover:text-ink"
         >
           {copied === "dock" ? "Copied" : "Copy OBS dock URL"}
         </button>
