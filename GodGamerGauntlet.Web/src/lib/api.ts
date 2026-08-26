@@ -187,8 +187,20 @@ export function getGames(): Promise<Game[]> {
   return request<Game[]>("/api/games");
 }
 
-export function getUsers(): Promise<User[]> {
-  return request<User[]>("/api/users");
+export interface PlayerCard {
+  username: string;
+  createdAt: string;
+  attemptCount: number;
+  clearCount: number;
+  dnfCount: number;
+  standardRank: number | null;
+  liteRank: number | null;
+  lastRunAt: string | null;
+}
+
+/** Public roster. Email is never included. */
+export function getPlayers(): Promise<PlayerCard[]> {
+  return request<PlayerCard[]>("/api/users");
 }
 
 /** The run is created for the authenticated user (JWT required). */
@@ -260,15 +272,28 @@ export interface ProfileRun {
   wouldBeRank: number | null;
 }
 
+export interface ProfileMode {
+  attempts: number;
+  clears: number;
+  dnfs: number;
+  gamesBeaten: number;
+  bestSurvival: number;
+  bestSurvivalTotal: number;
+  personalBest: ProfileBoard | null;
+}
+
 export interface UserProfile {
   id: string;
   username: string;
   createdAt: string;
-  standard: ProfileBoard | null;
-  lite: ProfileBoard | null;
+  lastRunAt: string | null;
+  attemptCount: number;
   clearCount: number;
   dnfCount: number;
-  recentRuns: ProfileRun[];
+  gamesBeaten: number;
+  standard: ProfileMode;
+  lite: ProfileMode;
+  runs: ProfileRun[];
 }
 
 export function getProfile(username: string): Promise<UserProfile> {

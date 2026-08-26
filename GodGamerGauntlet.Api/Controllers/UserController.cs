@@ -12,11 +12,11 @@ namespace GodGamerGauntlet.Api.Controllers;
 public class UserController(IUserRepository userRepository, IRecordBook recordBook) : ControllerBase
 {
     [HttpGet]
-    [ProducesResponseType(typeof(IEnumerable<UserResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(IEnumerable<PlayerCardDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAll(CancellationToken cancellationToken)
     {
-        var users = await userRepository.GetAllAsync(cancellationToken);
-        return Ok(users.Select(UserResponse.FromEntity));
+        var players = await recordBook.GetDirectoryAsync(cancellationToken);
+        return Ok(players);
     }
 
     [HttpGet("by-username/{username}")]

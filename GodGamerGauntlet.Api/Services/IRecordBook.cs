@@ -21,6 +21,9 @@ public interface IRecordBook
     Task<UserProfileDto?> GetProfileAsync(
         string username,
         CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<PlayerCardDto>> GetDirectoryAsync(
+        CancellationToken cancellationToken = default);
 }
 
 public record PersonalBest(

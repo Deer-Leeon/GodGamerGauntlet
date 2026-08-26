@@ -8,6 +8,7 @@ const links = [
   { href: "/", label: "Feed" },
   { href: "/draft", label: "Draft Room" },
   { href: "/leaderboard", label: "Leaderboard" },
+  { href: "/players", label: "Players" },
 ];
 
 export default function SiteNav() {
@@ -25,7 +26,7 @@ export default function SiteNav() {
           GGG
         </Link>
 
-        <div className="flex items-center gap-6 text-sm">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
           {links.map((link) => {
             const active = pathname === link.href;
             return (

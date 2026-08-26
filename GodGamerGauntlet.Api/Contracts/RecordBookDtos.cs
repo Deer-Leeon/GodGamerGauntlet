@@ -29,6 +29,15 @@ public record ProfileBoardDto(
     Guid RunId,
     int BoardSize);
 
+public record ProfileModeDto(
+    int Attempts,
+    int Clears,
+    int Dnfs,
+    int GamesBeaten,
+    int BestSurvival,
+    int BestSurvivalTotal,
+    ProfileBoardDto? PersonalBest);
+
 public record ProfileRunDto(
     Guid RunId,
     string Status,
@@ -40,12 +49,26 @@ public record ProfileRunDto(
     int? BoardRank,
     int? WouldBeRank);
 
+/// <summary>Public roster row. Email is never included.</summary>
+public record PlayerCardDto(
+    string Username,
+    DateTime CreatedAt,
+    int AttemptCount,
+    int ClearCount,
+    int DnfCount,
+    int? StandardRank,
+    int? LiteRank,
+    DateTime? LastRunAt);
+
 public record UserProfileDto(
     Guid Id,
     string Username,
     DateTime CreatedAt,
-    ProfileBoardDto? Standard,
-    ProfileBoardDto? Lite,
+    DateTime? LastRunAt,
+    int AttemptCount,
     int ClearCount,
     int DnfCount,
-    IReadOnlyList<ProfileRunDto> RecentRuns);
+    int GamesBeaten,
+    ProfileModeDto Standard,
+    ProfileModeDto Lite,
+    IReadOnlyList<ProfileRunDto> Runs);
