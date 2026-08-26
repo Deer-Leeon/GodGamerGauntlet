@@ -249,7 +249,7 @@ export default function LiveRunTrackerPage() {
   }
 
   return (
-    <main className="site-content flex-1 px-6 py-10 sm:px-8">
+    <main className="site-content flex-1 px-5 py-8 sm:px-7">
       <Link
         href="/"
         className="mb-5 inline-block text-sm text-faint transition hover:text-ink"
@@ -477,7 +477,7 @@ export default function LiveRunTrackerPage() {
                   </div>
                 </div>
                 {isOwner ? (
-                  <div className="mt-5 grid grid-cols-2 gap-3">
+                  <div className="slot-actions">
                     <button
                       type="button"
                       onClick={() => report(slot.position, "Won")}

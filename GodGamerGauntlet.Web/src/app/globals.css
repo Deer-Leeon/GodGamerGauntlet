@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 /*
- * Site language: a quiet results page. Neutral charcoal, one muted brass
- * mark for rank and the next action. Serif titles, sans body, mono numbers.
+ * Site language: a snappy results page. Neutral charcoal, one muted brass
+ * mark for rank and the next action. Display titles, geometric body, mono numbers.
  */
 @theme {
   --color-dark: #18181a;
@@ -16,8 +16,8 @@
   --color-accent-win: #c4b49a;
   --color-accent-death: #c27870;
 
-  --font-sans: var(--font-source-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-heading: var(--font-source-serif), ui-serif, Georgia, "Times New Roman", serif;
+  --font-sans: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-syne), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-jetbrains-mono), ui-monospace, monospace;
 }
 
@@ -30,8 +30,8 @@ body {
   background-color: var(--color-dark);
   color: var(--color-muted);
   font-family: var(--font-sans);
-  font-size: 1.0625rem;
-  line-height: 1.6;
+  font-size: 1rem;
+  line-height: 1.55;
 }
 
 .site-shell {
@@ -44,7 +44,7 @@ body {
 /* Browse pages share one column so the nav and feed line up. */
 .site-content {
   width: 100%;
-  max-width: 90rem;
+  max-width: 72rem;
   margin-inline: auto;
 }
 
@@ -55,9 +55,9 @@ body {
 
 .site-nav .brand {
   font-family: var(--font-heading);
-  font-size: 1.125rem;
-  font-weight: 600;
-  letter-spacing: -0.03em;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.04em;
 }
 
 .account-menu {
@@ -119,6 +119,7 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 0.45em;
+  min-height: 2.25rem;
   padding: 0.45rem 0.9rem;
   font-size: 0.8125rem;
   font-weight: 600;
@@ -154,30 +155,74 @@ body {
 /* Page titles vs section titles vs recap headlines. */
 .site-shell main h1 {
   font-family: var(--font-heading);
-  font-size: clamp(1.85rem, 1.15rem + 1.8vw, 2.55rem);
-  font-weight: 600;
-  letter-spacing: -0.03em;
+  font-size: clamp(1.65rem, 1.15rem + 1.2vw, 2.15rem);
+  font-weight: 700;
+  letter-spacing: -0.04em;
   line-height: 1.15;
   color: var(--color-ink);
 }
 
 .site-shell main h2 {
   font-family: var(--font-heading);
-  font-size: 1.2rem;
-  font-weight: 600;
-  letter-spacing: -0.02em;
+  font-size: 1.125rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
   line-height: 1.3;
   color: var(--color-ink);
 }
 
 .site-shell main h2.text-2xl {
-  font-size: clamp(1.5rem, 1rem + 1.3vw, 2.05rem);
+  font-size: clamp(1.35rem, 1rem + 1vw, 1.85rem);
 }
 
 .site-shell main > header > p,
 .site-shell main > header > div:first-child > p {
-  font-size: 1.05rem;
-  line-height: 1.65;
+  font-size: 0.9375rem;
+  line-height: 1.55;
+  max-width: 36rem;
+}
+
+/* Primary and outlined actions share one height so chrome doesn't jump. */
+.site-shell :is(a, button).bg-gold,
+.site-nav :is(a, button).bg-gold {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.25rem;
+  padding: 0.45rem 1rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.site-shell :is(a, button).w-full.bg-gold {
+  min-height: 2.75rem;
+  padding-block: 0.7rem;
+  font-size: 0.875rem;
+}
+
+.site-shell main :is(a, button).border.px-4 {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.25rem;
+  padding-block: 0.45rem;
+  font-size: 0.8125rem;
+  line-height: 1.2;
+}
+
+.slot-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 10.5rem));
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.slot-actions button {
+  min-height: 2.25rem;
+  padding: 0.45rem 0.85rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
 }
 
 .site-shell a:focus-visible,

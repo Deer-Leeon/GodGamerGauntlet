@@ -93,7 +93,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <main className="site-content flex-1 px-6 py-10 sm:px-8">
+    <main className="site-content flex-1 px-5 py-8 sm:px-7">
       <p className="mb-4 text-sm text-faint">
         <Link href="/players" className="hover:text-gold">
           Players

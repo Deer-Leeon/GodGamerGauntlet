@@ -102,7 +102,7 @@ export default function LeaderboardPage() {
           : "Best Clear per player. Harder lineups rank higher.";
 
   return (
-    <main className="site-content flex-1 px-6 py-10 sm:px-8">
+    <main className="site-content flex-1 px-5 py-8 sm:px-7">
       <header className="flex flex-wrap items-end justify-between gap-4 border-b border-gold/20 pb-6">
         <div>
           <h1 className="text-2xl font-semibold">Leaderboard</h1>
