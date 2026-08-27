@@ -163,6 +163,7 @@ public class RecordBook(AppDbContext context) : IRecordBook
 
     public async Task<UserProfileDto?> GetProfileAsync(
         string username,
+        Guid? viewerId = null,
         CancellationToken cancellationToken = default)
     {
         var user = await context.Users
@@ -240,7 +241,11 @@ public class RecordBook(AppDbContext context) : IRecordBook
             BuildMode(ordered, RunType.Lite, boards[RunType.Lite], user.Id),
             runs,
             StreamLinkDto.FromUser(user),
-            ToLive(liveRun));
+            ToLive(liveRun),
+            viewerId is Guid viewer && viewer != user.Id
+                && await context.UserFollows.AnyAsync(
+                    f => f.FollowerId == viewer && f.FollowedId == user.Id,
+                    cancellationToken));
     }
 
     private static ProfileLiveRunDto? ToLive(Run? run)

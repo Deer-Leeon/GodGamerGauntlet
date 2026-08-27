@@ -124,7 +124,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new Error(readApiError(body, response));
   }
 
-  return (await response.json()) as T;
+  if (response.status === 204) return undefined as T;
+  const text = await response.text();
+  if (!text) return undefined as T;
+  return JSON.parse(text) as T;
 }
 
 function readApiError(body: string, response: Response): string {
@@ -378,6 +381,7 @@ export interface UserProfile {
   runs: ProfileRun[];
   streamLinks?: StreamLink[];
   live?: ProfileLiveRun | null;
+  isFollowing?: boolean;
 }
 
 export interface ProfileLiveRun {
@@ -499,6 +503,7 @@ export interface FeedPost {
 
 export interface LiveRun {
   runId: string;
+  userId?: string;
   streamerName: string;
   runType: RunType;
   slotsCompleted: number;
@@ -507,6 +512,35 @@ export interface LiveRun {
   currentTitle: string | null;
   currentThumb: string | null;
   streamLinks?: StreamLink[];
+}
+
+export interface SidebarFollowed {
+  username: string;
+  live: LiveRun | null;
+}
+
+export interface Sidebar {
+  followed: SidebarFollowed[];
+  live: LiveRun[];
+  bestRuns: LiveRun[];
+}
+
+export function getSidebar(): Promise<Sidebar> {
+  return request<Sidebar>("/api/sidebar");
+}
+
+export function followUser(username: string): Promise<void> {
+  return request<void>(
+    `/api/users/by-username/${encodeURIComponent(username)}/follow`,
+    { method: "POST" },
+  );
+}
+
+export function unfollowUser(username: string): Promise<void> {
+  return request<void>(
+    `/api/users/by-username/${encodeURIComponent(username)}/follow`,
+    { method: "DELETE" },
+  );
 }
 
 export interface FeedPage {

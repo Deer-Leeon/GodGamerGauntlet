@@ -101,7 +101,8 @@ public record UserProfileDto(
     ProfileModeDto Lite,
     IReadOnlyList<ProfileRunDto> Runs,
     IReadOnlyList<StreamLinkDto> StreamLinks,
-    ProfileLiveRunDto? Live);
+    ProfileLiveRunDto? Live,
+    bool IsFollowing);
 
 /// <summary>An in-progress gauntlet on a public profile, when one is running.</summary>
 public record ProfileLiveRunDto(

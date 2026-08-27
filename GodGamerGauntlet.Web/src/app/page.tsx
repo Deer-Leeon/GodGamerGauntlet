@@ -10,7 +10,7 @@ import {
   timeAgo,
 } from "@/components/RunSocial";
 import { formatSpeedrunTime } from "@/components/SpeedrunTimer";
-import { getFeed, getLeaderboard, type FeedPost, type FeedSort, type LeaderboardEntry, type LiveRun, type RunType } from "@/lib/api";
+import { getFeed, getLeaderboard, type FeedPost, type FeedSort, type LeaderboardEntry, type RunType } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import MomentChips from "@/components/MomentChips";
 
@@ -25,7 +25,6 @@ export default function FeedPage() {
 
   const [sort, setSort] = useState<FeedSort>("hot");
   const [posts, setPosts] = useState<FeedPost[]>([]);
-  const [live, setLive] = useState<LiveRun[]>([]);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -44,7 +43,6 @@ export default function FeedPage() {
       .then((result) => {
         if (cancelled) return;
         setPosts(result.posts);
-        setLive(result.live ?? []);
         setPage(1);
         setHasMore(result.hasMore);
         setError(null);
@@ -124,28 +122,6 @@ export default function FeedPage() {
           </button>
         ))}
       </div>
-
-      {!loading && live.length > 0 && (
-        <div className="feed-list mt-5">
-          {live.map((row) => (
-            <Link
-              key={row.runId}
-              href={`/run/${row.runId}`}
-              className="feed-row flex items-center gap-3 py-3 text-sm"
-            >
-              <span className="shrink-0 text-gold">Live</span>
-              <span className="min-w-0 flex-1 truncate font-medium text-ink">
-                {row.streamerName}
-              </span>
-              <span className="shrink-0 text-faint">
-                on game {row.currentSlot} of {row.totalSlots}
-                {row.runType === "Lite" ? " · Lite" : ""}
-                {(row.streamLinks?.length ?? 0) > 0 ? " · streaming" : ""}
-              </span>
-            </Link>
-          ))}
-        </div>
-      )}
 
       <div className="feed-list mt-5">
         {loading && (

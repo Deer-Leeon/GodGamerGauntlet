@@ -91,6 +91,75 @@ public class UserRepository(AppDbContext context) : IUserRepository
         await context.SaveChangesAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<Guid>> GetFollowingIdsAsync(
+        Guid followerId,
+        CancellationToken cancellationToken = default)
+    {
+        return await context.UserFollows
+            .AsNoTracking()
+            .Where(f => f.FollowerId == followerId)
+            .OrderBy(f => f.CreatedAt)
+            .Select(f => f.FollowedId)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<User>> GetFollowingUsersAsync(
+        Guid followerId,
+        CancellationToken cancellationToken = default)
+    {
+        return await context.UserFollows
+            .AsNoTracking()
+            .Where(f => f.FollowerId == followerId)
+            .OrderBy(f => f.CreatedAt)
+            .Join(
+                context.Users.AsNoTracking(),
+                follow => follow.FollowedId,
+                user => user.Id,
+                (_, user) => user)
+            .ToListAsync(cancellationToken);
+    }
+
+    public Task<bool> IsFollowingAsync(
+        Guid followerId,
+        Guid followedId,
+        CancellationToken cancellationToken = default) =>
+        context.UserFollows.AnyAsync(
+            f => f.FollowerId == followerId && f.FollowedId == followedId,
+            cancellationToken);
+
+    public async Task<bool> FollowAsync(
+        Guid followerId,
+        Guid followedId,
+        CancellationToken cancellationToken = default)
+    {
+        if (followerId == followedId) return false;
+        if (await IsFollowingAsync(followerId, followedId, cancellationToken)) return true;
+
+        context.UserFollows.Add(new UserFollow
+        {
+            Id = Guid.NewGuid(),
+            FollowerId = followerId,
+            FollowedId = followedId,
+            CreatedAt = DateTime.UtcNow,
+        });
+        await context.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
+    public async Task<bool> UnfollowAsync(
+        Guid followerId,
+        Guid followedId,
+        CancellationToken cancellationToken = default)
+    {
+        var row = await context.UserFollows.FirstOrDefaultAsync(
+            f => f.FollowerId == followerId && f.FollowedId == followedId,
+            cancellationToken);
+        if (row is null) return false;
+        context.UserFollows.Remove(row);
+        await context.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
     public Task SaveChangesAsync(CancellationToken cancellationToken = default) =>
         context.SaveChangesAsync(cancellationToken);
 }

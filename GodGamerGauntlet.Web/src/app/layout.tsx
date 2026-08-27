@@ -4,6 +4,7 @@ import { Analytics } from "@vercel/analytics/next";
 import { AuthProvider } from "@/lib/auth";
 import SiteNav from "@/components/SiteNav";
 import ControlRail from "@/components/ControlRail";
+import BrowseRail from "@/components/BrowseRail";
 import "./globals.css";
 
 const outfit = Outfit({
@@ -38,6 +39,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <div className="site-shell">
             <SiteNav />
             {children}
+            <BrowseRail />
             <ControlRail />
           </div>
         </AuthProvider>

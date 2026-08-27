@@ -20,4 +20,8 @@ public class User
     public ICollection<Run> Runs { get; set; } = new List<Run>();
 
     public ICollection<UserStreamLink> StreamLinks { get; set; } = new List<UserStreamLink>();
+
+    public ICollection<UserFollow> Following { get; set; } = new List<UserFollow>();
+
+    public ICollection<UserFollow> Followers { get; set; } = new List<UserFollow>();
 }

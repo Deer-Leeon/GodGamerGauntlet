@@ -404,6 +404,9 @@ FodyWeavers.xsd
 *.sln.iml
 .idea
 
+# Local dotnet-ef tool install
+GodGamerGauntlet.Api/tools/
+
 ##
 ## Visual studio for Mac
 ##

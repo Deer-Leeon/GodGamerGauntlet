@@ -29,6 +29,7 @@ public interface IRecordBook
 
     Task<UserProfileDto?> GetProfileAsync(
         string username,
+        Guid? viewerId = null,
         CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<PlayerCardDto>> GetDirectoryAsync(

@@ -11,6 +11,8 @@ import MomentChips from "@/components/MomentChips";
 import SurvivalMeter from "@/components/SurvivalMeter";
 import { StreamLinkList } from "@/components/StreamLinks";
 import { useOverlayRun } from "@/lib/useOverlayRun";
+import FollowButton from "@/components/FollowButton";
+import { useAuth } from "@/lib/auth";
 
 type HistoryFilter = "All" | RunType;
 
@@ -35,6 +37,7 @@ function clearRate(clears: number, attempts: number): string {
 export default function ProfilePage() {
   const { username } = useParams<{ username: string }>();
   const decoded = decodeURIComponent(username ?? "");
+  const { user } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [missing, setMissing] = useState(false);
@@ -132,6 +135,19 @@ export default function ProfilePage() {
               : " · No finished gauntlets yet"}
         </p>
         <StreamLinkList links={profile.streamLinks} />
+        {user?.id !== profile.id && (
+          <div className="mt-4">
+            <FollowButton
+              username={profile.username}
+              following={!!profile.isFollowing}
+              onChange={(following) =>
+                setProfile((current) =>
+                  current ? { ...current, isFollowing: following } : current,
+                )
+              }
+            />
+          </div>
+        )}
       </header>
 
       {profile.live && <LiveRunCallout live={profile.live} />}

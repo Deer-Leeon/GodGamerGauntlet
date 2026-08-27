@@ -41,6 +41,7 @@ public record FeedPageDto(
 /// <summary>An in-progress gauntlet shown above the finished feed.</summary>
 public record LiveRunDto(
     Guid RunId,
+    Guid UserId,
     string StreamerName,
     string RunType,
     int SlotsCompleted,
@@ -49,6 +50,13 @@ public record LiveRunDto(
     string? CurrentTitle,
     string? CurrentThumb,
     IReadOnlyList<StreamLinkDto> StreamLinks);
+
+public record SidebarFollowedDto(string Username, LiveRunDto? Live);
+
+public record SidebarDto(
+    IReadOnlyList<SidebarFollowedDto> Followed,
+    IReadOnlyList<LiveRunDto> Live,
+    IReadOnlyList<LiveRunDto> BestRuns);
 
 public record VoteRequest([Range(-1, 1)] int Value);
 

@@ -13,6 +13,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<RunComment> RunComments => Set<RunComment>();
     public DbSet<RunReaction> RunReactions => Set<RunReaction>();
     public DbSet<UserStreamLink> UserStreamLinks => Set<UserStreamLink>();
+    public DbSet<UserFollow> UserFollows => Set<UserFollow>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -35,6 +36,23 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.HasMany(u => u.StreamLinks)
                   .WithOne(l => l.User)
                   .HasForeignKey(l => l.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<UserFollow>(entity =>
+        {
+            entity.HasIndex(f => new { f.FollowerId, f.FollowedId }).IsUnique();
+            entity.ToTable(t => t.HasCheckConstraint(
+                "CK_UserFollows_NotSelf", "\"FollowerId\" <> \"FollowedId\""));
+
+            entity.HasOne(f => f.Follower)
+                  .WithMany(u => u.Following)
+                  .HasForeignKey(f => f.FollowerId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(f => f.Followed)
+                  .WithMany(u => u.Followers)
+                  .HasForeignKey(f => f.FollowedId)
                   .OnDelete(DeleteBehavior.Cascade);
         });
 
