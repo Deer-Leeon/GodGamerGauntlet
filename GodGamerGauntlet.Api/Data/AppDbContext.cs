@@ -14,6 +14,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<RunReaction> RunReactions => Set<RunReaction>();
     public DbSet<UserStreamLink> UserStreamLinks => Set<UserStreamLink>();
     public DbSet<UserFollow> UserFollows => Set<UserFollow>();
+    public DbSet<Category> Categories => Set<Category>();
+    public DbSet<Variable> Variables => Set<Variable>();
+    public DbSet<VariableValue> VariableValues => Set<VariableValue>();
+    public DbSet<Submission> Submissions => Set<Submission>();
+    public DbSet<SubmissionVariable> SubmissionVariables => Set<SubmissionVariable>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -168,6 +173,110 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                   .WithMany()
                   .HasForeignKey(x => x.UserId)
                   .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // ── Speedrun Records trust schema (Records Phase 1) ─────────────────
+        // The rules engine (Category → Variable → VariableValue) cascades:
+        // mods own it and may reshape it. The ledger (Submission) restricts:
+        // verified history must never vanish because a rule object was deleted.
+
+        modelBuilder.Entity<Category>(entity =>
+        {
+            entity.Property(c => c.Name)
+                  .HasMaxLength(Category.NameMaxLength)
+                  .IsRequired();
+            // One "Any%" per game.
+            entity.HasIndex(c => new { c.GameId, c.Name }).IsUnique();
+
+            entity.HasOne(c => c.Game)
+                  .WithMany()
+                  .HasForeignKey(c => c.GameId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasMany(c => c.Variables)
+                  .WithOne(v => v.Category)
+                  .HasForeignKey(v => v.CategoryId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Variable>(entity =>
+        {
+            entity.Property(v => v.Name)
+                  .HasMaxLength(Variable.NameMaxLength)
+                  .IsRequired();
+            entity.HasIndex(v => new { v.CategoryId, v.Name }).IsUnique();
+
+            entity.HasMany(v => v.Values)
+                  .WithOne(x => x.Variable)
+                  .HasForeignKey(x => x.VariableId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<VariableValue>(entity =>
+        {
+            entity.Property(x => x.Value)
+                  .HasMaxLength(VariableValue.ValueMaxLength)
+                  .IsRequired();
+            entity.HasIndex(x => new { x.VariableId, x.Value }).IsUnique();
+        });
+
+        modelBuilder.Entity<Submission>(entity =>
+        {
+            entity.Property(s => s.VideoUrl)
+                  .HasMaxLength(Submission.VideoUrlMaxLength)
+                  .IsRequired();
+            entity.Property(s => s.RejectReason)
+                  .HasMaxLength(Submission.RejectReasonMaxLength);
+            entity.Property(s => s.Status)
+                  .HasConversion<string>()
+                  .HasMaxLength(20)
+                  .HasDefaultValue(SubmissionStatus.Pending);
+            entity.ToTable(t => t.HasCheckConstraint(
+                "CK_Submissions_PrimaryTimeMs", "\"PrimaryTimeMs\" > 0"));
+
+            // The leaderboard query: verified rows in a category, fastest first.
+            entity.HasIndex(s => new { s.CategoryId, s.Status, s.PrimaryTimeMs });
+            // Player PB lookups and profile history.
+            entity.HasIndex(s => new { s.PlayerId, s.CategoryId });
+            // The mod queue: pending runs for a game, oldest first.
+            entity.HasIndex(s => new { s.GameId, s.Status, s.SubmittedAt });
+
+            entity.HasOne(s => s.Game)
+                  .WithMany()
+                  .HasForeignKey(s => s.GameId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(s => s.Category)
+                  .WithMany(c => c.Submissions)
+                  .HasForeignKey(s => s.CategoryId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(s => s.Player)
+                  .WithMany()
+                  .HasForeignKey(s => s.PlayerId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(s => s.Examiner)
+                  .WithMany()
+                  .HasForeignKey(s => s.ExaminerId)
+                  .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<SubmissionVariable>(entity =>
+        {
+            entity.HasKey(x => new { x.SubmissionId, x.VariableValueId });
+
+            // Deleting a submission drops its selections; the value itself is
+            // ledger-referenced and cannot be deleted out from under history.
+            entity.HasOne(x => x.Submission)
+                  .WithMany(s => s.Variables)
+                  .HasForeignKey(x => x.SubmissionId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(x => x.VariableValue)
+                  .WithMany()
+                  .HasForeignKey(x => x.VariableValueId)
+                  .OnDelete(DeleteBehavior.Restrict);
         });
     }
 }

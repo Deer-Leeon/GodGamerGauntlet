@@ -2,7 +2,7 @@
 
 > Living documentation for the godgamergauntlet.com backend. Update this file whenever the schema, API surface, or deployment story changes.
 >
-> **Last updated:** 2026-08-25 (Phase 10 — Gauntlet Lite: 5-game run type with its own leaderboard)
+> **Last updated:** 2026-08-27 (Records Phase 1 — Speedrun Trust Schema: categories, variables, verified VOD submissions)
 
 ---
 
@@ -183,6 +183,8 @@ Composite index `IX_Games_IsFeatured_PopularityRank` backs the default catalog o
 | `20260824043027_MakeGamePricesNullable` | NormalPrice/SalePrice → nullable numeric(10,2) for the RAWG era (no storefront pricing) |
 | `20260824232908_AddAuthAndCommunityFeed` | Adds `Users.PasswordHash`; creates RunVotes / RunComments / RunReactions with unique indexes and check constraint |
 | `20260825014653_AddOverlayTimerState` | Adds `Runs.TimerStatus/TimerElapsedMs/TimerUpdatedAt/OverlayKey` and `RunSlots.SplitTimeMs` for the OBS overlay |
+| `20260827030729_AddUserFollows` | Creates UserFollows (follower/followed, unique pair, not-self check) for the browse rail |
+| `20260827234533_AddSpeedrunTrustSchema` | Creates Categories / Variables / VariableValues / Submissions / SubmissionVariables — the Records-layer trust schema (section 5d) |
 
 ---
 
@@ -512,6 +514,92 @@ This also fixed a latent inconsistency: `OverlayController.Split` completed a ru
 
 ---
 
+## 5d. Speedrun Records — Trust Schema (Records Phase 1)
+
+A verified speedrun ledger running **parallel to** the gauntlet system and the automated RAWG catalog. The gauntlet stays self-reported and social; the Records layer is a court: nothing reaches a leaderboard until a moderator examines VOD proof. The two trust models never mix — a `Submission` is not a `Run`.
+
+### Design split: rules engine vs. ledger
+
+| Layer | Entities | Delete behavior | Rationale |
+|---|---|---|---|
+| **Rules engine** | `Category` → `Variable` → `VariableValue` | Cascade down the tree | Moderators own and reshape it freely |
+| **Ledger** | `Submission`, `SubmissionVariable` | Restrict on every FK out | Verified history must never vanish because a game, category, player, or value was deleted |
+
+The two interact safely: a `Category` with submissions cannot be deleted (Submission → Category is Restrict), and a `VariableValue` referenced by any submission cannot be cascaded away (SubmissionVariable → VariableValue is Restrict — the DB refuses the parent delete).
+
+### Categories
+
+| Column | Type | Constraints |
+|---|---|---|
+| Id | uuid | PK |
+| GameId | uuid | FK → Games.Id, **restrict** |
+| Name | varchar(100) | NOT NULL — "Any%", "100%", "Glitchless" |
+| Rules | text | NULL — markdown contract examiners verify against |
+| CreatedAt | timestamptz | NOT NULL |
+
+**Unique index:** `(GameId, Name)` — one "Any%" per game.
+
+### Variables
+
+| Column | Type | Constraints |
+|---|---|---|
+| Id | uuid | PK |
+| CategoryId | uuid | FK → Categories.Id, **cascade** |
+| Name | varchar(100) | NOT NULL — "Platform", "Glitch Restriction" |
+| IsSubcategory | boolean | NOT NULL — `true` splits the leaderboard into distinct boards per value; `false` is a filter on one board |
+| IsRequired | boolean | NOT NULL — submission must select a value |
+
+**Unique index:** `(CategoryId, Name)`.
+
+### VariableValues
+
+| Column | Type | Constraints |
+|---|---|---|
+| Id | uuid | PK |
+| VariableId | uuid | FK → Variables.Id, **cascade** |
+| Value | varchar(100) | NOT NULL — "Nintendo 64", "Glitchless" |
+
+**Unique index:** `(VariableId, Value)`.
+
+### Submissions
+
+| Column | Type | Constraints |
+|---|---|---|
+| Id | uuid | PK |
+| GameId | uuid | FK → Games.Id, **restrict** |
+| CategoryId | uuid | FK → Categories.Id, **restrict** |
+| PlayerId | uuid | FK → Users.Id, **restrict** |
+| PrimaryTimeMs | bigint | NOT NULL, CHECK `> 0` (`CK_Submissions_PrimaryTimeMs`) — the strict leaderboard sort metric |
+| VideoUrl | varchar(500) | NOT NULL — Twitch/YouTube proof; no video, no verification |
+| PlayedOn | timestamptz | NOT NULL (DateTimeOffset) — date claimed by the runner |
+| IsEmulator | boolean | NOT NULL |
+| Status | varchar(20) | NOT NULL, default `Pending` — enum string: `Pending` \| `Verified` \| `Rejected` |
+| ExaminerId | uuid | NULL, FK → Users.Id, **restrict** — the moderator who decided |
+| RejectReason | varchar(1000) | NULL — required by the API when rejecting (enforced in Phase 2 controllers) |
+| SubmittedAt | timestamptz | NOT NULL |
+| ReviewedAt | timestamptz | NULL while Pending |
+
+**Indexes:**
+
+- `(CategoryId, Status, PrimaryTimeMs)` — the leaderboard query: verified rows in a category, fastest first.
+- `(PlayerId, CategoryId)` — player PBs and profile history.
+- `(GameId, Status, SubmittedAt)` — the mod verification queue, oldest first.
+
+### SubmissionVariables (join)
+
+| Column | Type | Constraints |
+|---|---|---|
+| SubmissionId | uuid | **composite PK**, FK → Submissions.Id, cascade |
+| VariableValueId | uuid | **composite PK**, FK → VariableValues.Id, **restrict** |
+
+Links a submission to each selected value (e.g. Platform = N64). Deleting a submission drops its selections; the values themselves are protected while referenced.
+
+### Deliberately deferred (Phase 2+)
+
+Individual levels, timing-method variants (RTA vs. loadless vs. IGT as separate columns), obsolete-run flagging, per-game moderator roles, and the submission/verification API surface. `PrimaryTimeMs` is the single canonical metric until a category needs more.
+
+---
+
 ## 6. CORS Policy
 
 Policy name: `AllowFrontend` (applied via `app.UseCors` before authorization/controllers).
@@ -675,3 +763,4 @@ cd GodGamerGauntlet.Web && npm run dev
 | 8 | **OBS overlay & dual control system**: server-side speedrun timer state on `Run` (`TimerStatus`/`TimerElapsedMs`/`TimerUpdatedAt`) + per-slot `SplitTimeMs` + per-run `OverlayKey` secret (`AddOverlayTimerState` migration); `OverlayController` (public GET state; toggle/split/undo/reset guarded by owner JWT or `?key=`); `/overlay/[runId]` OBS browser source (transparent, 3D cylindrical game wheel, neon `H:MM:SS.cc` timer, hotkeys Space/Enter/R×2/P); `/control/[runId]` control deck (Play/Pause, Split, Undo, two-step Reset, splits list, Copy OBS URL); `useOverlayRun` hook (2 s polling + BroadcastChannel fan-out) + `SpeedrunTimer` component; owner link to the deck from the run tracker. Also fixed run initialization 500 (`AsNoTracking` games attached to new slots made EF re-insert them → duplicate `PK_Games`) |
 | 9 | **Hybrid catalog sorting**: `Game.IsFeatured` + `Game.PopularityRank` (`AddGameSortingFields` migration, composite index, exposed on `GameResponse`); `DbInitializer` seeds 12 curated competitive staples at `IsFeatured = true` / rank 0, promoting the existing row when RAWG already ingested the title; the RAWG loop assigns each game its running most-added index as `PopularityRank`; `UpsertGamesAsync` refreshes rank but treats featured as a one-way promotion; `GetAllAsync` orders featured → rank → title. Sync guard changed from "any game exists" to `HasIngestedCatalogAsync` (any **non-featured** game) so the new seed can't permanently suppress ingestion. Frontend: `featured` catalog sort mirroring the server comparator, now the Draft Room default |
 | 10 | **Gauntlet Lite**: `RunType` enum (`Standard` = 10 games, `Lite` = 5) on `Run` (`AddRunTypeToRuns` migration, string-converted with a `Standard` default that backfills existing rows, `IX_Runs_RunType`); `RunTypes.SlotCount`/`TryParse` as the single source of truth, replacing `RunController.RequiredSlotCount = 10` in both the initialize count check and the completion check; `initialize` accepts an optional `runType`; `GET /api/leaderboard?runType=` ranks Standard and Lite separately (the positional multiplier makes a shared board meaningless); `runType`/`totalSlots` added to `RunResponse`, `LeaderboardEntryDto`, `OverlayStateDto`, and `FeedPostDto`. Frontend: Draft Room mode toggle that re-packs picks when resizing the board, `RunTypeBadge` (LITE MODE) on draft/tracker/deck/feed, dynamic `x/N` counters on the overlay and control deck, Standard/Lite leaderboard tabs. Also fixed a latent split: `OverlayController.Split` completed a run at its max slot position while `/report` completed only at position 10, so any non-10-slot run could finish on the overlay but never via the API |
+| R1 | **Speedrun Records Phase 1 — Trust Schema**: `Category` / `Variable` / `VariableValue` (the rules engine, cascade-owned by mods) and `Submission` / `SubmissionVariable` (the verified ledger, restrict-delete everywhere) with `SubmissionStatus` (`Pending`/`Verified`/`Rejected` stored as strings), VOD-required `VideoUrl`, `PrimaryTimeMs > 0` check, examiner audit fields, leaderboard/PB/mod-queue indexes, and the `AddSpeedrunTrustSchema` migration (section 5d). No API surface yet — schema only |
