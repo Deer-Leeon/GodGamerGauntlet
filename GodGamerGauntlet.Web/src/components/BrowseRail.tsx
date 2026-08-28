@@ -13,43 +13,51 @@ import { useAuth } from "@/lib/auth";
 import { FOLLOWS_CHANGED } from "@/components/FollowButton";
 
 const POLL_MS = 20_000;
+const COLLAPSED_KEY = "ggg-browse-rail-collapsed";
 
-function showOn(pathname: string | null): boolean {
-  if (!pathname) return false;
-  if (
+function hideOn(pathname: string | null): boolean {
+  if (!pathname) return true;
+  // OBS surfaces stay chrome-free. Everything else keeps the rail unless
+  // the viewer collapses it.
+  return (
     pathname.startsWith("/overlay") ||
     pathname.startsWith("/control") ||
-    pathname === "/login" ||
-    pathname === "/settings"
-  ) {
-    return false;
-  }
-  return (
-    pathname === "/" ||
-    pathname.startsWith("/draft") ||
-    pathname.startsWith("/leaderboard") ||
-    pathname.startsWith("/players") ||
-    pathname.startsWith("/u/")
+    pathname === "/login"
   );
 }
 
 export default function BrowseRail() {
   const pathname = usePathname();
   const { user } = useAuth();
-  const visible = showOn(pathname);
+  const allowed = !hideOn(pathname);
+  const [collapsed, setCollapsed] = useState(false);
   const [sidebar, setSidebar] = useState<Sidebar | null>(null);
 
   useEffect(() => {
-    if (visible) {
+    setCollapsed(window.localStorage.getItem(COLLAPSED_KEY) === "1");
+  }, []);
+
+  const open = allowed && !collapsed;
+
+  function toggleCollapsed() {
+    setCollapsed((current) => {
+      const next = !current;
+      window.localStorage.setItem(COLLAPSED_KEY, next ? "1" : "0");
+      return next;
+    });
+  }
+
+  useEffect(() => {
+    if (open) {
       document.documentElement.classList.add("ggg-has-browse-rail");
     } else {
       document.documentElement.classList.remove("ggg-has-browse-rail");
     }
     return () => document.documentElement.classList.remove("ggg-has-browse-rail");
-  }, [visible]);
+  }, [open]);
 
   useEffect(() => {
-    if (!visible) return;
+    if (!allowed) return;
     let cancelled = false;
 
     const load = () => {
@@ -70,9 +78,23 @@ export default function BrowseRail() {
       window.clearInterval(timer);
       window.removeEventListener(FOLLOWS_CHANGED, load);
     };
-  }, [visible, user?.id]);
+  }, [allowed, user?.id]);
 
-  if (!visible) return null;
+  if (!allowed) return null;
+
+  if (collapsed) {
+    return (
+      <button
+        type="button"
+        className="browse-rail-expand"
+        aria-label="Expand sidebar"
+        title="Expand sidebar"
+        onClick={toggleCollapsed}
+      >
+        <RailChevron direction="right" />
+      </button>
+    );
+  }
 
   const followed = sidebar?.followed ?? [];
   const live = sidebar?.live ?? [];
@@ -80,6 +102,17 @@ export default function BrowseRail() {
 
   return (
     <aside className="browse-rail">
+      <div className="browse-rail-toolbar">
+        <button
+          type="button"
+          className="browse-rail-collapse"
+          aria-label="Collapse sidebar"
+          title="Collapse sidebar"
+          onClick={toggleCollapsed}
+        >
+          <RailChevron direction="left" />
+        </button>
+      </div>
       <div className="browse-rail-inner">
         <section>
           <h2>Followed</h2>
@@ -131,6 +164,27 @@ export default function BrowseRail() {
         </section>
       </div>
     </aside>
+  );
+}
+
+function RailChevron({ direction }: { direction: "left" | "right" }) {
+  return (
+    <svg
+      aria-hidden
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-4 w-4"
+    >
+      {direction === "left" ? (
+        <path d="M15 6 9 12l6 6" />
+      ) : (
+        <path d="m9 6 6 6-6 6" />
+      )}
+    </svg>
   );
 }
 

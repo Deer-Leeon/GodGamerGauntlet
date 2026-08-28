@@ -535,11 +535,49 @@ html:has(.obs-control-root) .site-nav {
   }
 }
 
+.browse-rail-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0.35rem 0.45rem 0;
+}
+
+.browse-rail-collapse,
+.browse-rail-expand {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .browse-rail-collapse,
+  .browse-rail-expand {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.85rem;
+    height: 1.85rem;
+    color: var(--color-faint);
+  }
+
+  .browse-rail-collapse:hover,
+  .browse-rail-expand:hover {
+    color: var(--color-ink);
+    background: rgb(255 255 255 / 0.06);
+  }
+
+  .browse-rail-expand {
+    position: fixed;
+    top: 3.85rem;
+    left: 0.45rem;
+    z-index: 30;
+    border: 1px solid rgb(196 180 154 / 0.25);
+    background: var(--color-surface);
+  }
+}
+
 .browse-rail-inner {
   min-height: 0;
   flex: 1;
   overflow-y: auto;
-  padding: 0.85rem 0.75rem 1.25rem;
+  padding: 0.35rem 0.75rem 1.25rem;
 }
 
 .browse-rail section + section {
