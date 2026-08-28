@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import {
+  canManageBoard,
   formatRecordTime,
   getGameRecords,
   getRecordsBoard,
@@ -11,6 +12,7 @@ import {
   type RecordRow,
   type RecordsCategory,
 } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 import { ProofModal } from "@/components/ProofPlayer";
 
 function formatPlayedOn(iso: string): string {
@@ -23,6 +25,7 @@ function formatPlayedOn(iso: string): string {
 
 export default function RecordsPage() {
   const { gameId } = useParams<{ gameId: string }>();
+  const { user } = useAuth();
 
   const [records, setRecords] = useState<GameRecords | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -153,12 +156,22 @@ export default function RecordsPage() {
             </p>
           </div>
         </div>
-        <Link
-          href={`/records/${gameId}/submit`}
-          className="bg-gold px-4 py-2 text-sm text-dark transition hover:bg-gold/90"
-        >
-          Submit run
-        </Link>
+        <div className="flex items-center gap-3">
+          {canManageBoard(user, records.moderators) && (
+            <Link
+              href={`/records/${gameId}/manage`}
+              className="border border-gold/30 px-4 py-2 text-sm text-muted transition hover:border-gold hover:text-ink"
+            >
+              Manage board
+            </Link>
+          )}
+          <Link
+            href={`/records/${gameId}/submit`}
+            className="bg-gold px-4 py-2 text-sm text-dark transition hover:bg-gold/90"
+          >
+            Submit run
+          </Link>
+        </div>
       </header>
 
       {records.categories.length === 0 ? (

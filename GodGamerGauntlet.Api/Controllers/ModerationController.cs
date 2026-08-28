@@ -199,7 +199,8 @@ public class ModerationController(AppDbContext context) : ControllerBase
             .AsNoTracking()
             .Where(m => m.GameId == gameId)
             .Include(m => m.User)
-            .OrderBy(m => m.AssignedAt)
+            // Username, not AssignedAt: SQLite (tests) can't ORDER BY DateTimeOffset.
+            .OrderBy(m => m.User!.Username)
             .Select(m => new ModeratorDto(m.UserId, m.User!.Username, m.AssignedAt))
             .ToListAsync(cancellationToken);
 

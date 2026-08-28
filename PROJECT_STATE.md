@@ -2,7 +2,7 @@
 
 > Living documentation for the godgamergauntlet.com backend. Update this file whenever the schema, API surface, or deployment story changes.
 >
-> **Last updated:** 2026-08-27 (Records Phase 3 — The Public Ledger: leaderboard endpoints, dense records UI, submission form, moderator courtroom dashboard)
+> **Last updated:** 2026-08-27 (Records Phase 4 — Board Management: category/variable CRUD for mods, manage dashboard, gauntlet-split → records submission wedge)
 
 ---
 
@@ -699,6 +699,48 @@ Types `GameRecords`/`RecordsCategory`/`RecordsVariable`/`RecordsValue`, `RecordR
 
 ---
 
+## 5g. Speedrun Records — Board Management & The Gauntlet Wedge (Records Phase 4)
+
+Moderators can now build boards without touching the database, and finished gauntlet splits convert into record submissions in two clicks.
+
+### REST API — Board management (`CategoriesController`, `[Authorize]`)
+
+Every write requires the caller to be a **global admin or an assigned GameModerator** for the board's game (`403` otherwise; the game/category/variable is resolved first, so unknown targets `404`). Names/values are trimmed; blanks `400`; duplicates within their scope `409` (category name per game, variable name per category, value per variable).
+
+| Method | Route | Body | Success |
+|---|---|---|---|
+| POST | `/api/games/{gameId}/categories` | `{ name ≤100, rules? ≤20000 }` | `201` → `RecordsCategoryDto` |
+| PUT | `/api/categories/{categoryId}` | `{ name, rules? }` | `200` → `RecordsCategoryDto` (whitespace-only rules stored as null) |
+| POST | `/api/categories/{categoryId}/variables` | `{ name ≤100, isSubcategory, isRequired }` | `201` → `RecordsVariableDto` |
+| POST | `/api/variables/{variableId}/values` | `{ value ≤100 }` | `201` → `RecordsValueDto` |
+
+Moderator roster assign/remove stayed on `ModerationController` (Phase 2, admin-only); its `GET` now sorts by username (same SQLite `ORDER BY DateTimeOffset` limitation as 5f). **`AccountDto` gained `IsAdmin`** so the client can gate management UI — the server still authorizes every call.
+
+### `/records/[gameId]/manage` — the board workshop
+
+Client page gated by `canManageBoard(user, moderators)` (admin flag or presence in the public moderator roster; unauthorized users get a polite wall). Three panels:
+
+1. **Category manager** — "+ New category" form (name + markdown rules textarea) and per-category cards with a collapsed rules preview and an inline name/rules editor (PUT on save, local state replaced with the returned DTO).
+2. **Variable & subcategory builder** — per category: add a variable with **Splits board** (`IsSubcategory`) and **Required on submit** checkboxes (both default on — the common case for Platform-style axes), then append option chips inline per variable (`Add option…` micro-form). Badges mark `SPLITS BOARD` / `REQUIRED`.
+3. **Moderator roster** (rendered only for `user.isAdmin`) — assign by exact username, revoke with optimistic removal + restore on API failure.
+
+The `/records/[gameId]` header shows a **Manage board** button to authorized users, next to Submit run.
+
+### The gauntlet wedge
+
+Splits recorded by the overlay timer are **cumulative**, so each beaten slot's own speedrun time is the gap to the previous recorded split — both wedge surfaces compute that segment and never expose the raw gauntlet clock as a single game's time:
+
+- `/run/[id]` — every Won slot (owner only) gets a gold "Submit as speedrun →" link under its split time.
+- `/control/[runId]` deck — the splits table (owner only) gains a "Submit ↗" column per beaten game.
+
+Both deep-link to `/records/{gameId}/submit?timeMs={segmentMs}&sourceRunId={runId}`. The submit form (now wrapped in `Suspense` for `useSearchParams`) seeds the time input from `timeMs` (positive integers only) and shows a "time carried over from your gauntlet split" banner linking back to the source run — the runner picks a category, pastes the VOD, done.
+
+### Tests
+
+3 new integration tests (`BoardManagementTests.cs`): bystander 403 / anonymous 401 on category creation; a moderator building a full board (category → subcategory variable → values) with blank-name 400 + duplicate 409s, verified through the public metadata endpoint; and category update flow (outsider 403, name-collision 409, rules edit round-trip). 13 total passing.
+
+---
+
 ## 6. CORS Policy
 
 Policy name: `AllowFrontend` (applied via `app.UseCors` before authorization/controllers).
@@ -763,7 +805,8 @@ Shared hook behind `/overlay/[runId]` and `/control/[runId]`. The server is the 
 | `/overlay/[runId]` | **OBS browser-source overlay** (Phase 8) — fully transparent background (`html.obs-overlay` CSS class), no scrollbars, ~420px wide. 3D cylindrical wheel of the 10 drafted games (`perspective: 1000px`, per-item `rotateX(offset × -32°) translateZ(168px)`, 0.45s `cubic-bezier(0.2,0.8,0.2,1)` rotation): active slot is a dark pill with cyan neon glow, cover, title, and `X/10` counter; adjacent slots angle back with reduced opacity; beaten slots show a green check + strikethrough. Neon-green `H:MM:SS.cc` timer below (amber pulse when paused, gold when finished). Hotkeys: **Space** play/pause, **Enter/NumpadEnter** split, **R×2** reset (armed for 1.5s with on-screen warning), **P** toggles hidden helper buttons. Actions authenticate via the `?key=` overlay key in the URL |
 | `/control/[runId]` | **Streamer control deck** (Phase 8) — mobile/OBS-dock-friendly: live mirrored timer + status, big tactile buttons (green ▶ Play / amber ❚❚ Pause, cyan "Game Beaten — Next", Undo Previous, two-step red Reset Gauntlet), now-playing card, up-next list, per-game split times, and one-click "Copy OBS Browser Source URL" (embeds the overlay key). Controls disabled for non-owners; state syncs via the shared `useOverlayRun` hook |
 | `/records/[gameId]` | **Speedrun records board** (Records Phase 3, section 5f) — category tabs, subcategory filter pills, dense verified leaderboard with inline proof-video modal and collapsible rules panel |
-| `/records/[gameId]/submit` | **Run submission form** (Records Phase 3) — auth-gated; live time parsing, proof-URL validation, dynamic category variables, pending-review confirmation |
+| `/records/[gameId]/submit` | **Run submission form** (Records Phase 3) — auth-gated; live time parsing, proof-URL validation, dynamic category variables, pending-review confirmation. Accepts `?timeMs=&sourceRunId=` from the gauntlet wedge (Phase 4) to prefill the time |
+| `/records/[gameId]/manage` | **Board workshop** (Records Phase 4, section 5g) — admins/moderators create categories, edit markdown rules, build subcategory variables and value options; admins manage the moderator roster |
 | `/mod/queue` | **Moderator courtroom** (Records Phase 3) — pending runs for games the caller moderates, on-demand video embeds, optimistic Verify/Reject with required rejection reason |
 
 ### The Draft Room (`/draft`)
@@ -868,3 +911,4 @@ cd GodGamerGauntlet.Web && npm run dev
 | R1 | **Speedrun Records Phase 1 — Trust Schema**: `Category` / `Variable` / `VariableValue` (the rules engine, cascade-owned by mods) and `Submission` / `SubmissionVariable` (the verified ledger, restrict-delete everywhere) with `SubmissionStatus` (`Pending`/`Verified`/`Rejected` stored as strings), VOD-required `VideoUrl`, `PrimaryTimeMs > 0` check, examiner audit fields, leaderboard/PB/mod-queue indexes, and the `AddSpeedrunTrustSchema` migration (section 5d). No API surface yet — schema only |
 | R2 | **Speedrun Records Phase 2 — The Courtroom**: `GameModerator` (composite PK, cascade) + `Users.IsAdmin` + `Submissions.IsObsolete` (`AddModeratorAndObsoleteTracking` migration, leaderboard index now includes IsObsolete); `SubmissionsController` (`POST /api/submissions` with VOD-regex/category-ownership/required-variable validation, public `GET /{id}` with review history); `ModerationController` (`GET queue` scoped to moderated games, `POST /api/submissions/{id}/review` Verify/Reject with examiner audit + double-review block, admin-only moderator assign/remove); per-subcategory PB obsolescence recompute on verify (fastest stays, slower flagged — including a late slower run). New `GodGamerGauntlet.Api.Tests` xunit project: 8 WebApplicationFactory integration tests over in-memory SQLite (`DbInitializer` falls back to EnsureCreated off-Npgsql), all passing (section 5e) |
 | R3 | **Speedrun Records Phase 3 — The Public Ledger**: `RecordsController` (public `GET /api/games/{id}/records` metadata + `GET .../categories/{id}/leaderboard?values=` with verified/non-obsolete filter, AND-matched value filters, per-player dedup on merged views, 500-row cap); frontend `/records/[gameId]` (category tabs, subcategory pills, dense board, 🏆 rank 1, inline YouTube/Twitch proof modal via new `ProofPlayer`/`toEmbedUrl`, rules drawer), `/records/[gameId]/submit` (live `H:MM:SS.ms` parser, client-side VOD regex mirror, dynamic variable selects, pending-review confirmation), `/mod/queue` (oldest-first courtroom cards, on-demand embeds, optimistic Verify/Reject with restore-on-failure); api.ts records/submission/moderation clients + `formatRecordTime`/`parseRecordTime`/`isValidProofUrl`; 2 new integration tests (metadata exposure, leaderboard filter/dedup/404) → 10 total passing (section 5f) |
+| R4 | **Speedrun Records Phase 4 — Board Management & Gauntlet Wedge**: `CategoriesController` (admin/mod-gated category create + update, variable create with `IsSubcategory`/`IsRequired`, value create; trim/blank-400/duplicate-409 rules); `AccountDto.IsAdmin` exposed for client-side gating; `/records/[gameId]/manage` workshop (category manager with inline rules editor, variable & value builder, admin-only moderator roster with optimistic revoke) + "Manage board" header button; gauntlet wedge — segment-time (not cumulative clock) "Submit as speedrun" links on `/run/[id]` Won slots and the control-deck splits table, deep-linking to the submit form's new `?timeMs=&sourceRunId=` prefill (Suspense-wrapped `useSearchParams`); `ModerationController.GetModerators` username sort (SQLite DateTimeOffset fix); 3 new integration tests → 13 total passing (section 5g) |

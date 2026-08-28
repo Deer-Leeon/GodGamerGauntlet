@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import {
   formatRecordTime,
   getGameRecords,
@@ -23,14 +23,39 @@ function todayInputValue(): string {
 }
 
 export default function SubmitRunPage() {
+  // useSearchParams needs a Suspense boundary during prerendering.
+  return (
+    <Suspense
+      fallback={
+        <main className="site-content flex-1 px-5 py-8 sm:px-7">
+          <p className="py-14 text-sm text-faint">Loading…</p>
+        </main>
+      }
+    >
+      <SubmitRunForm />
+    </Suspense>
+  );
+}
+
+function SubmitRunForm() {
   const { gameId } = useParams<{ gameId: string }>();
   const { user, loading: authLoading } = useAuth();
+
+  // Gauntlet wedge: /run and /control deep-link a recorded split time here.
+  const search = useSearchParams();
+  const prefillMs = (() => {
+    const raw = Number(search.get("timeMs"));
+    return Number.isInteger(raw) && raw > 0 ? raw : null;
+  })();
+  const sourceRunId = search.get("sourceRunId");
 
   const [records, setRecords] = useState<GameRecords | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [categoryId, setCategoryId] = useState<string>("");
-  const [timeText, setTimeText] = useState("");
+  const [timeText, setTimeText] = useState(() =>
+    prefillMs !== null ? formatRecordTime(prefillMs) : "",
+  );
   const [videoUrl, setVideoUrl] = useState("");
   const [playedOn, setPlayedOn] = useState(todayInputValue());
   const [isEmulator, setIsEmulator] = useState(false);
@@ -188,6 +213,24 @@ export default function SubmitRunPage() {
           submission before it lands on the board.
         </p>
       </header>
+
+      {prefillMs !== null && (
+        <p className="mt-4 border border-gold/25 bg-gold/5 px-4 py-2.5 text-sm text-muted">
+          Time carried over from your gauntlet split
+          {sourceRunId && (
+            <>
+              {" — "}
+              <Link
+                href={`/run/${sourceRunId}`}
+                className="text-gold hover:text-gold/80"
+              >
+                view the run
+              </Link>
+            </>
+          )}
+          . Pick a category, paste your VOD, and you&apos;re done.
+        </p>
+      )}
 
       {loadError && <p className="py-6 text-sm text-red-400/90">{loadError}</p>}
 

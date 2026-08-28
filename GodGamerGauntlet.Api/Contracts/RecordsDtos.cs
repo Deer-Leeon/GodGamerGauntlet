@@ -1,4 +1,20 @@
+using System.ComponentModel.DataAnnotations;
+using GodGamerGauntlet.Api.Models;
+
 namespace GodGamerGauntlet.Api.Contracts;
+
+/// <summary>Create or rename a category; Rules is moderator-maintained markdown.</summary>
+public record SaveCategoryRequest(
+    [Required, MaxLength(Category.NameMaxLength)] string Name,
+    [MaxLength(20_000)] string? Rules);
+
+public record CreateVariableRequest(
+    [Required, MaxLength(Variable.NameMaxLength)] string Name,
+    bool IsSubcategory,
+    bool IsRequired);
+
+public record CreateValueRequest(
+    [Required, MaxLength(VariableValue.ValueMaxLength)] string Value);
 
 /// <summary>A selectable option on a category variable, for building filter pills and forms.</summary>
 public record RecordsValueDto(Guid Id, string Value);

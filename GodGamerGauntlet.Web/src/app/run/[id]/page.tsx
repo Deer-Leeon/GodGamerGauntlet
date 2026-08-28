@@ -181,6 +181,20 @@ export default function LiveRunTrackerPage() {
     }
     return map;
   }, [overlay.state]);
+  // Splits are the cumulative gauntlet clock; a slot's own speedrun time is
+  // the gap to the previous recorded split. Feeds the records-submit prefill.
+  const segmentBySlot = useMemo(() => {
+    const segments = new Map<number, number>();
+    let previous = 0;
+    for (const slot of orderedSlots) {
+      const split =
+        overlayBySlot.get(slot.position)?.splitTimeMs ?? slot.splitTimeMs;
+      if (split == null) continue;
+      if (split > previous) segments.set(slot.position, split - previous);
+      previous = Math.max(previous, split);
+    }
+    return segments;
+  }, [orderedSlots, overlayBySlot]);
   const liveActivePosition =
     overlay.state && run?.status === "Active"
       ? overlay.state.currentSlotIndex + 1
@@ -452,6 +466,7 @@ export default function LiveRunTrackerPage() {
           const isFuture = status === "Pending" && !isActive;
 
           if (status === "Won") {
+            const segmentMs = segmentBySlot.get(slot.position);
             return (
               <li
                 key={slot.id}
@@ -468,9 +483,21 @@ export default function LiveRunTrackerPage() {
                     +{base}
                   </p>
                 </div>
-                <span className="shrink-0 font-mono text-sm tabular-nums text-gold">
-                  {splitTimeMs != null ? formatSpeedrunTime(splitTimeMs) : "—"}
-                </span>
+                <div className="flex shrink-0 flex-col items-end gap-1">
+                  <span className="font-mono text-sm tabular-nums text-gold">
+                    {splitTimeMs != null
+                      ? formatSpeedrunTime(splitTimeMs)
+                      : "—"}
+                  </span>
+                  {isOwner && segmentMs != null && (
+                    <Link
+                      href={`/records/${slot.gameId}/submit?timeMs=${segmentMs}&sourceRunId=${id}`}
+                      className="text-[11px] text-gold/70 transition hover:text-gold"
+                    >
+                      Submit as speedrun →
+                    </Link>
+                  )}
+                </div>
               </li>
             );
           }

@@ -22,6 +22,8 @@ export interface User {
   email: string | null;
   createdAt: string;
   needsUsername: boolean;
+  /** Global admin: moderates every records board and manages moderator rosters. */
+  isAdmin?: boolean;
   streamLinks?: StreamLink[];
 }
 
@@ -782,6 +784,95 @@ export function reviewSubmission(
     method: "POST",
     body: JSON.stringify({ action, rejectReason }),
   });
+}
+
+// ── Board management (admins + game moderators) ─────────────────────────────
+
+export interface SaveCategoryInput {
+  name: string;
+  rules: string | null;
+}
+
+export function createCategory(
+  gameId: string,
+  input: SaveCategoryInput,
+): Promise<RecordsCategory> {
+  return request<RecordsCategory>(`/api/games/${gameId}/categories`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function updateCategory(
+  categoryId: string,
+  input: SaveCategoryInput,
+): Promise<RecordsCategory> {
+  return request<RecordsCategory>(`/api/categories/${categoryId}`, {
+    method: "PUT",
+    body: JSON.stringify(input),
+  });
+}
+
+export interface CreateVariableInput {
+  name: string;
+  isSubcategory: boolean;
+  isRequired: boolean;
+}
+
+export function createVariable(
+  categoryId: string,
+  input: CreateVariableInput,
+): Promise<RecordsVariable> {
+  return request<RecordsVariable>(`/api/categories/${categoryId}/variables`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function createVariableValue(
+  variableId: string,
+  value: string,
+): Promise<RecordsValue> {
+  return request<RecordsValue>(`/api/variables/${variableId}/values`, {
+    method: "POST",
+    body: JSON.stringify({ value }),
+  });
+}
+
+export function getGameModerators(
+  gameId: string,
+): Promise<GameModeratorInfo[]> {
+  return request<GameModeratorInfo[]>(
+    `/api/moderation/games/${gameId}/moderators`,
+  );
+}
+
+export function assignModerator(
+  gameId: string,
+  username: string,
+): Promise<void> {
+  return request<void>(`/api/moderation/games/${gameId}/moderators`, {
+    method: "POST",
+    body: JSON.stringify({ username }),
+  });
+}
+
+export function removeModerator(
+  gameId: string,
+  userId: string,
+): Promise<void> {
+  return request<void>(`/api/moderation/games/${gameId}/moderators/${userId}`, {
+    method: "DELETE",
+  });
+}
+
+/** Can this user open /records/[gameId]/manage? Server enforces regardless. */
+export function canManageBoard(
+  user: User | null,
+  moderators: GameModeratorInfo[],
+): boolean {
+  if (!user) return false;
+  return Boolean(user.isAdmin) || moderators.some((m) => m.userId === user.id);
 }
 
 /** Mirrors the API's proof-link rule so the form can validate before posting. */

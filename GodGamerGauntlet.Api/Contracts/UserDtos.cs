@@ -30,6 +30,7 @@ public record AccountDto(
     string? Email,
     DateTime CreatedAt,
     bool NeedsUsername,
+    bool IsAdmin,
     IReadOnlyList<StreamLinkDto> StreamLinks)
 {
     public static AccountDto FromEntity(User user) =>
@@ -39,5 +40,6 @@ public record AccountDto(
             user.Email,
             user.CreatedAt,
             AccountRules.NeedsPublicUsername(user),
+            user.IsAdmin,
             StreamLinkDto.FromUser(user));
 }

@@ -225,24 +225,52 @@ export default function ControlBoard({
           <table className="mt-3 w-full border-collapse border-t border-gold/20 pt-2 text-[12px]">
             <caption className="sr-only">Splits</caption>
             <tbody>
-              {beaten.map((game, i) => (
-                <tr
-                  key={game.gameId}
-                  className="border-t border-white/8 text-gray-500 first:border-t-0"
-                >
-                  <td className="w-6 py-0.5 pr-2 font-mono tabular-nums text-gray-600">
-                    {i + 1}
-                  </td>
-                  <td className="max-w-0 truncate py-0.5 pr-3 text-gold">
-                    {game.title}
-                  </td>
-                  <td className="py-0.5 text-right font-mono tabular-nums">
-                    {game.splitTimeMs !== null
-                      ? formatSpeedrunTime(game.splitTimeMs)
-                      : "—"}
-                  </td>
-                </tr>
-              ))}
+              {beaten.map((game, i) => {
+                // Splits are cumulative; the slot's own time is the gap to
+                // the previous recorded split.
+                const previousSplit = beaten
+                  .slice(0, i)
+                  .reduce(
+                    (max, g) =>
+                      g.splitTimeMs !== null ? Math.max(max, g.splitTimeMs) : max,
+                    0,
+                  );
+                const segmentMs =
+                  game.splitTimeMs !== null && game.splitTimeMs > previousSplit
+                    ? game.splitTimeMs - previousSplit
+                    : null;
+                return (
+                  <tr
+                    key={game.gameId}
+                    className="border-t border-white/8 text-gray-500 first:border-t-0"
+                  >
+                    <td className="w-6 py-0.5 pr-2 font-mono tabular-nums text-gray-600">
+                      {i + 1}
+                    </td>
+                    <td className="max-w-0 truncate py-0.5 pr-3 text-gold">
+                      {game.title}
+                    </td>
+                    <td className="py-0.5 text-right font-mono tabular-nums">
+                      {game.splitTimeMs !== null
+                        ? formatSpeedrunTime(game.splitTimeMs)
+                        : "—"}
+                    </td>
+                    {isOwner && (
+                      <td className="w-14 py-0.5 pl-2 text-right">
+                        {segmentMs !== null && (
+                          <Link
+                            href={`/records/${game.gameId}/submit?timeMs=${segmentMs}&sourceRunId=${runId}`}
+                            title="Submit this split to the speedrun records board"
+                            className="text-gold/70 transition hover:text-gold"
+                          >
+                            Submit ↗
+                          </Link>
+                        )}
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}
