@@ -19,6 +19,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<VariableValue> VariableValues => Set<VariableValue>();
     public DbSet<Submission> Submissions => Set<Submission>();
     public DbSet<SubmissionVariable> SubmissionVariables => Set<SubmissionVariable>();
+    public DbSet<GameModerator> GameModerators => Set<GameModerator>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -31,6 +32,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .IsUnique()
                 .HasFilter("\"Email\" IS NOT NULL");
             entity.Property(u => u.PasswordHash).HasMaxLength(500);
+            entity.Property(u => u.IsAdmin).HasDefaultValue(false);
 
             // A User has many Runs.
             entity.HasMany(u => u.Runs)
@@ -233,9 +235,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                   .HasDefaultValue(SubmissionStatus.Pending);
             entity.ToTable(t => t.HasCheckConstraint(
                 "CK_Submissions_PrimaryTimeMs", "\"PrimaryTimeMs\" > 0"));
+            entity.Property(s => s.IsObsolete).HasDefaultValue(false);
 
-            // The leaderboard query: verified rows in a category, fastest first.
-            entity.HasIndex(s => new { s.CategoryId, s.Status, s.PrimaryTimeMs });
+            // The leaderboard/PB query: current verified rows, fastest first.
+            entity.HasIndex(s => new { s.CategoryId, s.Status, s.IsObsolete, s.PrimaryTimeMs });
             // Player PB lookups and profile history.
             entity.HasIndex(s => new { s.PlayerId, s.CategoryId });
             // The mod queue: pending runs for a game, oldest first.
@@ -277,6 +280,26 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                   .WithMany()
                   .HasForeignKey(x => x.VariableValueId)
                   .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<GameModerator>(entity =>
+        {
+            entity.HasKey(m => new { m.GameId, m.UserId });
+
+            // Assignments are permissions, not ledger: removing a game or user
+            // may remove the grant. Decisions already made keep ExaminerId.
+            entity.HasOne(m => m.Game)
+                  .WithMany()
+                  .HasForeignKey(m => m.GameId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(m => m.User)
+                  .WithMany()
+                  .HasForeignKey(m => m.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            // "Which games does this user moderate" — the queue query.
+            entity.HasIndex(m => m.UserId);
         });
     }
 }

@@ -46,7 +46,16 @@ public static class DbInitializer
 
     public static async Task InitializeAsync(AppDbContext context)
     {
-        await context.Database.MigrateAsync();
+        if (context.Database.IsNpgsql())
+        {
+            await context.Database.MigrateAsync();
+        }
+        else
+        {
+            // Integration tests swap in SQLite; Npgsql migrations can't run there.
+            await context.Database.EnsureCreatedAsync();
+        }
+
         await SeedAsync(context);
     }
 

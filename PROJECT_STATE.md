@@ -2,7 +2,7 @@
 
 > Living documentation for the godgamergauntlet.com backend. Update this file whenever the schema, API surface, or deployment story changes.
 >
-> **Last updated:** 2026-08-27 (Records Phase 1 — Speedrun Trust Schema: categories, variables, verified VOD submissions)
+> **Last updated:** 2026-08-27 (Records Phase 2 — The Courtroom: per-game moderators, submission endpoints, verification queue, obsolete tracking)
 
 ---
 
@@ -185,6 +185,7 @@ Composite index `IX_Games_IsFeatured_PopularityRank` backs the default catalog o
 | `20260825014653_AddOverlayTimerState` | Adds `Runs.TimerStatus/TimerElapsedMs/TimerUpdatedAt/OverlayKey` and `RunSlots.SplitTimeMs` for the OBS overlay |
 | `20260827030729_AddUserFollows` | Creates UserFollows (follower/followed, unique pair, not-self check) for the browse rail |
 | `20260827234533_AddSpeedrunTrustSchema` | Creates Categories / Variables / VariableValues / Submissions / SubmissionVariables — the Records-layer trust schema (section 5d) |
+| `20260827235311_AddModeratorAndObsoleteTracking` | Creates GameModerators (composite PK); adds `Users.IsAdmin` and `Submissions.IsObsolete`; swaps the leaderboard index to `(CategoryId, Status, IsObsolete, PrimaryTimeMs)` (section 5e) |
 
 ---
 
@@ -596,7 +597,72 @@ Links a submission to each selected value (e.g. Platform = N64). Deleting a subm
 
 ### Deliberately deferred (Phase 2+)
 
-Individual levels, timing-method variants (RTA vs. loadless vs. IGT as separate columns), obsolete-run flagging, per-game moderator roles, and the submission/verification API surface. `PrimaryTimeMs` is the single canonical metric until a category needs more.
+Individual levels and timing-method variants (RTA vs. loadless vs. IGT as separate columns). `PrimaryTimeMs` is the single canonical metric until a category needs more. *(Obsolete flagging, per-game moderators, and the submission/verification API landed in Records Phase 2 — section 5e.)*
+
+---
+
+## 5e. Speedrun Records — The Courtroom (Records Phase 2)
+
+The moderation and submission engine on top of the 5d trust schema: per-game moderator permissions, runner-facing submission endpoints, the verification queue, and the verdict flow with PB obsolescence.
+
+### Roles
+
+| Role | Grant | Power |
+|---|---|---|
+| **Global admin** | `Users.IsAdmin` (boolean, default false — flipped manually in the DB for now) | Moderates every board; assigns/removes per-game moderators |
+| **Game moderator** | `GameModerators` row | Sees the queue and issues verdicts for that game only |
+
+### GameModerators
+
+| Column | Type | Constraints |
+|---|---|---|
+| GameId | uuid | **composite PK**, FK → Games.Id, cascade |
+| UserId | uuid | **composite PK**, FK → Users.Id, cascade |
+| AssignedAt | timestamptz | NOT NULL (DateTimeOffset) |
+
+Index on `UserId` backs "which games do I moderate" (the queue query). Assignments are permissions, not ledger — decided runs keep their `ExaminerId` even if the grant is later removed.
+
+### Submissions.IsObsolete (new column)
+
+`boolean NOT NULL default false`. True when a faster verified run by the same player on the same board superseded this one. Obsolete rows stay on the ledger; leaderboards filter them out. The leaderboard index became `(CategoryId, Status, IsObsolete, PrimaryTimeMs)` — verified, current, fastest-first in one probe.
+
+### REST API — Submissions
+
+| Method | Route | Body | Success | Errors |
+|---|---|---|---|---|
+| POST 🔒 | `/api/submissions` | `{ gameId, categoryId, primaryTimeMs > 0, videoUrl, playedOn, isEmulator, variableValueIds: [uuid] }` | `201` → SubmissionDto | `400` (see validation), `401` |
+| GET | `/api/submissions/{id}` | — | `200` → SubmissionDto (includes review history: status, examiner, reason, reviewedAt, isObsolete) | `404` |
+
+Submission validation, all server-side with plain-text reasons:
+
+1. `videoUrl` must match the YouTube/Twitch proof regex (`youtube.com/watch|live|shorts`, `youtu.be/`, `twitch.tv/videos/`, `twitch.tv/{user}/clip/`, `clips.twitch.tv/`) — https only. No VOD, no submission.
+2. `playedOn` cannot be in the future (1 h clock-skew grace).
+3. The category must exist **and belong to the submitted game**.
+4. Every `variableValueId` must belong to one of the category's variables; at most one value per variable; every `IsRequired` variable must be covered (missing names are listed in the error).
+5. Status forced to `Pending`, `SubmittedAt` stamped server-side; the player is the JWT caller.
+
+### REST API — Moderation
+
+| Method | Route | Body | Success | Errors |
+|---|---|---|---|---|
+| GET 🔒 | `/api/moderation/queue` | — | `200` → `ModerationQueueItemDto[]` (Pending only, `SubmittedAt ASC`, cap 200; admins see all games, mods see theirs) | `401` |
+| POST 🔒 | `/api/submissions/{id}/review` | `{ action: "Verify" \| "Reject", rejectReason? }` | `200` → SubmissionDto | `400` bad action / missing reason / already reviewed, `403` not a mod for that game, `404` |
+| GET 🔒 | `/api/moderation/games/{gameId}/moderators` | — | `200` → `ModeratorDto[]` | `401` |
+| POST 🔒 | `/api/moderation/games/{gameId}/moderators` | `{ username }` | `204` (idempotent) | `403` not admin, `404` game/user |
+| DELETE 🔒 | `/api/moderation/games/{gameId}/moderators/{userId}` | — | `204` | `403` not admin |
+
+Queue items carry player profile data (id, username, join date), category name, video URL, time, and the selected variables — everything an examiner needs before opening the VOD.
+
+### The verdict flow
+
+Both verdicts stamp `ExaminerId = caller` and `ReviewedAt = UtcNow`, and a decided run can never be re-reviewed (`400`).
+
+- **Reject** → `Status = Rejected` + required `RejectReason` (trimmed, ≤1000 chars).
+- **Verify** → `Status = Verified`, then **PB obsolescence recompute**: among the player's verified runs on the same *board* — same `CategoryId` **and** identical set of subcategory variable values (`IsSubcategory = true`) — only the fastest stays `IsObsolete = false` (ties broken by earliest `SubmittedAt`). Everything slower is flagged obsolete, *including the newly verified run* if it doesn't beat the standing PB. Filter-only variables don't split boards; different subcategory values (PC vs. N64) never obsolete each other.
+
+### Integration tests (`GodGamerGauntlet.Api.Tests`)
+
+New xunit project: `WebApplicationFactory<Program>` boots the real HTTP pipeline (JWT auth, validation, controllers) over **in-memory SQLite** — `DbInitializer` detects a non-Npgsql provider and uses `EnsureCreatedAsync` instead of Postgres migrations (`Program` gained a `public partial class` marker for test visibility). Local Postgres credentials aren't available in this environment, so SQLite is the live-pipeline stand-in; Railway still runs the real Npgsql migrations. 8 tests cover: proof-link and required-variable validation, auth requirement, pending + public detail, bystander 403 + empty queue, admin-only moderator assignment + mod queue visibility, reject-reason enforcement + examiner audit + double-review block, and per-subcategory obsolescence (slow PB obsoleted, N64 board untouched, late slower run born obsolete). Run with `dotnet test GodGamerGauntlet.Api.Tests`.
 
 ---
 
@@ -764,3 +830,4 @@ cd GodGamerGauntlet.Web && npm run dev
 | 9 | **Hybrid catalog sorting**: `Game.IsFeatured` + `Game.PopularityRank` (`AddGameSortingFields` migration, composite index, exposed on `GameResponse`); `DbInitializer` seeds 12 curated competitive staples at `IsFeatured = true` / rank 0, promoting the existing row when RAWG already ingested the title; the RAWG loop assigns each game its running most-added index as `PopularityRank`; `UpsertGamesAsync` refreshes rank but treats featured as a one-way promotion; `GetAllAsync` orders featured → rank → title. Sync guard changed from "any game exists" to `HasIngestedCatalogAsync` (any **non-featured** game) so the new seed can't permanently suppress ingestion. Frontend: `featured` catalog sort mirroring the server comparator, now the Draft Room default |
 | 10 | **Gauntlet Lite**: `RunType` enum (`Standard` = 10 games, `Lite` = 5) on `Run` (`AddRunTypeToRuns` migration, string-converted with a `Standard` default that backfills existing rows, `IX_Runs_RunType`); `RunTypes.SlotCount`/`TryParse` as the single source of truth, replacing `RunController.RequiredSlotCount = 10` in both the initialize count check and the completion check; `initialize` accepts an optional `runType`; `GET /api/leaderboard?runType=` ranks Standard and Lite separately (the positional multiplier makes a shared board meaningless); `runType`/`totalSlots` added to `RunResponse`, `LeaderboardEntryDto`, `OverlayStateDto`, and `FeedPostDto`. Frontend: Draft Room mode toggle that re-packs picks when resizing the board, `RunTypeBadge` (LITE MODE) on draft/tracker/deck/feed, dynamic `x/N` counters on the overlay and control deck, Standard/Lite leaderboard tabs. Also fixed a latent split: `OverlayController.Split` completed a run at its max slot position while `/report` completed only at position 10, so any non-10-slot run could finish on the overlay but never via the API |
 | R1 | **Speedrun Records Phase 1 — Trust Schema**: `Category` / `Variable` / `VariableValue` (the rules engine, cascade-owned by mods) and `Submission` / `SubmissionVariable` (the verified ledger, restrict-delete everywhere) with `SubmissionStatus` (`Pending`/`Verified`/`Rejected` stored as strings), VOD-required `VideoUrl`, `PrimaryTimeMs > 0` check, examiner audit fields, leaderboard/PB/mod-queue indexes, and the `AddSpeedrunTrustSchema` migration (section 5d). No API surface yet — schema only |
+| R2 | **Speedrun Records Phase 2 — The Courtroom**: `GameModerator` (composite PK, cascade) + `Users.IsAdmin` + `Submissions.IsObsolete` (`AddModeratorAndObsoleteTracking` migration, leaderboard index now includes IsObsolete); `SubmissionsController` (`POST /api/submissions` with VOD-regex/category-ownership/required-variable validation, public `GET /{id}` with review history); `ModerationController` (`GET queue` scoped to moderated games, `POST /api/submissions/{id}/review` Verify/Reject with examiner audit + double-review block, admin-only moderator assign/remove); per-subcategory PB obsolescence recompute on verify (fastest stays, slower flagged — including a late slower run). New `GodGamerGauntlet.Api.Tests` xunit project: 8 WebApplicationFactory integration tests over in-memory SQLite (`DbInitializer` falls back to EnsureCreated off-Npgsql), all passing (section 5e) |

@@ -32,6 +32,13 @@ public class Submission
 
     public SubmissionStatus Status { get; set; } = SubmissionStatus.Pending;
 
+    /// <summary>
+    /// True when a faster verified run by the same player on the same board
+    /// (category + subcategory values) superseded this one. Obsolete rows stay
+    /// on the ledger; leaderboards filter them out.
+    /// </summary>
+    public bool IsObsolete { get; set; } = false;
+
     /// <summary>The moderator who verified or rejected the run.</summary>
     public Guid? ExaminerId { get; set; }
 

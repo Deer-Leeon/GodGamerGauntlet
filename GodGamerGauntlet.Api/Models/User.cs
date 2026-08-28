@@ -17,6 +17,9 @@ public class User
 
     public DateTime CreatedAt { get; set; }
 
+    /// <summary>Global admin: moderates every speedrun board and assigns per-game moderators.</summary>
+    public bool IsAdmin { get; set; } = false;
+
     public ICollection<Run> Runs { get; set; } = new List<Run>();
 
     public ICollection<UserStreamLink> StreamLinks { get; set; } = new List<UserStreamLink>();
