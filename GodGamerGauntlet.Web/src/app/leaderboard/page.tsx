@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
+import { formatSpeedrunTime } from "@/components/SpeedrunTimer";
 import {
   getHallOfFame,
   getLeaderboard,
@@ -42,6 +44,12 @@ function formatDate(iso: string | null): string {
   });
 }
 
+/** Gauntlet clock as H:MM:SS (no centiseconds); "—" when the timer was unused. */
+function formatClock(ms: number | null): string {
+  if (!ms || ms <= 0) return "—";
+  return formatSpeedrunTime(ms).split(".")[0];
+}
+
 export default function LeaderboardPage() {
   const [runType, setRunType] = useState<RunType>("Standard");
   const [view, setView] = useState<View>("all");
@@ -49,6 +57,7 @@ export default function LeaderboardPage() {
   const [seasons, setSeasons] = useState<SeasonChampion[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [inspecting, setInspecting] = useState<LeaderboardEntry | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -105,7 +114,7 @@ export default function LeaderboardPage() {
     <main className="site-content flex-1 px-5 py-8 sm:px-7">
       <header className="flex flex-wrap items-end justify-between gap-4 border-b border-gold/20 pb-6">
         <div>
-          <h1 className="text-2xl font-semibold">Leaderboard</h1>
+          <h1 className="text-2xl font-semibold">God Gamer Arena</h1>
           <p className="mt-2 text-sm leading-relaxed text-muted">{blurb}</p>
         </div>
         <Link
@@ -179,11 +188,22 @@ export default function LeaderboardPage() {
               : `No ${runType === "Lite" ? "Lite" : "Standard"} Clears yet.`
           }
           slotsLabel={view === "survival" ? "Furthest" : "Slots"}
+          onInspect={setInspecting}
+        />
+      )}
+
+      {inspecting && (
+        <InspectWheelModal
+          entry={inspecting}
+          onClose={() => setInspecting(null)}
         />
       )}
     </main>
   );
 }
+
+const BOARD_GRID =
+  "grid-cols-[2.5rem_1fr_5.5rem_3.5rem_3.5rem] sm:grid-cols-[3rem_1fr_7rem_6.5rem_4.5rem_8rem_4rem]";
 
 function BoardTable({
   loading,
@@ -191,21 +211,27 @@ function BoardTable({
   entries,
   empty,
   slotsLabel,
+  onInspect,
 }: {
   loading: boolean;
   loadError: string | null;
   entries: LeaderboardEntry[];
   empty: string;
   slotsLabel: string;
+  onInspect: (entry: LeaderboardEntry) => void;
 }) {
   return (
     <div className="feed-list mt-5">
-      <div className="feed-head grid grid-cols-[3rem_1fr_6rem_5rem_8rem] gap-3 border-b border-gold/20 py-3.5 text-sm text-faint sm:grid-cols-[3rem_1fr_7rem_6rem_8rem]">
+      <div
+        className={`feed-head grid ${BOARD_GRID} gap-3 border-b border-gold/20 py-3.5 text-sm text-faint`}
+      >
         <span>#</span>
         <span>Player</span>
-        <span className="text-right">Lineup</span>
+        <span className="text-right">Score</span>
+        <span className="hidden text-right sm:block">Time</span>
         <span className="text-center">{slotsLabel}</span>
         <span className="hidden text-right sm:block">Finished</span>
+        <span className="text-center">Wheel</span>
       </div>
 
       {loading && <p className="py-14 text-sm text-faint">Loading…</p>}
@@ -220,30 +246,49 @@ function BoardTable({
             index === 0 ? null : entries[index - 1].totalScore - entry.totalScore;
           return (
             <li key={entry.runId} className="feed-row">
-              <div className="grid grid-cols-[3rem_1fr_6rem_5rem_8rem] items-center gap-3 py-3.5 text-sm sm:grid-cols-[3rem_1fr_7rem_6rem_8rem]">
+              <div
+                className={`grid ${BOARD_GRID} items-center gap-3 py-3.5 text-sm`}
+              >
                 <Link
                   href={`/run/${entry.runId}`}
                   className="font-mono tabular-nums text-gold"
+                  title="Open the run"
                 >
-                  {entry.rank}
+                  {entry.rank === 1 ? "🏆 1" : entry.rank}
                 </Link>
                 <Link
                   href={`/u/${encodeURIComponent(entry.streamerName)}`}
-                  className="truncate font-medium text-ink hover:text-gold"
+                  className="flex min-w-0 items-center gap-2 font-medium text-ink hover:text-gold"
                 >
-                  {entry.streamerName}
+                  {entry.avatarUrl ? (
+                    // Free-form external URL — next/image needs domain allowlisting.
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={entry.avatarUrl}
+                      alt=""
+                      className="h-6 w-6 shrink-0 rounded-full border border-gold/25 object-cover"
+                    />
+                  ) : (
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-gold/20 bg-white/5 font-mono text-[10px] text-faint">
+                      {entry.streamerName.slice(0, 1).toUpperCase()}
+                    </span>
+                  )}
+                  <span className="truncate">{entry.streamerName}</span>
                 </Link>
                 <Link
                   href={`/run/${entry.runId}`}
-                  className="text-right font-mono tabular-nums text-muted"
+                  className="text-right font-mono font-semibold tabular-nums text-gold"
                 >
                   {formatScore(entry.totalScore)}
                   {gap != null && gap > 0 && (
-                    <span className="mt-0.5 block text-[11px] text-faint">
+                    <span className="mt-0.5 block text-[11px] font-normal text-faint">
                       {formatScore(gap)} behind
                     </span>
                   )}
                 </Link>
+                <span className="hidden text-right font-mono text-sm tabular-nums text-muted sm:block">
+                  {formatClock(entry.elapsedMs)}
+                </span>
                 <Link
                   href={`/run/${entry.runId}`}
                   className="text-center font-mono text-sm tabular-nums text-muted"
@@ -256,11 +301,132 @@ function BoardTable({
                 >
                   {formatDate(entry.endTime)}
                 </Link>
+                <span className="text-center">
+                  <button
+                    type="button"
+                    onClick={() => onInspect(entry)}
+                    title={`Inspect ${entry.streamerName}'s drafted wheel`}
+                    aria-label={`Inspect ${entry.streamerName}'s drafted wheel`}
+                    className="border border-gold/25 px-2 py-1 text-xs text-faint transition hover:border-gold/50 hover:text-gold"
+                  >
+                    ⊙
+                  </button>
+                </span>
               </div>
             </li>
           );
         })}
       </ol>
+    </div>
+  );
+}
+
+/** The drafted lineup behind one board entry: covers, order, difficulty, splits. */
+function InspectWheelModal({
+  entry,
+  onClose,
+}: {
+  entry: LeaderboardEntry;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={`${entry.streamerName}'s drafted wheel`}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="max-h-[85vh] w-full max-w-lg overflow-y-auto border border-gold/30 bg-surface"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-gold/20 px-5 py-4">
+          <span className="font-medium text-ink">{entry.streamerName}</span>
+          <span className="font-mono font-semibold tabular-nums text-gold">
+            {formatScore(entry.totalScore)}
+          </span>
+          <span className="font-mono text-sm tabular-nums text-muted">
+            {formatClock(entry.elapsedMs)}
+          </span>
+          <span className="text-sm text-faint">
+            {entry.runType === "Lite" ? "Lite" : "Standard"} ·{" "}
+            {entry.slotsCompleted}/{entry.totalSlots}
+          </span>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="ml-auto text-faint transition hover:text-ink"
+          >
+            ✕
+          </button>
+        </div>
+
+        {entry.games.length === 0 ? (
+          <p className="px-5 py-8 text-sm text-faint">
+            No lineup details for this run.
+          </p>
+        ) : (
+          <ol className="divide-y divide-white/5">
+            {entry.games.map((slot) => (
+              <li
+                key={slot.position}
+                className={`flex items-center gap-3 px-5 py-2.5 text-sm ${
+                  slot.status === "Pending" ? "opacity-45" : ""
+                }`}
+              >
+                <span className="w-5 shrink-0 font-mono text-xs text-faint">
+                  {slot.position}
+                </span>
+                <span className="relative h-9 w-9 shrink-0 overflow-hidden bg-white/5">
+                  {slot.thumb ? (
+                    <Image
+                      src={slot.thumb}
+                      alt=""
+                      fill
+                      unoptimized
+                      sizes="36px"
+                      className="object-cover"
+                    />
+                  ) : (
+                    <span className="flex h-full items-center justify-center font-mono text-[10px] text-faint">
+                      {slot.title.slice(0, 1)}
+                    </span>
+                  )}
+                  {slot.status === "Lost" && (
+                    <span aria-hidden className="absolute inset-0 bg-red-950/50" />
+                  )}
+                </span>
+                <span
+                  className={`min-w-0 flex-1 truncate ${
+                    slot.status === "Lost" ? "text-red-300/80" : "text-ink"
+                  }`}
+                >
+                  {slot.title}
+                </span>
+                <span
+                  className="shrink-0 font-mono text-xs tabular-nums text-muted"
+                  title="Base difficulty"
+                >
+                  {slot.baseDifficulty}
+                </span>
+                <span className="w-20 shrink-0 text-right font-mono text-xs tabular-nums text-faint">
+                  {slot.status === "Won" ? formatClock(slot.splitTimeMs) : ""}
+                </span>
+              </li>
+            ))}
+          </ol>
+        )}
+      </div>
     </div>
   );
 }

@@ -20,10 +20,51 @@ public class RecordBook(AppDbContext context) : IRecordBook
         }
 
         var board = await LoadBoardAsync(runType, cancellationToken, start, end);
-        return board
-            .Take(Math.Clamp(limit, 1, 50))
-            .Select(ToEntry)
+        var page = board.Take(Math.Clamp(limit, 1, 50)).ToList();
+        var wheels = await LoadWheelsAsync(page.Select(p => p.RunId), cancellationToken);
+        return page
+            .Select(pb => ToEntry(pb, wheels.GetValueOrDefault(pb.RunId)))
             .ToList();
+    }
+
+    /// <summary>
+    /// The drafted lineups behind a page of board entries, for the arena's
+    /// "inspect wheel" modal. One query for the whole page.
+    /// </summary>
+    private async Task<Dictionary<Guid, IReadOnlyList<ArenaSlotDto>>> LoadWheelsAsync(
+        IEnumerable<Guid> runIds,
+        CancellationToken cancellationToken)
+    {
+        var ids = runIds.ToList();
+        var slots = await context.RunSlots
+            .AsNoTracking()
+            .Where(s => ids.Contains(s.RunId))
+            .Select(s => new
+            {
+                s.RunId,
+                s.Position,
+                Title = s.Game!.Title,
+                s.Game.Thumb,
+                s.Game.BaseDifficulty,
+                s.Status,
+                s.SplitTimeMs,
+            })
+            .ToListAsync(cancellationToken);
+
+        return slots
+            .GroupBy(s => s.RunId)
+            .ToDictionary(
+                g => g.Key,
+                g => (IReadOnlyList<ArenaSlotDto>)g
+                    .OrderBy(s => s.Position)
+                    .Select(s => new ArenaSlotDto(
+                        s.Position,
+                        s.Title,
+                        s.Thumb,
+                        s.BaseDifficulty,
+                        s.Status.ToString(),
+                        s.SplitTimeMs))
+                    .ToList());
     }
 
     public async Task<IReadOnlyList<LeaderboardEntryDto>> GetSurvivalBoardAsync(
@@ -39,7 +80,9 @@ public class RecordBook(AppDbContext context) : IRecordBook
                 r.Id,
                 r.UserId,
                 Username = r.User!.Username,
+                AvatarUrl = r.User!.AvatarUrl,
                 r.EndTime,
+                r.TimerElapsedMs,
                 Score = r.Slots
                     .Where(s => s.Status == RunSlotStatus.Won)
                     .Sum(s => (double?)s.Game!.BaseDifficulty) ?? 0,
@@ -47,7 +90,7 @@ public class RecordBook(AppDbContext context) : IRecordBook
             })
             .ToListAsync(cancellationToken);
 
-        return dnfs
+        var page = dnfs
             .GroupBy(d => d.UserId)
             .Select(g => g
                 .OrderByDescending(x => x.SlotsCompleted)
@@ -58,17 +101,25 @@ public class RecordBook(AppDbContext context) : IRecordBook
             .ThenByDescending(x => x.Score)
             .ThenByDescending(x => x.EndTime)
             .Take(Math.Clamp(limit, 1, 50))
+            .ToList();
+
+        var wheels = await LoadWheelsAsync(page.Select(x => x.Id), cancellationToken);
+
+        return page
             .Select((x, index) => new LeaderboardEntryDto(
                 x.Id,
                 x.UserId,
                 x.Username,
+                x.AvatarUrl,
                 x.Score,
                 nameof(RunStatus.Failed),
                 runType.ToString(),
                 x.SlotsCompleted,
                 runType.SlotCount(),
+                x.TimerElapsedMs,
                 x.EndTime,
-                index + 1))
+                index + 1,
+                wheels.GetValueOrDefault(x.Id) ?? []))
             .ToList();
     }
 
@@ -227,6 +278,7 @@ public class RecordBook(AppDbContext context) : IRecordBook
         return new UserProfileDto(
             user.Id,
             user.Username,
+            user.AvatarUrl,
             user.CreatedAt,
             ordered.Count == 0 ? null : ordered[0].EndTime,
             ordered.Count,
@@ -338,7 +390,9 @@ public class RecordBook(AppDbContext context) : IRecordBook
                 r.Id,
                 r.UserId,
                 Username = r.User!.Username,
+                AvatarUrl = r.User!.AvatarUrl,
                 r.EndTime,
+                r.TimerElapsedMs,
                 Score = r.Slots
                     .Where(s => s.Status == RunSlotStatus.Won)
                     .Sum(s => (double?)s.Game!.BaseDifficulty) ?? 0,
@@ -351,11 +405,20 @@ public class RecordBook(AppDbContext context) : IRecordBook
                 c.Id,
                 c.UserId,
                 c.Username,
+                c.AvatarUrl,
                 c.EndTime,
                 c.Score,
-                c.SlotsCompleted))
+                c.SlotsCompleted,
+                c.TimerElapsedMs))
             .ToList();
     }
+
+    /// <summary>
+    /// Tiebreak key: equal scores favor the faster gauntlet clock. Runs that
+    /// never used the timer (0 ms) lose ties to any timed run.
+    /// </summary>
+    private static long TieBreakElapsed(BoardRow row) =>
+        row.ElapsedMs > 0 ? row.ElapsedMs : long.MaxValue;
 
     private static IReadOnlyList<PersonalBest> RankPbs(
         IReadOnlyList<BoardRow> clears,
@@ -364,17 +427,21 @@ public class RecordBook(AppDbContext context) : IRecordBook
             .GroupBy(c => c.UserId)
             .Select(g => g
                 .OrderByDescending(x => x.Score)
+                .ThenBy(TieBreakElapsed)
                 .ThenByDescending(x => x.EndTime)
                 .First())
             .OrderByDescending(x => x.Score)
+            .ThenBy(TieBreakElapsed)
             .ThenByDescending(x => x.EndTime)
             .Select((x, index) => new PersonalBest(
                 x.Id,
                 x.UserId,
                 x.Username,
+                x.AvatarUrl,
                 runType,
                 x.Score,
                 x.SlotsCompleted,
+                x.ElapsedMs,
                 x.EndTime,
                 index + 1))
             .ToList();
@@ -405,18 +472,22 @@ public class RecordBook(AppDbContext context) : IRecordBook
         return (otherEnd ?? DateTime.MinValue) > (endTime ?? DateTime.MinValue);
     }
 
-    private static LeaderboardEntryDto ToEntry(PersonalBest pb) =>
+    private static LeaderboardEntryDto ToEntry(
+        PersonalBest pb, IReadOnlyList<ArenaSlotDto>? games = null) =>
         new(
             pb.RunId,
             pb.UserId,
             pb.Username,
+            pb.AvatarUrl,
             pb.Score,
             nameof(RunStatus.Completed),
             pb.RunType.ToString(),
             pb.SlotsCompleted,
             pb.RunType.SlotCount(),
+            pb.ElapsedMs,
             pb.EndTime,
-            pb.Rank);
+            pb.Rank,
+            games ?? []);
 
     private static ProfileRunDto ToProfileRun(
         FinishedSlice run,
@@ -558,9 +629,11 @@ public class RecordBook(AppDbContext context) : IRecordBook
         Guid Id,
         Guid UserId,
         string Username,
+        string? AvatarUrl,
         DateTime? EndTime,
         double Score,
-        int SlotsCompleted);
+        int SlotsCompleted,
+        long ElapsedMs);
 
     private sealed record FinishedSlice(
         Guid Id,

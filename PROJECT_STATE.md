@@ -2,7 +2,7 @@
 
 > Living documentation for the godgamergauntlet.com backend. Update this file whenever the schema, API surface, or deployment story changes.
 >
-> **Last updated:** 2026-08-27 (Records Phase 4 — Board Management: category/variable CRUD for mods, manage dashboard, gauntlet-split → records submission wedge)
+> **Last updated:** 2026-08-27 (Phase 9 — Global Arena: time tiebreaker on the boards, avatar/clock/lineup on entries, Inspect Wheel modal)
 
 ---
 
@@ -741,6 +741,171 @@ Both deep-link to `/records/{gameId}/submit?timeMs={segmentMs}&sourceRunId={runI
 
 ---
 
+## 5h. Speedrun Records — Discoverability (Records Phase 5)
+
+Until this phase every records route existed but nothing linked to it; boards were reachable only by hand-typing GUIDs. Phase 5 wires navigation.
+
+### `GET /api/catalog` (`CatalogController`, public)
+
+Server-paginated catalog for the ~20k-game database (the Draft Room keeps its ship-everything client-side search; the records directory can't). Query params: `search` (case-insensitive title contains), `page` (default 1, clamped into range), `pageSize` (default 40, max 100). Hybrid sort preserved: `IsFeatured DESC → PopularityRank ASC → Title`. Returns `CatalogPageDto { items: GameResponse[], totalCount, totalPages, currentPage }`; an empty result is a valid page 1 of 1.
+
+### `/records` — the directory
+
+Debounced (300 ms) search box over `getCatalog`, result count, responsive cover-card grid (2/4/5 columns, lazy-loaded thumbs, ★ on featured, letter placeholder without art), each card linking to `/records/[gameId]`, and Previous/Next pagination with a page indicator. The grid dims while a new page loads instead of flashing empty.
+
+### Navigation & account payload
+
+- `SiteNav` gained a **Records** link (prefix-matched, so it stays lit inside `/records/[gameId]/…`), and the account dropdown now holds **My profile & runs** (`/u/[username]`), **Account settings**, a conditional **Mod queue** link, and Log out.
+- The mod link needs to know about grants up front, so **`AccountDto` gained `IsModerator`** (any `GameModerators` row) alongside Phase 4's `IsAdmin` — `AuthController` computes it on register/login/me and every settings mutation (`SignedInAsync`).
+
+### Homepage hero (`/`)
+
+The feed homepage was **not** replaced (it's live community content, not a placeholder — the Phase 5 spec assumed otherwise). Instead an auth-aware `HomeHero` banner sits above it:
+
+- **Signed out** — pitch copy plus three CTAs: sign in & draft, browse speedrun records, gauntlet leaderboard.
+- **Signed in, gauntlet live** — "Gauntlet in progress · x/N beaten · now playing …" with **Resume gauntlet** (`/run/[id]`) and **Open control deck** (`/control/[id]`); the live run comes from the existing profile payload (`getProfile(...).live`), no new endpoint.
+- **Signed in, idle** — "Start a new gauntlet" CTA into `/draft`. Profile fetch failures render no banner rather than a broken one.
+
+### Tests
+
+`CatalogTests.cs`: one end-to-end catalog test (search-scoped with a unique title prefix since the factory database is shared) covering featured-first ordering, page splits, count math, case-insensitive search, out-of-range page clamping, and the empty-result shape. 14 total passing.
+
+---
+
+## 5i. Speedrun Records — The Trophy Room (Records Phase 6)
+
+Player profiles (`/u/[username]`) already existed with a rich gauntlet identity (stats, mode cards, bestiary, history, live-run banner — Phases 9/11), so Phase 6 **extended** that page rather than building a parallel one. The Phase 6 spec's "create `GET /api/users/{username}`" was likewise already covered by `GET /api/users/by-username/{username}`; only the speedrun data was new.
+
+### New endpoints (`SubmissionsController`, absolute routes)
+
+- **`GET /api/users/by-username/{username}/speedruns`** (public) — the player's *current verified PBs only*: `Status == Verified && !IsObsolete`, newest-verified first (`ReviewedAt DESC` — deliberately not `PlayedOn`, a `DateTimeOffset` SQLite can't `ORDER BY`), capped at 200, returned as full `SubmissionDto`s. 404 for unknown usernames. Pending/rejected/obsoleted runs never appear here.
+- **`GET /api/users/me/pending-runs`** (authorized) — the caller's submissions with `Status == Pending || Rejected`, `SubmittedAt DESC`, capped at 100. Rejections carry `rejectReason` + `examinerName` so runners know exactly why a run bounced. Identity comes from the JWT — there is no way to read another player's courtroom.
+
+### Profile page tabs (`/u/[username]`)
+
+The header (username, titles, joined date, stream links, follow button, live-run callout) and the five-stat strip stay put; everything below became a tab row:
+
+- **Speedruns** — dense PB list: game title (links to `/records/[gameId]`), category, subcategory/value tags, monospace time, played-on date, and a ▶ proof link opening the VOD. Empty state points at `/records`. Tab label shows the PB count.
+- **Gauntlets** — the entire pre-existing gauntlet content (mode cards, bestiary, history with its All/Standard/Lite filter) unchanged.
+- **Pending & rejected** — rendered only when the signed-in user *is* the profile owner (`user.id === profile.id`); fetches `me/pending-runs` on demand. Pending runs get a gold "Pending review" chip; rejections get a red card with the examiner's reason quoted prominently plus a link to the submitted VOD.
+
+Default tab is data-driven: **Speedruns when the player has at least one verified PB, otherwise Gauntlets** — the spec wanted Speedruns-first, but a gauntlet-first site where most players have zero PBs shouldn't open on an empty shelf.
+
+### Global linking (spec Step 3) — already done
+
+Audited rather than built: leaderboard names, records-board rows, mod-queue cards, board moderator lists, and both SiteNav profile links (header + "My profile & runs" dropdown item) all already wrap usernames in `<Link href="/u/…">` from earlier phases. No changes needed.
+
+### Tests
+
+`ProfileTests.cs` (2 tests, 16 total passing):
+
+- **`Public_shelf_shows_only_current_verified_pbs`** — seeds verified-then-obsoleted, verified, pending, and rejected runs; asserts anonymous callers see exactly the one current PB, and unknown usernames 404.
+- **`Pending_runs_are_private_to_their_owner`** — anonymous → 401; the owner sees pending + rejected (with the exact `rejectReason`); an unrelated signed-in user gets their own empty list, never the runner's.
+
+---
+
+## 5j. Speedrun Records — The Feedback Loop (Records Phase 7)
+
+The ledger worked but was silent: verdicts landed without telling the runner, and record snipes went unnoticed. Phase 7 adds in-app notifications plus a Discord world-record broadcaster.
+
+### `Notification` entity (`AddNotifications` migration)
+
+`Id` (PK) · `UserId` (FK → Users, **cascade** — alerts are ephemeral per-user state, not ledger) · `Message` (≤500) · `ActionUrl` (≤400, frontend route) · `IsRead` (default false) · `CreatedAt`. Index on `(UserId, CreatedAt)` for the inbox query. `CreatedAt` is **`DateTime` UTC, not the spec's `DateTimeOffset`** — the inbox sorts by it and SQLite (integration tests) can't `ORDER BY DateTimeOffset` (same constraint as `GameModerator.AssignedAt`, section 5e).
+
+### `NotificationsController` (both `[Authorize]`, strictly JWT-scoped)
+
+- **`GET /api/notifications`** — caller's newest 50 as `NotificationDto { id, message, actionUrl, isRead, createdAt }`.
+- **`PUT /api/notifications/{id}/read`** — marks read, idempotent, 204. Another user's notification id returns **404, not 403**, so ids can't be probed for existence.
+
+### Moderation engine triggers (`ModerationController.Review`)
+
+On every verdict the submission now loads with `Game`/`Category`/`Player` and writes notifications in the same transaction as the verdict:
+
+- **Reject** → runner gets *"Your run for {Game} {Category} was rejected. Reason: {reason}"* → `/u/{username}?tab=pending` (the profile page now reads `?tab=` from `window.location.search` — `pending`/`courtroom`/`speedruns`/`gauntlets` — falling back for non-owners deep-linking to the courtroom).
+- **Verify** → runner gets *"Your run for {Game} {Category} was verified!"* → `/records/{gameId}`.
+- **Snipe** → `FindBoardBestAsync` captures the board's reigning best **across all players** (same category + subcategory-value combination, verified, non-obsolete) *before* the obsolescence pass rewrites flags. If the new run beats it and the previous holder is a different player, they get *"Your time in {Game} {Category} was beaten by {NewPlayer}!"*. Self-improvements never self-snipe; the existing per-player obsolescence engine (section 5e) is unchanged.
+
+### Discord WR webhook (`DiscordWorldRecordAnnouncer`, `IWorldRecordAnnouncer`)
+
+When the verified run is the **new absolute fastest** on its board configuration (beats the previous best, or is the board's first verified run), and the `DISCORD_WR_WEBHOOK_URL` env var is set, a rich embed posts to Discord: gold color (`0xFFC000`), "🏆 New World Record!", runner + game + category (+ subcategory values), formatted time, link to the proof VOD. Dedicated named `HttpClient` (10 s timeout). **Never throws** — failures are logged; a Discord outage cannot fail a moderator's verdict. Fires *after* `SaveChangesAsync`, and is a silent no-op without the env var (local dev, tests).
+
+### Frontend bell (`SiteNav` + `src/lib/useNotifications.ts`)
+
+- `useNotifications(enabled)` hook — fetches on mount, re-polls every **30 s** and on window focus; exposes `{ notifications, unreadCount, markRead, refresh }`. `markRead` is optimistic (flips locally, PUTs in the background).
+- `NotificationBell` in `SiteNav` (signed-in users only, left of the username): outline bell icon with a red `9+`-capped unread badge; opens a scrollable dropdown (reuses the account-menu panel chrome) where each row shows an unread gold dot, the message, and a relative timestamp. Clicking marks it read and `router.push`es the `actionUrl`. Empty state: "Nothing yet. Verdicts on your runs will land here."
+- New api.ts surface: `AppNotification`, `getNotifications()`, `markNotificationRead(id)`.
+
+### Tests
+
+`NotificationTests.cs` (2 tests, 18 total passing):
+
+- **`Verdicts_notify_the_runner_and_read_state_is_private`** — reject + verify produce the right messages/ActionUrls newest-first; mark-read flips exactly one; anonymous → 401; another user sees an empty inbox and gets 404 marking ours.
+- **`Snipes_notify_the_dethroned_record_holder_only`** — a faster rival's verification notifies the previous holder (message names the sniper); improving your own record does not self-snipe; a slower verified run snipes nobody.
+
+---
+
+## 5k. Streamer Identity & "Live Now" Directory (Records Phase 8)
+
+Turns the homepage into a discovery engine: anyone actively running a gauntlet timer is featured with a card that sends viewers straight to their stream.
+
+### Spec reconciliation
+
+The Phase 8 spec asked for a `User.StreamUrl` column plus a new settings page. Both already existed in richer form: **stream URLs live in the multi-link `UserStreamLink` system** (Twitch + YouTube, validated, ordered, edited via `StreamLinkEditor` on the existing `/settings` page, saved through `PUT /api/auth/stream-links`). No duplicate column was added — the live directory surfaces the user's **first stream link** (`SortOrder`). What was genuinely new: avatars, the profile endpoint, the live query, and the rail.
+
+### `User.AvatarUrl` (`AddUserAvatarUrl` migration)
+
+Nullable, ≤500 chars. Exposed on `AccountDto` (auth payloads / `me`) and `UserProfileDto` (public profiles — shown as a 12×12 rounded avatar next to the profile username).
+
+### `PUT /api/users/me/profile` (`AuthController`, absolute route)
+
+Updates the avatar; blank/null clears it. Validation: absolute URI, **http(s) scheme only** (the value is rendered as `<img src>`, so `javascript:`/`data:` are rejected), length cap. Returns a full `AuthResponse` like the other settings mutations so the frontend can `applyAuth` it. Stream URLs are *not* accepted here — that's `PUT /api/auth/stream-links`' job.
+
+### `GET /api/runs/live` (`RunController`, public)
+
+`Status == Active && TimerStatus == "running"`, ordered `TimerUpdatedAt DESC` (freshest activity first; stale "running" rows sink), capped at 24, `Cache-Control: public, max-age=15` via `[ResponseCache]`. Each `LiveRunCardDto`: `runId`, `username`, `avatarUrl`, `streamUrl` (first stream link or null), `runType`, `slotsCompleted`/`totalSlots`, current slot's game `Title`/`Thumb` (first non-Won slot, same logic as the profile live banner), and `elapsedMs` extrapolated server-side via `Run.CurrentElapsedMs(now)`.
+
+### Frontend
+
+- **Settings** (`/settings`) — new "Avatar" section between username and stream links: URL input with live circular preview (letter placeholder when blank), saved through `updateProfile` → `applyAuth`; "Avatar saved." confirmation matches the page's existing pattern. The SiteNav dropdown already routed here.
+- **Homepage "Live Now" rail** (`src/app/page.tsx`) — between the hero and the feed; hidden when nothing is live. Header: pulsing red dot + "LIVE NOW · n gauntlets running". Horizontally scrollable 256px cards: current game cover backdrop with a Live badge, avatar + username, game title + `x/N` progress (+ Lite tag), and a locally ticking `SpeedrunTimer` (tone "site", `syncedAt = performance.now()` at fetch). Whole card is an `<a target="_blank">` to `streamUrl`, falling back to the `/u/[username]` profile when no stream link is set. Refetches every 60 s; failed polls keep the last state.
+- New api.ts surface: `User.avatarUrl`, `UserProfile.avatarUrl`, `LiveRunCard`, `getLiveRuns()`, `updateProfile(avatarUrl)`.
+
+### Tests
+
+`LiveDirectoryTests.cs` (2 tests, 20 total passing):
+
+- **`Avatar_updates_are_validated_and_round_trip`** — anonymous 401; `notaurl`/`javascript:`/`ftp:` all 400; a valid https URL trims, saves, and round-trips through the auth payload and `/api/auth/me`; blank clears.
+- **`Live_directory_lists_running_timers_newest_first_with_stream_identity`** — seeds running/stale-running/paused/finished runs; only the two running ones appear, freshest first; the headline card carries stream URL, avatar, current (first non-won) game title + thumb, slot progress, and extrapolated `elapsedMs`; runners without links/avatars serialize as nulls.
+
+---
+
+## 5l. Scoring Engine & Global Arena (Phase 9)
+
+### Spec reconciliation — the important part
+
+Most of Phase 9 already existed in richer form, so this phase **upgraded** the arena rather than rebuilding it:
+
+- **Scoring**: earned score = **sum of Won slots' `BaseDifficulty`** (`SlotScores`). The spec's `BaseDifficulty × Multiplier` formula referenced a retired model — `RunSlot` has no multiplier and `SlotScores` documents that play order deliberately doesn't multiply. Formula unchanged.
+- **No persisted `Run.TotalScore` column** (spec's `AddRunTotalScore` migration was skipped). Score is computed live from slots everywhere (boards, profiles, placements, feed stamping) — a single source of truth. A frozen copy would drift from those live views the moment slot data or difficulty changed, and the EF query already sums server-side in one round trip.
+- **Leaderboard endpoint**: `GET /api/leaderboard?runType=&limit=&season=` already existed with monthly seasons, a survival (DNF) board, and a hall of fame — richer than the spec's `type/page/pageSize`. Limit-based top-50 retained instead of pagination (boards are small; four views already slice them).
+- **Frontend**: the Standard/Lite toggle, podium styling, and username links already existed.
+
+### What actually changed
+
+- **Time tiebreaker** (the spec's genuinely new rule): board ranking is now `Score DESC → ElapsedMs ASC → EndTime DESC` — equal scores favor the faster gauntlet clock. Runs that never used the timer (`TimerElapsedMs == 0`) lose ties to any timed run (`TieBreakElapsed` maps 0 → `long.MaxValue`). Applies both to picking each player's PB and to ordering the board (`RankPbs`).
+- **Entry payload** (`LeaderboardEntryDto`) grew `avatarUrl`, `elapsedMs`, and `games: ArenaSlotDto[]` (`position`, `title`, `thumb`, `baseDifficulty`, `status`, `splitTimeMs`). Lineups load in one extra query per page (`LoadWheelsAsync` over the page's run ids), for both the PB and survival boards; hall-of-fame champions skip it. `PersonalBest` carries `AvatarUrl` + `ElapsedMs` internally.
+- **Arena page** (`/leaderboard`): retitled **"God Gamer Arena"**; rank cell shows 🏆 for #1; player cell gained the avatar (letter placeholder without one); score is bold gold; new **Time** column (`H:MM:SS`, "—" for untimed, ≥sm screens); new **Wheel** column with an ⊙ button opening the **Inspect Wheel modal** — the drafted lineup in slot order with cover, title, base difficulty, Won splits on the gauntlet clock, red-washed Lost slots, dimmed Pending slots, plus a header recap (player, score, clock, mode, progress). Escape/backdrop closes. Rows still link to `/run/[id]` and `/u/[username]`.
+
+### Tests
+
+`ArenaTests.cs` (1 test, 21 total passing): three identical 100-point Standard lineups rank fast clock → slow clock → untimed; the winner's payload carries score, elapsed, avatar, and the slot-ordered wheel (titles, difficulties, statuses, splits); a 199-point Lite clear never leaks onto the Standard board and owns the Lite board.
+
+### Build-environment note
+
+`next build` began failing with corrupted typed-route errors (`Type '"/"' is not assignable to type 'never'`); the cause was a leftover `next dev` server from a previous session regenerating `.next/types` mid-build. Killing the stale dev process and rebuilding fixed it — nothing was wrong with the code.
+
+---
+
 ## 6. CORS Policy
 
 Policy name: `AllowFrontend` (applied via `app.UseCors` before authorization/controllers).
@@ -797,17 +962,19 @@ Shared hook behind `/overlay/[runId]` and `/control/[runId]`. The server is the 
 
 | Route | Purpose |
 |---|---|
-| `/` | **Community feed** (Phase 7) — Hot/New/Top tabs; every finished run is a post card with vote arrows (optimistic updates), COMPLETED/FAILED badge, earned score, a 10-square slot strip (cyan won / red lost / dim pending), reaction bar (🔥 💀 👑 🫡), and an expandable inline comment thread with composer. Anonymous visitors can read everything; voting/reacting/commenting prompt sign-in. A compact "Enter the Draft Room" banner sits on top |
+| `/` | **Community feed** (Phase 7) — Hot/New/Top tabs; every finished run is a post card with vote arrows (optimistic updates), COMPLETED/FAILED badge, earned score, a 10-square slot strip (cyan won / red lost / dim pending), reaction bar (🔥 💀 👑 🫡), and an expandable inline comment thread with composer. Anonymous visitors can read everything; voting/reacting/commenting prompt sign-in. A compact "Enter the Draft Room" banner sits on top. Between the hero and the feed sits the **"Live Now" rail** (Records Phase 8, section 5k) — horizontal cards for every gauntlet with a running timer, ticking locally, linking out to the runner's stream |
 | `/login` | Sign in / create account (JWT stored on success) |
 | `/draft` | The Draft Room (below) — requires sign-in to launch |
 | `/run/[id]` | Live Run Tracker — header with streamer, status badge (cyan Active / red Failed / gold Completed) and total score; 10-slot board where won slots show earned score in cyan, the current slot glows with RECORD WIN / RECORD LOSS buttons (**shown only to the run owner** since Phase 7; spectators see a "Spectating" note), future slots are dimmed, and a lost slot shows the death state and locks the board; "Start a New Run" + "View Leaderboard" links when the run is over |
-| `/leaderboard` | Global Leaderboard — top-50 finished runs with rank (gold #FFD700 / silver #C0C0C0 / bronze #CD7F32 for the podium), streamer, earned score, slots survived (`n/10`), Completed/Failed badge, and finish time; "Draft a New Run" CTA. Linked from the home page, the Draft Room header, and the run tracker end state |
+| `/leaderboard` | **God Gamer Arena** — top-50 board with 🏆 rank badge for #1, player avatar + username (→ `/u/[username]`), bold gold earned score with gap-to-leader, gauntlet clock Time column (`H:MM:SS`, tiebreaker on equal scores), slots survived, finish date, and an ⊙ Inspect Wheel button opening the drafted-lineup modal (covers, slot order, base difficulty, Won splits, red Lost / dimmed Pending). Views: all-time, this-month, furthest DNF, hall of fame; Standard/Lite toggle; "Draft a run" CTA. Linked from the home page, the Draft Room header, and the run tracker end state |
 | `/overlay/[runId]` | **OBS browser-source overlay** (Phase 8) — fully transparent background (`html.obs-overlay` CSS class), no scrollbars, ~420px wide. 3D cylindrical wheel of the 10 drafted games (`perspective: 1000px`, per-item `rotateX(offset × -32°) translateZ(168px)`, 0.45s `cubic-bezier(0.2,0.8,0.2,1)` rotation): active slot is a dark pill with cyan neon glow, cover, title, and `X/10` counter; adjacent slots angle back with reduced opacity; beaten slots show a green check + strikethrough. Neon-green `H:MM:SS.cc` timer below (amber pulse when paused, gold when finished). Hotkeys: **Space** play/pause, **Enter/NumpadEnter** split, **R×2** reset (armed for 1.5s with on-screen warning), **P** toggles hidden helper buttons. Actions authenticate via the `?key=` overlay key in the URL |
 | `/control/[runId]` | **Streamer control deck** (Phase 8) — mobile/OBS-dock-friendly: live mirrored timer + status, big tactile buttons (green ▶ Play / amber ❚❚ Pause, cyan "Game Beaten — Next", Undo Previous, two-step red Reset Gauntlet), now-playing card, up-next list, per-game split times, and one-click "Copy OBS Browser Source URL" (embeds the overlay key). Controls disabled for non-owners; state syncs via the shared `useOverlayRun` hook |
+| `/records` | **Speedrun records directory** (Records Phase 5, section 5h) — debounced catalog search, cover-card grid, Previous/Next pagination over `GET /api/catalog`; the entry point to every game board |
 | `/records/[gameId]` | **Speedrun records board** (Records Phase 3, section 5f) — category tabs, subcategory filter pills, dense verified leaderboard with inline proof-video modal and collapsible rules panel |
 | `/records/[gameId]/submit` | **Run submission form** (Records Phase 3) — auth-gated; live time parsing, proof-URL validation, dynamic category variables, pending-review confirmation. Accepts `?timeMs=&sourceRunId=` from the gauntlet wedge (Phase 4) to prefill the time |
 | `/records/[gameId]/manage` | **Board workshop** (Records Phase 4, section 5g) — admins/moderators create categories, edit markdown rules, build subcategory variables and value options; admins manage the moderator roster |
 | `/mod/queue` | **Moderator courtroom** (Records Phase 3) — pending runs for games the caller moderates, on-demand video embeds, optimistic Verify/Reject with required rejection reason |
+| `/u/[username]` | **Player profile / trophy room** (Phases 9/11 + Records Phase 6, section 5i) — gauntlet identity header, live-run banner, stat strip, then tabs: verified speedrun PBs (default when any exist), full gauntlet history, and an owner-only Pending & rejected courtroom view |
 
 ### The Draft Room (`/draft`)
 
@@ -865,6 +1032,7 @@ dotnet ef database update --project GodGamerGauntlet.Api
    - `ASPNETCORE_ENVIRONMENT` = `Production`
    - `RawgApiKey` = your RAWG API key (free at [rawg.io/apidocs](https://rawg.io/apidocs)) — **the catalog sync silently skips without it**
    - `Jwt__Secret` = a long random string (e.g. `openssl rand -base64 48`) — **without it the API generates a random per-boot signing key and every deploy/restart logs all users out** (especially disruptive with Serverless sleep/wake cycles)
+   - `DISCORD_WR_WEBHOOK_URL` *(optional)* = a Discord channel webhook URL — new absolute world records on any speedrun board post a rich embed there (Records Phase 7, section 5j); the broadcaster is silently inert without it
 4. Deploy. Startup auto-migration brings the schema up to date and seeds the catalog on the first boot.
 5. Point the Vercel frontend at the Railway public domain; CORS already allows `*.vercel.app`.
 
@@ -912,3 +1080,8 @@ cd GodGamerGauntlet.Web && npm run dev
 | R2 | **Speedrun Records Phase 2 — The Courtroom**: `GameModerator` (composite PK, cascade) + `Users.IsAdmin` + `Submissions.IsObsolete` (`AddModeratorAndObsoleteTracking` migration, leaderboard index now includes IsObsolete); `SubmissionsController` (`POST /api/submissions` with VOD-regex/category-ownership/required-variable validation, public `GET /{id}` with review history); `ModerationController` (`GET queue` scoped to moderated games, `POST /api/submissions/{id}/review` Verify/Reject with examiner audit + double-review block, admin-only moderator assign/remove); per-subcategory PB obsolescence recompute on verify (fastest stays, slower flagged — including a late slower run). New `GodGamerGauntlet.Api.Tests` xunit project: 8 WebApplicationFactory integration tests over in-memory SQLite (`DbInitializer` falls back to EnsureCreated off-Npgsql), all passing (section 5e) |
 | R3 | **Speedrun Records Phase 3 — The Public Ledger**: `RecordsController` (public `GET /api/games/{id}/records` metadata + `GET .../categories/{id}/leaderboard?values=` with verified/non-obsolete filter, AND-matched value filters, per-player dedup on merged views, 500-row cap); frontend `/records/[gameId]` (category tabs, subcategory pills, dense board, 🏆 rank 1, inline YouTube/Twitch proof modal via new `ProofPlayer`/`toEmbedUrl`, rules drawer), `/records/[gameId]/submit` (live `H:MM:SS.ms` parser, client-side VOD regex mirror, dynamic variable selects, pending-review confirmation), `/mod/queue` (oldest-first courtroom cards, on-demand embeds, optimistic Verify/Reject with restore-on-failure); api.ts records/submission/moderation clients + `formatRecordTime`/`parseRecordTime`/`isValidProofUrl`; 2 new integration tests (metadata exposure, leaderboard filter/dedup/404) → 10 total passing (section 5f) |
 | R4 | **Speedrun Records Phase 4 — Board Management & Gauntlet Wedge**: `CategoriesController` (admin/mod-gated category create + update, variable create with `IsSubcategory`/`IsRequired`, value create; trim/blank-400/duplicate-409 rules); `AccountDto.IsAdmin` exposed for client-side gating; `/records/[gameId]/manage` workshop (category manager with inline rules editor, variable & value builder, admin-only moderator roster with optimistic revoke) + "Manage board" header button; gauntlet wedge — segment-time (not cumulative clock) "Submit as speedrun" links on `/run/[id]` Won slots and the control-deck splits table, deep-linking to the submit form's new `?timeMs=&sourceRunId=` prefill (Suspense-wrapped `useSearchParams`); `ModerationController.GetModerators` username sort (SQLite DateTimeOffset fix); 3 new integration tests → 13 total passing (section 5g) |
+| R5 | **Records Phase 5 — Discoverability**: `CatalogController` (`GET /api/catalog` with case-insensitive search, clamped page/pageSize ≤100, featured→rank→title sort, `CatalogPageDto` wrapper); `/records` directory (300 ms debounced search, responsive cover grid, Prev/Next pager); `SiteNav` Records link (prefix-active) + account dropdown (My profile & runs, Account settings, conditional Mod queue, Log out); `AccountDto.IsModerator` (any GameModerators row, computed in new `SignedInAsync` on all auth responses); auth-aware `HomeHero` above the feed homepage (public pitch + CTAs / resume-gauntlet card from `getProfile().live` / start-a-gauntlet CTA) — the feed itself was kept, not replaced; `CatalogTests.cs` → 14 total passing (section 5h) |
+| R6 | **Records Phase 6 — Trophy Room**: `GET /api/users/by-username/{username}/speedruns` (public: verified non-obsolete PBs, `ReviewedAt DESC`, 404 on unknown player) + `GET /api/users/me/pending-runs` (JWT-scoped pending/rejected with `rejectReason`/`examinerName`), both on `SubmissionsController` via absolute routes; `/u/[username]` gained tabs — Speedruns PB shelf (rows link to game boards + VOD proof), Gauntlets (existing content unchanged), owner-only Pending & rejected courtroom (red rejection cards quoting the examiner) — defaulting to Speedruns only when PBs exist; step-3 global username linking audited as already complete; `ProfileTests.cs` (privacy: anonymous 401, cross-user isolation, obsolete/pending/rejected hidden from the public shelf) → 16 total passing (section 5i) |
+| R7 | **Records Phase 7 — Feedback Loop**: `Notification` entity (`AddNotifications` migration; cascade from Users; `CreatedAt` as UTC `DateTime` for SQLite ORDER BY) + `NotificationsController` (`GET /api/notifications` newest-50, `PUT …/{id}/read` idempotent, cross-user ids 404); `ModerationController.Review` writes verdict notifications in-transaction (reject → `/u/{name}?tab=pending`, verify → `/records/{gameId}`, snipe → previous board-best holder via new `FindBoardBestAsync`, computed pre-obsolescence across all players); `DiscordWorldRecordAnnouncer` posts a gold rich embed to `DISCORD_WR_WEBHOOK_URL` on new absolute board WRs (never throws, inert without the env var); frontend `useNotifications` hook (30 s poll + focus refetch, optimistic mark-read) + `NotificationBell` in `SiteNav` (red unread badge, dropdown, click = read + navigate); profile page honors `?tab=` deep links; `NotificationTests.cs` → 18 total passing (section 5j) |
+| R8 | **Records Phase 8 — Streamer Identity & Live Now**: `User.AvatarUrl` (`AddUserAvatarUrl` migration) on `AccountDto` + `UserProfileDto`; `PUT /api/users/me/profile` (http(s)-only validation since the URL renders as `<img src>`, blank clears, returns `AuthResponse`); **no duplicate `StreamUrl` column** — the existing multi-link `UserStreamLink` system stays the source of truth and the live card uses the first link; `GET /api/runs/live` (public, Active+running, `TimerUpdatedAt DESC`, ≤24 cards, 15 s cache header, `LiveRunCardDto` with server-extrapolated `elapsedMs`); settings Avatar section with preview; homepage "Live Now" horizontal rail (60 s poll, locally ticking `SpeedrunTimer`, card links to stream else profile); profile-header avatar; `LiveDirectoryTests.cs` → 20 total passing (section 5k) |
+| R9 | **Phase 9 — Scoring Engine & Global Arena**: time tiebreaker on boards (`Score DESC → ElapsedMs ASC → EndTime DESC`; untimed runs lose ties); `LeaderboardEntryDto` + `avatarUrl`/`elapsedMs`/`games` (slot-ordered `ArenaSlotDto` lineups via one `LoadWheelsAsync` query per page, PB + survival boards); `/leaderboard` retitled "God Gamer Arena" with 🏆 rank badge, player avatars, bold gold scores, `H:MM:SS` Time column, and the Inspect Wheel modal (covers, difficulty, splits, lost/pending styling); **kept** live-computed scoring (no `TotalScore` column — retired-multiplier formula and drift rationale in section 5l) and limit-based top-50; `ArenaTests.cs` → 21 total passing (section 5l) |

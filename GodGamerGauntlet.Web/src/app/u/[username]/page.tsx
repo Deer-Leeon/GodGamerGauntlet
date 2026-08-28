@@ -4,7 +4,19 @@ import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { getProfile, type ProfileGame, type ProfileLiveRun, type ProfileMode, type ProfileRun, type RunType, type UserProfile } from "@/lib/api";
+import {
+  formatRecordTime,
+  getMyPendingRuns,
+  getProfile,
+  getUserSpeedruns,
+  type ProfileGame,
+  type ProfileLiveRun,
+  type ProfileMode,
+  type ProfileRun,
+  type RunType,
+  type Submission,
+  type UserProfile,
+} from "@/lib/api";
 import { timeAgo } from "@/components/RunSocial";
 import SpeedrunTimer, { formatSpeedrunTime } from "@/components/SpeedrunTimer";
 import MomentChips from "@/components/MomentChips";
@@ -15,6 +27,7 @@ import FollowButton from "@/components/FollowButton";
 import { useAuth } from "@/lib/auth";
 
 type HistoryFilter = "All" | RunType;
+type ProfileTab = "speedruns" | "gauntlets" | "courtroom";
 
 function formatScore(value: number): string {
   return value.toLocaleString("en-US", {
@@ -42,15 +55,28 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [missing, setMissing] = useState(false);
   const [historyFilter, setHistoryFilter] = useState<HistoryFilter>("All");
+  const [speedruns, setSpeedruns] = useState<Submission[] | null>(null);
+  const [courtroomRuns, setCourtroomRuns] = useState<Submission[] | null>(null);
+  const [pickedTab, setPickedTab] = useState<ProfileTab | null>(null);
+
+  const isOwner = user != null && profile != null && user.id === profile.id;
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setMissing(false);
     setHistoryFilter("All");
-    getProfile(decoded)
-      .then((data) => {
-        if (!cancelled) setProfile(data);
+    setSpeedruns(null);
+    setCourtroomRuns(null);
+    setPickedTab(null);
+    Promise.all([
+      getProfile(decoded),
+      getUserSpeedruns(decoded).catch(() => [] as Submission[]),
+    ])
+      .then(([data, runs]) => {
+        if (cancelled) return;
+        setProfile(data);
+        setSpeedruns(runs);
       })
       .catch(() => {
         if (!cancelled) {
@@ -65,6 +91,45 @@ export default function ProfilePage() {
       cancelled = true;
     };
   }, [decoded]);
+
+  // The courtroom tab is the owner's private view of pending/rejected runs.
+  useEffect(() => {
+    if (!isOwner) {
+      setCourtroomRuns(null);
+      return;
+    }
+    let cancelled = false;
+    getMyPendingRuns()
+      .then((runs) => {
+        if (!cancelled) setCourtroomRuns(runs);
+      })
+      .catch(() => {
+        if (!cancelled) setCourtroomRuns([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOwner]);
+
+  // Notifications deep-link to the courtroom via ?tab=pending. Read from
+  // window instead of useSearchParams to avoid a Suspense boundary.
+  useEffect(() => {
+    const wanted = new URLSearchParams(window.location.search).get("tab");
+    if (wanted === "pending" || wanted === "courtroom") {
+      setPickedTab("courtroom");
+    } else if (wanted === "speedruns" || wanted === "gauntlets") {
+      setPickedTab(wanted);
+    }
+  }, [decoded]);
+
+  // Default to the trophy room when it has trophies, otherwise gauntlets.
+  // The courtroom is owner-only, so visitors deep-linking there fall back.
+  const fallbackTab: ProfileTab =
+    (speedruns?.length ?? 0) > 0 ? "speedruns" : "gauntlets";
+  const tab: ProfileTab =
+    pickedTab === null || (pickedTab === "courtroom" && !isOwner)
+      ? fallbackTab
+      : pickedTab;
 
   const history = useMemo(() => {
     if (!profile) return [];
@@ -103,7 +168,16 @@ export default function ProfilePage() {
       </p>
 
       <header className="border-b border-gold/20 pb-6">
-        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          {profile.avatarUrl && (
+            // Free-form external URL — next/image would need domain allowlisting.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={profile.avatarUrl}
+              alt=""
+              className="h-12 w-12 rounded-full border border-gold/25 object-cover"
+            />
+          )}
           <h1 className="text-2xl font-semibold">{profile.username}</h1>
           {profile.live && <span className="live-run-chip">Live</span>}
         </div>
@@ -163,52 +237,255 @@ export default function ProfilePage() {
         <Stat label="Games beaten" value={String(profile.gamesBeaten)} />
       </section>
 
-      <section className="mt-10 grid gap-8 sm:grid-cols-2">
-        <ModeCard label="Standard" mode={profile.standard} />
-        <ModeCard label="Lite" mode={profile.lite} />
-      </section>
-
-      <Bestiary beaten={profile.beaten ?? []} killers={profile.killers ?? []} />
-
-      <section className="mt-10">
-        <h2 className="text-sm font-medium text-ink">Gauntlet history</h2>
-        <div
-          role="tablist"
-          aria-label="Filter history"
-          className="mt-4 flex gap-6 border-b border-gold/20 text-sm"
-        >
-          {(["All", "Standard", "Lite"] as const).map((filter) => (
-            <button
-              key={filter}
-              role="tab"
-              aria-selected={historyFilter === filter}
-              onClick={() => setHistoryFilter(filter)}
-              className={`-mb-px border-b-2 pb-3 transition ${
-                historyFilter === filter
-                  ? "border-gold text-gold"
-                  : "border-transparent text-faint hover:text-ink"
-              }`}
-            >
-              {filter}
-            </button>
-          ))}
-        </div>
-
-        {history.length === 0 ? (
-          <p className="mt-5 text-sm text-faint">
-            {profile.runs.length === 0
-              ? "No finished gauntlets yet."
-              : `No ${historyFilter.toLowerCase()} gauntlets yet.`}
-          </p>
-        ) : (
-          <div className="feed-list mt-5">
-            {history.map((run) => (
-              <HistoryCard key={run.runId} run={run} />
-            ))}
-          </div>
+      <div
+        role="tablist"
+        aria-label="Profile sections"
+        className="mt-10 flex flex-wrap gap-6 border-b border-gold/20 text-sm"
+      >
+        <ProfileTabButton
+          active={tab === "speedruns"}
+          onClick={() => setPickedTab("speedruns")}
+          label={`Speedruns${speedruns?.length ? ` (${speedruns.length})` : ""}`}
+        />
+        <ProfileTabButton
+          active={tab === "gauntlets"}
+          onClick={() => setPickedTab("gauntlets")}
+          label="Gauntlets"
+        />
+        {isOwner && (
+          <ProfileTabButton
+            active={tab === "courtroom"}
+            onClick={() => setPickedTab("courtroom")}
+            label={`Pending & rejected${
+              courtroomRuns?.length ? ` (${courtroomRuns.length})` : ""
+            }`}
+          />
         )}
-      </section>
+      </div>
+
+      {tab === "speedruns" && <SpeedrunShelf runs={speedruns ?? []} />}
+
+      {tab === "gauntlets" && (
+        <>
+          <section className="mt-8 grid gap-8 sm:grid-cols-2">
+            <ModeCard label="Standard" mode={profile.standard} />
+            <ModeCard label="Lite" mode={profile.lite} />
+          </section>
+
+          <Bestiary
+            beaten={profile.beaten ?? []}
+            killers={profile.killers ?? []}
+          />
+
+          <section className="mt-10">
+            <h2 className="text-sm font-medium text-ink">Gauntlet history</h2>
+            <div
+              role="tablist"
+              aria-label="Filter history"
+              className="mt-4 flex gap-6 border-b border-gold/20 text-sm"
+            >
+              {(["All", "Standard", "Lite"] as const).map((filter) => (
+                <button
+                  key={filter}
+                  role="tab"
+                  aria-selected={historyFilter === filter}
+                  onClick={() => setHistoryFilter(filter)}
+                  className={`-mb-px border-b-2 pb-3 transition ${
+                    historyFilter === filter
+                      ? "border-gold text-gold"
+                      : "border-transparent text-faint hover:text-ink"
+                  }`}
+                >
+                  {filter}
+                </button>
+              ))}
+            </div>
+
+            {history.length === 0 ? (
+              <p className="mt-5 text-sm text-faint">
+                {profile.runs.length === 0
+                  ? "No finished gauntlets yet."
+                  : `No ${historyFilter.toLowerCase()} gauntlets yet.`}
+              </p>
+            ) : (
+              <div className="feed-list mt-5">
+                {history.map((run) => (
+                  <HistoryCard key={run.runId} run={run} />
+                ))}
+              </div>
+            )}
+          </section>
+        </>
+      )}
+
+      {tab === "courtroom" && isOwner && (
+        <CourtroomShelf runs={courtroomRuns} />
+      )}
     </main>
+  );
+}
+
+function ProfileTabButton({
+  active,
+  onClick,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      role="tab"
+      aria-selected={active}
+      onClick={onClick}
+      className={`-mb-px border-b-2 pb-3 transition ${
+        active
+          ? "border-gold text-gold"
+          : "border-transparent text-faint hover:text-ink"
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
+function formatRunDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+/** Current verified PBs — the public trophy room. Rows open the game board. */
+function SpeedrunShelf({ runs }: { runs: Submission[] }) {
+  if (runs.length === 0) {
+    return (
+      <p className="mt-6 text-sm text-faint">
+        No verified speedruns yet.{" "}
+        <Link href="/records" className="text-gold hover:text-gold/80">
+          Find a board and submit one.
+        </Link>
+      </p>
+    );
+  }
+
+  return (
+    <div className="feed-list mt-6">
+      {runs.map((run) => (
+        <article
+          key={run.id}
+          className="feed-row flex flex-wrap items-center gap-x-4 gap-y-1 py-3.5 text-sm"
+        >
+          <div className="min-w-0 flex-1">
+            <Link
+              href={`/records/${run.gameId}`}
+              className="font-medium text-ink hover:text-gold"
+            >
+              {run.gameTitle}
+            </Link>
+            <span className="ml-2 text-faint">{run.categoryName}</span>
+            <span className="ml-2 inline-flex flex-wrap gap-1">
+              {run.variables.map((tag) => (
+                <span
+                  key={tag.variableValueId}
+                  className="border border-gold/20 px-1.5 py-0.5 text-[11px] text-faint"
+                >
+                  {tag.value}
+                </span>
+              ))}
+            </span>
+          </div>
+          <span className="font-mono tabular-nums text-gold">
+            {formatRecordTime(run.primaryTimeMs)}
+          </span>
+          <span className="hidden font-mono text-xs text-muted sm:inline">
+            {formatRunDate(run.playedOn)}
+          </span>
+          <a
+            href={run.videoUrl}
+            target="_blank"
+            rel="noreferrer"
+            title="Watch the proof video"
+            className="text-faint transition hover:text-gold"
+          >
+            ▶
+          </a>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+/** Owner-only: submissions still pending review, plus rejections with reasons. */
+function CourtroomShelf({ runs }: { runs: Submission[] | null }) {
+  if (runs === null) {
+    return <p className="mt-6 text-sm text-faint">Loading…</p>;
+  }
+  if (runs.length === 0) {
+    return (
+      <p className="mt-6 text-sm text-faint">
+        Nothing in the courtroom — every submitted run has been verified.
+      </p>
+    );
+  }
+
+  return (
+    <div className="mt-6 space-y-3">
+      {runs.map((run) => {
+        const rejected = run.status === "Rejected";
+        return (
+          <article
+            key={run.id}
+            className={`border p-4 text-sm ${
+              rejected
+                ? "border-red-400/30 bg-red-500/5"
+                : "border-gold/20 bg-black/20"
+            }`}
+          >
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <span
+                className={`border px-2 py-0.5 text-[11px] uppercase tracking-wide ${
+                  rejected
+                    ? "border-red-400/50 text-red-400"
+                    : "border-gold/40 text-gold"
+                }`}
+              >
+                {rejected ? "Rejected" : "Pending review"}
+              </span>
+              <Link
+                href={`/records/${run.gameId}`}
+                className="font-medium text-ink hover:text-gold"
+              >
+                {run.gameTitle}
+              </Link>
+              <span className="text-faint">{run.categoryName}</span>
+              <span className="font-mono tabular-nums text-muted">
+                {formatRecordTime(run.primaryTimeMs)}
+              </span>
+              <span className="ml-auto font-mono text-xs text-faint">
+                submitted {formatRunDate(run.submittedAt)}
+              </span>
+            </div>
+            {rejected && run.rejectReason && (
+              <p className="mt-2 border-l-2 border-red-400/50 pl-3 leading-relaxed text-red-200/90">
+                {run.examinerName ? `${run.examinerName}: ` : ""}
+                {run.rejectReason}
+              </p>
+            )}
+            <a
+              href={run.videoUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-2 inline-block text-xs text-faint hover:text-gold"
+            >
+              Watch submitted VOD ↗
+            </a>
+          </article>
+        );
+      })}
+    </div>
   );
 }
 

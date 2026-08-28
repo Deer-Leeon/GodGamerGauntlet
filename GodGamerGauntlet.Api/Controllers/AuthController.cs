@@ -1,11 +1,13 @@
 using System.Security.Claims;
 using GodGamerGauntlet.Api.Contracts;
+using GodGamerGauntlet.Api.Data;
 using GodGamerGauntlet.Api.Models;
 using GodGamerGauntlet.Api.Repositories;
 using GodGamerGauntlet.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace GodGamerGauntlet.Api.Controllers;
 
@@ -13,7 +15,8 @@ namespace GodGamerGauntlet.Api.Controllers;
 [Route("api/auth")]
 public class AuthController(
     IUserRepository userRepository,
-    JwtTokenService tokenService) : ControllerBase
+    JwtTokenService tokenService,
+    AppDbContext context) : ControllerBase
 {
     private static readonly PasswordHasher<User> PasswordHasher = new();
 
@@ -54,7 +57,7 @@ public class AuthController(
 
         await userRepository.AddAsync(user, cancellationToken);
 
-        return StatusCode(StatusCodes.Status201Created, SignedIn(user));
+        return StatusCode(StatusCodes.Status201Created, await SignedInAsync(user, cancellationToken));
     }
 
     [HttpPost("login")]
@@ -76,7 +79,7 @@ public class AuthController(
             return Unauthorized("Invalid username, email, or password.");
         }
 
-        return Ok(SignedIn(user));
+        return Ok(await SignedInAsync(user, cancellationToken));
     }
 
     [HttpGet("me")]
@@ -86,7 +89,9 @@ public class AuthController(
     public async Task<IActionResult> Me(CancellationToken cancellationToken)
     {
         var user = await userRepository.GetByIdAsync(CurrentUserId, cancellationToken);
-        return user is null ? Unauthorized() : Ok(AccountDto.FromEntity(user));
+        return user is null
+            ? Unauthorized()
+            : Ok(AccountDto.FromEntity(user, await IsModeratorAsync(user.Id, cancellationToken)));
     }
 
     [HttpPut("username")]
@@ -114,7 +119,7 @@ public class AuthController(
 
         user.Username = username;
         await userRepository.SaveChangesAsync(cancellationToken);
-        return Ok(SignedIn(user));
+        return Ok(await SignedInAsync(user, cancellationToken));
     }
 
     [HttpPut("email")]
@@ -147,7 +152,7 @@ public class AuthController(
 
         user.Email = email;
         await userRepository.SaveChangesAsync(cancellationToken);
-        return Ok(SignedIn(user));
+        return Ok(await SignedInAsync(user, cancellationToken));
     }
 
     [HttpPut("password")]
@@ -168,7 +173,7 @@ public class AuthController(
 
         user.PasswordHash = PasswordHasher.HashPassword(user, request.NewPassword);
         await userRepository.SaveChangesAsync(cancellationToken);
-        return Ok(SignedIn(user));
+        return Ok(await SignedInAsync(user, cancellationToken));
     }
 
     [HttpPut("stream-links")]
@@ -189,13 +194,60 @@ public class AuthController(
 
         await userRepository.ReplaceStreamLinksAsync(user.Id, links, cancellationToken);
         var saved = await userRepository.GetByIdAsync(user.Id, cancellationToken);
-        return Ok(SignedIn(saved ?? user));
+        return Ok(await SignedInAsync(saved ?? user, cancellationToken));
+    }
+
+    /// <summary>
+    /// Profile appearance: avatar image URL (null/blank clears it). Stream
+    /// URLs are managed by PUT api/auth/stream-links, not here.
+    /// </summary>
+    [HttpPut("~/api/users/me/profile")]
+    [Authorize]
+    [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> UpdateProfile(
+        UpdateProfileRequest request, CancellationToken cancellationToken)
+    {
+        var avatarUrl = string.IsNullOrWhiteSpace(request.AvatarUrl)
+            ? null
+            : request.AvatarUrl.Trim();
+
+        if (avatarUrl is not null)
+        {
+            if (avatarUrl.Length > Models.User.AvatarUrlMaxLength)
+            {
+                return BadRequest("Avatar URL is too long.");
+            }
+            // http(s) only: an <img src> renders this, so no javascript:/data:.
+            if (!Uri.TryCreate(avatarUrl, UriKind.Absolute, out var uri)
+                || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+            {
+                return BadRequest("Avatar URL must be a valid http(s) image link.");
+            }
+        }
+
+        var user = await context.Users
+            .Include(u => u.StreamLinks)
+            .FirstOrDefaultAsync(u => u.Id == CurrentUserId, cancellationToken);
+        if (user is null) return Unauthorized();
+
+        user.AvatarUrl = avatarUrl;
+        await context.SaveChangesAsync(cancellationToken);
+
+        return Ok(await SignedInAsync(user, cancellationToken));
     }
 
     private Guid CurrentUserId => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
-    private AuthResponse SignedIn(User user) =>
-        new(tokenService.CreateToken(user), AccountDto.FromEntity(user));
+    // The mod-queue nav link needs to know about moderator grants up front.
+    private Task<bool> IsModeratorAsync(Guid userId, CancellationToken cancellationToken) =>
+        context.GameModerators.AsNoTracking()
+            .AnyAsync(m => m.UserId == userId, cancellationToken);
+
+    private async Task<AuthResponse> SignedInAsync(User user, CancellationToken cancellationToken) =>
+        new(
+            tokenService.CreateToken(user),
+            AccountDto.FromEntity(user, await IsModeratorAsync(user.Id, cancellationToken)));
 
     private static bool PasswordMatches(User user, string password)
     {

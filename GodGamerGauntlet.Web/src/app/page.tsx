@@ -9,8 +9,22 @@ import {
   VoteColumn,
   timeAgo,
 } from "@/components/RunSocial";
-import { formatSpeedrunTime } from "@/components/SpeedrunTimer";
-import { getFeed, getLeaderboard, type FeedPost, type FeedSort, type LeaderboardEntry, type RunType } from "@/lib/api";
+import SpeedrunTimer, {
+  formatSpeedrunTime,
+} from "@/components/SpeedrunTimer";
+import {
+  getFeed,
+  getLeaderboard,
+  getLiveRuns,
+  getProfile,
+  type FeedPost,
+  type FeedSort,
+  type LeaderboardEntry,
+  type LiveRunCard,
+  type ProfileLiveRun,
+  type RunType,
+  type User,
+} from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import MomentChips from "@/components/MomentChips";
 
@@ -19,6 +33,269 @@ const SORTS: { id: FeedSort; label: string }[] = [
   { id: "new", label: "New" },
   { id: "top", label: "Top" },
 ];
+
+/**
+ * Auth-aware landing banner above the feed: signed-out visitors get the
+ * pitch, signed-in players get their gauntlet status (resume or start).
+ */
+function HomeHero({ user }: { user: User | null }) {
+  const [live, setLive] = useState<ProfileLiveRun | null>(null);
+  const [checked, setChecked] = useState(false);
+
+  useEffect(() => {
+    if (!user) {
+      setLive(null);
+      setChecked(false);
+      return;
+    }
+    let cancelled = false;
+    getProfile(user.username)
+      .then((profile) => {
+        if (cancelled) return;
+        setLive(profile.live ?? null);
+        setChecked(true);
+      })
+      .catch(() => {
+        // No card is better than a broken one; the feed below still works.
+        if (!cancelled) setChecked(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  if (!user) {
+    return (
+      <section className="border border-gold/25 bg-gold/5 px-6 py-8">
+        <h1 className="text-3xl font-semibold text-ink">
+          Draft the games. Survive the gauntlet.
+        </h1>
+        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted">
+          God Gamer Gauntlet is a marathon format: draft a lineup of games,
+          beat them back to back on stream, and post your clear to the board.
+          Verified speedrun records live here too — per-game, VOD-reviewed,
+          ad-free.
+        </p>
+        <div className="mt-6 flex flex-wrap gap-3 text-sm">
+          <Link
+            href="/login"
+            className="bg-gold px-5 py-2.5 text-dark transition hover:bg-gold/90"
+          >
+            Sign in & draft a gauntlet
+          </Link>
+          <Link
+            href="/records"
+            className="border border-gold/30 px-5 py-2.5 text-muted transition hover:border-gold hover:text-ink"
+          >
+            Browse speedrun records
+          </Link>
+          <Link
+            href="/leaderboard"
+            className="border border-gold/30 px-5 py-2.5 text-muted transition hover:border-gold hover:text-ink"
+          >
+            Gauntlet leaderboard
+          </Link>
+        </div>
+      </section>
+    );
+  }
+
+  if (!checked) return null;
+
+  if (live) {
+    return (
+      <section className="flex flex-wrap items-center justify-between gap-4 border border-gold/25 bg-gold/5 px-6 py-5">
+        <div className="min-w-0">
+          <p className="text-xs uppercase tracking-[0.18em] text-gold">
+            Gauntlet in progress
+          </p>
+          <p className="mt-1.5 truncate text-sm text-muted">
+            {live.slotsCompleted}/{live.totalSlots} beaten
+            {live.currentTitle && (
+              <>
+                {" · now playing "}
+                <span className="text-ink">{live.currentTitle}</span>
+              </>
+            )}
+          </p>
+        </div>
+        <div className="flex shrink-0 gap-3 text-sm">
+          <Link
+            href={`/run/${live.runId}`}
+            className="bg-gold px-5 py-2.5 text-dark transition hover:bg-gold/90"
+          >
+            Resume gauntlet
+          </Link>
+          <Link
+            href={`/control/${live.runId}`}
+            className="border border-gold/30 px-5 py-2.5 text-muted transition hover:border-gold hover:text-ink"
+          >
+            Open control deck
+          </Link>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="flex flex-wrap items-center justify-between gap-4 border border-gold/25 bg-gold/5 px-6 py-5">
+      <div>
+        <p className="text-xs uppercase tracking-[0.18em] text-gold">
+          No gauntlet in flight
+        </p>
+        <p className="mt-1.5 text-sm text-muted">
+          Draft a lineup and put a run on the board.
+        </p>
+      </div>
+      <Link
+        href="/draft"
+        className="shrink-0 bg-gold px-6 py-3 text-sm font-medium text-dark transition hover:bg-gold/90"
+      >
+        Start a new gauntlet
+      </Link>
+    </section>
+  );
+}
+
+const LIVE_POLL_MS = 60_000;
+
+/**
+ * Horizontal rail of gauntlets whose timer is running right now. Each card
+ * sends viewers to the runner's stream (or profile when no stream is set).
+ */
+function LiveNowRail() {
+  const [cards, setCards] = useState<LiveRunCard[]>([]);
+  // performance.now() at fetch time; SpeedrunTimer extrapolates from here.
+  const [syncedAt, setSyncedAt] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = () =>
+      getLiveRuns()
+        .then((fetched) => {
+          if (cancelled) return;
+          setCards(fetched);
+          setSyncedAt(performance.now());
+        })
+        .catch(() => {
+          // The rail is decoration; a failed poll just keeps the last state.
+        });
+    load();
+    const timer = window.setInterval(load, LIVE_POLL_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  if (cards.length === 0) return null;
+
+  return (
+    <section className="mt-8" aria-label="Live now">
+      <h2 className="flex items-center gap-2 text-sm font-medium text-ink">
+        <span aria-hidden className="live-run-dot" />
+        <span className="text-red-400">LIVE NOW</span>
+        <span className="font-normal text-faint">
+          {cards.length} gauntlet{cards.length === 1 ? "" : "s"} running
+        </span>
+      </h2>
+      <div className="mt-3 flex gap-3 overflow-x-auto pb-2">
+        {cards.map((card) => (
+          <LiveCard key={card.runId} card={card} syncedAt={syncedAt} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function LiveCard({ card, syncedAt }: { card: LiveRunCard; syncedAt: number }) {
+  const external = card.streamUrl !== null;
+  const href = card.streamUrl ?? `/u/${encodeURIComponent(card.username)}`;
+
+  const body = (
+    <>
+      {/* Current game cover as the card backdrop. */}
+      <div className="relative h-24 w-full overflow-hidden bg-white/5">
+        {card.currentThumb ? (
+          <Image
+            src={card.currentThumb}
+            alt=""
+            fill
+            unoptimized
+            sizes="256px"
+            className="object-cover opacity-80 transition group-hover:opacity-100"
+          />
+        ) : (
+          <span className="flex h-full items-center justify-center font-mono text-2xl text-faint">
+            {(card.currentTitle ?? card.username).slice(0, 1)}
+          </span>
+        )}
+        <span className="absolute left-2 top-2 flex items-center gap-1.5 bg-black/70 px-2 py-0.5 text-[10px] uppercase tracking-wide text-red-400">
+          <span aria-hidden className="live-run-dot" />
+          Live
+        </span>
+      </div>
+      <div className="flex items-center gap-2.5 px-3 pt-2.5">
+        {card.avatarUrl ? (
+          // Free-form external URL — next/image would need domain allowlisting.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={card.avatarUrl}
+            alt=""
+            className="h-7 w-7 shrink-0 rounded-full border border-gold/25 object-cover"
+          />
+        ) : (
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-gold/25 bg-white/5 font-mono text-xs text-faint">
+            {card.username.slice(0, 1).toUpperCase()}
+          </span>
+        )}
+        <span className="truncate text-sm font-medium text-ink">
+          {card.username}
+        </span>
+      </div>
+      <div className="flex items-baseline justify-between gap-3 px-3 pb-3 pt-1.5">
+        <span className="min-w-0 truncate text-xs text-muted">
+          {card.currentTitle ?? "Between games"}
+          <span className="text-faint">
+            {" · "}
+            {card.slotsCompleted}/{card.totalSlots}
+            {card.runType === "Lite" ? " · Lite" : ""}
+          </span>
+        </span>
+        <SpeedrunTimer
+          elapsedMs={card.elapsedMs}
+          timerStatus="running"
+          syncedAt={syncedAt}
+          tone="site"
+          className="text-sm"
+        />
+      </div>
+    </>
+  );
+
+  const cardClass =
+    "group w-64 shrink-0 border border-gold/20 bg-surface transition hover:border-gold/45";
+
+  return external ? (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      title={`Watch ${card.username}'s stream`}
+      className={cardClass}
+    >
+      {body}
+    </a>
+  ) : (
+    <Link
+      href={href}
+      title={`${card.username}'s profile`}
+      className={cardClass}
+    >
+      {body}
+    </Link>
+  );
+}
 
 export default function FeedPage() {
   const { user } = useAuth();
@@ -84,7 +361,11 @@ export default function FeedPage() {
 
   return (
     <main className="feed-page site-content flex-1 px-5 py-8 sm:px-7">
-      <header className="flex flex-wrap items-end justify-between gap-4 border-b border-gold/20 pb-6">
+      <HomeHero user={user} />
+
+      <LiveNowRail />
+
+      <header className="mt-8 flex flex-wrap items-end justify-between gap-4 border-b border-gold/20 pb-6">
         <div>
           <h1 className="text-2xl font-semibold text-ink">Feed</h1>
           <p className="mt-2 max-w-md text-sm leading-relaxed text-muted">

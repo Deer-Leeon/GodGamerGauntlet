@@ -93,6 +93,11 @@ builder.Services.AddHttpClient<RawgClient>(client =>
 builder.Services.AddScoped<IGameSyncService, GameSyncService>();
 builder.Services.AddHostedService<GameSyncBackgroundService>();
 
+// Discord WR broadcast: no-op unless DISCORD_WR_WEBHOOK_URL is configured.
+builder.Services.AddHttpClient(nameof(DiscordWorldRecordAnnouncer), client =>
+    client.Timeout = TimeSpan.FromSeconds(10));
+builder.Services.AddScoped<IWorldRecordAnnouncer, DiscordWorldRecordAnnouncer>();
+
 builder.Services.AddControllers(options =>
 {
     // Nested record types in lists make DataAnnotations throw, which the

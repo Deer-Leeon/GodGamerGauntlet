@@ -4,13 +4,25 @@ public record LeaderboardEntryDto(
     Guid RunId,
     Guid UserId,
     string StreamerName,
+    string? AvatarUrl,
     double TotalScore,
     string Status,
     string RunType,
     int SlotsCompleted,
     int TotalSlots,
+    long ElapsedMs,
     DateTime? EndTime,
-    int Rank);
+    int Rank,
+    IReadOnlyList<ArenaSlotDto> Games);
+
+/// <summary>One slot of a drafted gauntlet, for the arena's "inspect wheel" view.</summary>
+public record ArenaSlotDto(
+    int Position,
+    string Title,
+    string? Thumb,
+    int BaseDifficulty,
+    string Status,
+    long? SplitTimeMs);
 
 public record RunPlacementDto(
     string RunType,
@@ -87,6 +99,7 @@ public record PlayerCardDto(
 public record UserProfileDto(
     Guid Id,
     string Username,
+    string? AvatarUrl,
     DateTime CreatedAt,
     DateTime? LastRunAt,
     int AttemptCount,
@@ -103,6 +116,22 @@ public record UserProfileDto(
     IReadOnlyList<StreamLinkDto> StreamLinks,
     ProfileLiveRunDto? Live,
     bool IsFollowing);
+
+/// <summary>
+/// One card on the homepage "Live Now" rail: a gauntlet whose timer is
+/// running right now, with everything needed to send viewers to the stream.
+/// </summary>
+public record LiveRunCardDto(
+    Guid RunId,
+    string Username,
+    string? AvatarUrl,
+    string? StreamUrl,
+    string RunType,
+    int SlotsCompleted,
+    int TotalSlots,
+    string? CurrentTitle,
+    string? CurrentThumb,
+    long ElapsedMs);
 
 /// <summary>An in-progress gauntlet on a public profile, when one is running.</summary>
 public record ProfileLiveRunDto(

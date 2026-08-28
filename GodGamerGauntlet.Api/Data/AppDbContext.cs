@@ -20,6 +20,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Submission> Submissions => Set<Submission>();
     public DbSet<SubmissionVariable> SubmissionVariables => Set<SubmissionVariable>();
     public DbSet<GameModerator> GameModerators => Set<GameModerator>();
+    public DbSet<Notification> Notifications => Set<Notification>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -33,6 +34,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .HasFilter("\"Email\" IS NOT NULL");
             entity.Property(u => u.PasswordHash).HasMaxLength(500);
             entity.Property(u => u.IsAdmin).HasDefaultValue(false);
+            entity.Property(u => u.AvatarUrl).HasMaxLength(User.AvatarUrlMaxLength);
 
             // A User has many Runs.
             entity.HasMany(u => u.Runs)
@@ -300,6 +302,26 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
             // "Which games does this user moderate" — the queue query.
             entity.HasIndex(m => m.UserId);
+        });
+
+        modelBuilder.Entity<Notification>(entity =>
+        {
+            entity.Property(n => n.Message)
+                  .HasMaxLength(Notification.MessageMaxLength)
+                  .IsRequired();
+            entity.Property(n => n.ActionUrl)
+                  .HasMaxLength(Notification.ActionUrlMaxLength)
+                  .IsRequired();
+            entity.Property(n => n.IsRead).HasDefaultValue(false);
+
+            // Alerts are ephemeral per-user state, not ledger.
+            entity.HasOne(n => n.User)
+                  .WithMany()
+                  .HasForeignKey(n => n.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            // The inbox query: caller's notifications, newest first.
+            entity.HasIndex(n => new { n.UserId, n.CreatedAt });
         });
     }
 }

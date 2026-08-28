@@ -21,3 +21,10 @@ public record GameResponse(
         new(game.Id, game.Title, game.BaseDifficulty, game.Thumb, game.NormalPrice,
             game.SalePrice, game.IsFeatured, game.PopularityRank);
 }
+
+/// <summary>One page of the searchable catalog (records directory).</summary>
+public record CatalogPageDto(
+    IReadOnlyList<GameResponse> Items,
+    int TotalCount,
+    int TotalPages,
+    int CurrentPage);

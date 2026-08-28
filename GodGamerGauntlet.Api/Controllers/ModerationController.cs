@@ -2,6 +2,7 @@ using System.Security.Claims;
 using GodGamerGauntlet.Api.Contracts;
 using GodGamerGauntlet.Api.Data;
 using GodGamerGauntlet.Api.Models;
+using GodGamerGauntlet.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -16,7 +17,9 @@ namespace GodGamerGauntlet.Api.Controllers;
 [ApiController]
 [Route("api/moderation")]
 [Authorize]
-public class ModerationController(AppDbContext context) : ControllerBase
+public class ModerationController(
+    AppDbContext context,
+    IWorldRecordAnnouncer worldRecordAnnouncer) : ControllerBase
 {
     private Guid CurrentUserId =>
         Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
@@ -101,6 +104,9 @@ public class ModerationController(AppDbContext context) : ControllerBase
         }
 
         var submission = await context.Submissions
+            .Include(s => s.Game)
+            .Include(s => s.Category)
+            .Include(s => s.Player)
             .Include(s => s.Variables)
             .ThenInclude(x => x.VariableValue)
             .ThenInclude(v => v!.Variable)
@@ -121,18 +127,54 @@ public class ModerationController(AppDbContext context) : ControllerBase
         submission.ExaminerId = CurrentUserId;
         submission.ReviewedAt = DateTime.UtcNow;
 
+        var boardLabel = $"{submission.Game?.Title} {submission.Category?.Name}";
+        var isNewWorldRecord = false;
+
         if (reject)
         {
             submission.Status = SubmissionStatus.Rejected;
             submission.RejectReason = request.RejectReason!.Trim();
+
+            Notify(
+                submission.PlayerId,
+                $"Your run for {boardLabel} was rejected. Reason: {submission.RejectReason}",
+                $"/u/{Uri.EscapeDataString(submission.Player?.Username ?? "")}?tab=pending");
         }
         else
         {
             submission.Status = SubmissionStatus.Verified;
+
+            // The board's reigning best across ALL players, captured before the
+            // obsolescence pass rewrites flags: it decides both the WR webhook
+            // and whether someone just got sniped.
+            var previousBest = await FindBoardBestAsync(submission, cancellationToken);
             await RecomputeObsolescenceAsync(submission, cancellationToken);
+
+            Notify(
+                submission.PlayerId,
+                $"Your run for {boardLabel} was verified!",
+                $"/records/{submission.GameId}");
+
+            var beatsPrevious =
+                previousBest is not null && submission.PrimaryTimeMs < previousBest.PrimaryTimeMs;
+            isNewWorldRecord = previousBest is null || beatsPrevious;
+
+            if (beatsPrevious && previousBest!.PlayerId != submission.PlayerId)
+            {
+                Notify(
+                    previousBest.PlayerId,
+                    $"Your time in {boardLabel} was beaten by {submission.Player?.Username}!",
+                    $"/records/{submission.GameId}");
+            }
         }
 
         await context.SaveChangesAsync(cancellationToken);
+
+        if (isNewWorldRecord)
+        {
+            // After the verdict is committed; the announcer never throws.
+            await worldRecordAnnouncer.AnnounceAsync(submission, cancellationToken);
+        }
 
         var dto = await context.Submissions
             .AsNoTracking()
@@ -146,6 +188,45 @@ public class ModerationController(AppDbContext context) : ControllerBase
             .FirstAsync(s => s.Id == id, cancellationToken);
 
         return Ok(SubmissionsController.ToDto(dto));
+    }
+
+    private void Notify(Guid userId, string message, string actionUrl) =>
+        context.Notifications.Add(new Notification
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            Message = message,
+            ActionUrl = actionUrl,
+            IsRead = false,
+            CreatedAt = DateTime.UtcNow,
+        });
+
+    /// <summary>
+    /// The fastest verified run by anyone on this run's board (same category +
+    /// subcategory combination), excluding the run itself. Obsolete runs can be
+    /// skipped safely: a board's fastest run is never obsolete.
+    /// </summary>
+    private async Task<Submission?> FindBoardBestAsync(Submission verified, CancellationToken cancellationToken)
+    {
+        var boardKey = SubcategoryKey(verified);
+
+        var candidates = await context.Submissions
+            .AsNoTracking()
+            .Include(s => s.Variables)
+            .ThenInclude(x => x.VariableValue)
+            .ThenInclude(v => v!.Variable)
+            .Where(s =>
+                s.CategoryId == verified.CategoryId
+                && s.Status == SubmissionStatus.Verified
+                && !s.IsObsolete
+                && s.Id != verified.Id)
+            .ToListAsync(cancellationToken);
+
+        return candidates
+            .Where(s => SubcategoryKey(s).SetEquals(boardKey))
+            .OrderBy(s => s.PrimaryTimeMs)
+            .ThenBy(s => s.SubmittedAt)
+            .FirstOrDefault();
     }
 
     /// <summary>

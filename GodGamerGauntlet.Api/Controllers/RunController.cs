@@ -1,18 +1,69 @@
 using System.Security.Claims;
 using GodGamerGauntlet.Api.Contracts;
+using GodGamerGauntlet.Api.Data;
 using GodGamerGauntlet.Api.Models;
 using GodGamerGauntlet.Api.Repositories;
 using GodGamerGauntlet.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace GodGamerGauntlet.Api.Controllers;
 
 [ApiController]
 [Route("api/runs")]
-public class RunController(IRunRepository runRepository, IGameRepository gameRepository, IRecordBook recordBook) : ControllerBase
+public class RunController(
+    IRunRepository runRepository,
+    IGameRepository gameRepository,
+    IRecordBook recordBook,
+    AppDbContext context) : ControllerBase
 {
     private Guid CurrentUserId => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+    /// <summary>
+    /// Gauntlets whose timer is running right now — the homepage "Live Now"
+    /// rail. Public, small (≤24 cards), and cacheable for 15 s.
+    /// </summary>
+    [HttpGet("live")]
+    [ResponseCache(Duration = 15, Location = ResponseCacheLocation.Any)]
+    [ProducesResponseType(typeof(IEnumerable<LiveRunCardDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetLive(CancellationToken cancellationToken)
+    {
+        var running = await context.Runs
+            .AsNoTracking()
+            .Where(r => r.Status == RunStatus.Active && r.TimerStatus == "running")
+            // Most recently active first; stale "running" rows sink.
+            .OrderByDescending(r => r.TimerUpdatedAt)
+            .Take(24)
+            .Include(r => r.User)
+            .ThenInclude(u => u!.StreamLinks)
+            .Include(r => r.Slots)
+            .ThenInclude(s => s.Game)
+            .ToListAsync(cancellationToken);
+
+        var now = DateTime.UtcNow;
+        var cards = running.Select(run =>
+        {
+            var slots = run.Slots.OrderBy(s => s.Position).ToList();
+            var current = slots.FindIndex(s => s.Status != RunSlotStatus.Won);
+            if (current < 0) current = Math.Max(0, slots.Count - 1);
+            var currentSlot = slots.ElementAtOrDefault(current);
+
+            return new LiveRunCardDto(
+                run.Id,
+                run.User?.Username ?? "unknown",
+                run.User?.AvatarUrl,
+                run.User?.StreamLinks.OrderBy(l => l.SortOrder).FirstOrDefault()?.Url,
+                run.RunType.ToString(),
+                slots.Count(s => s.Status == RunSlotStatus.Won),
+                run.RunType.SlotCount(),
+                currentSlot?.Game?.Title,
+                currentSlot?.Game?.Thumb,
+                run.CurrentElapsedMs(now));
+        });
+
+        return Ok(cards);
+    }
 
     [HttpPost("initialize")]
     [Authorize]

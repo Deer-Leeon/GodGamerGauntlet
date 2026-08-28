@@ -40,8 +40,10 @@ public record PersonalBest(
     Guid RunId,
     Guid UserId,
     string Username,
+    string? AvatarUrl,
     RunType RunType,
     double Score,
     int SlotsCompleted,
+    long ElapsedMs,
     DateTime? EndTime,
     int Rank);

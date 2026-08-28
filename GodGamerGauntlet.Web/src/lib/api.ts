@@ -24,6 +24,10 @@ export interface User {
   needsUsername: boolean;
   /** Global admin: moderates every records board and manages moderator rosters. */
   isAdmin?: boolean;
+  /** Has at least one per-game moderator assignment. */
+  isModerator?: boolean;
+  /** Public avatar image URL, shown on profiles and live-now cards. */
+  avatarUrl?: string | null;
   streamLinks?: StreamLink[];
 }
 
@@ -224,10 +228,39 @@ export function changeStreamLinks(
   });
 }
 
+/** Profile appearance (avatar). Blank/null clears it. */
+export function updateProfile(
+  avatarUrl: string | null,
+): Promise<AuthResponse> {
+  return request<AuthResponse>("/api/users/me/profile", {
+    method: "PUT",
+    body: JSON.stringify({ avatarUrl }),
+  });
+}
+
 // ---------- Games & runs ----------
 
 export function getGames(): Promise<Game[]> {
   return request<Game[]>("/api/games");
+}
+
+/** One homepage "Live Now" card: a gauntlet with a running timer. */
+export interface LiveRunCard {
+  runId: string;
+  username: string;
+  avatarUrl: string | null;
+  streamUrl: string | null;
+  runType: RunType;
+  slotsCompleted: number;
+  totalSlots: number;
+  currentTitle: string | null;
+  currentThumb: string | null;
+  elapsedMs: number;
+}
+
+/** Public: gauntlets whose timer is running right now, most recent first. */
+export function getLiveRuns(): Promise<LiveRunCard[]> {
+  return request<LiveRunCard[]>("/api/runs/live");
 }
 
 export interface PlayerCard {
@@ -257,17 +290,31 @@ export function initializeRun(
   });
 }
 
+/** One slot of a drafted gauntlet, for the arena's inspect-wheel modal. */
+export interface ArenaSlot {
+  position: number;
+  title: string;
+  thumb: string | null;
+  baseDifficulty: number;
+  status: "Pending" | "Won" | "Lost";
+  splitTimeMs: number | null;
+}
+
 export interface LeaderboardEntry {
   runId: string;
   userId: string;
   streamerName: string;
+  avatarUrl: string | null;
   totalScore: number;
   status: "Completed" | "Failed";
   runType: RunType;
   slotsCompleted: number;
   totalSlots: number;
+  /** Gauntlet clock at the finish; 0 when the timer was never used. */
+  elapsedMs: number;
   endTime: string | null;
   rank: number;
+  games: ArenaSlot[];
 }
 
 /** Best Clear per player on one board. */
@@ -368,6 +415,7 @@ export interface ProfileMode {
 export interface UserProfile {
   id: string;
   username: string;
+  avatarUrl: string | null;
   createdAt: string;
   lastRunAt: string | null;
   attemptCount: number;
@@ -638,6 +686,28 @@ export async function deleteComment(
   }
 }
 
+// ── Catalog directory (server-paginated; Draft Room keeps its client search) ─
+
+export interface CatalogPage {
+  items: Game[];
+  totalCount: number;
+  totalPages: number;
+  currentPage: number;
+}
+
+export function getCatalog(
+  search: string,
+  page: number,
+  pageSize = 40,
+): Promise<CatalogPage> {
+  const params = new URLSearchParams({
+    page: String(page),
+    pageSize: String(pageSize),
+  });
+  if (search.trim()) params.set("search", search.trim());
+  return request<CatalogPage>(`/api/catalog?${params.toString()}`);
+}
+
 // ── Speedrun Records (verified ledger) ──────────────────────────────────────
 
 export interface RecordsValue {
@@ -769,6 +839,37 @@ export function submitRun(input: SubmitRunInput): Promise<Submission> {
 
 export function getSubmission(id: string): Promise<Submission> {
   return request<Submission>(`/api/submissions/${id}`);
+}
+
+/** A player's current verified PBs (public trophy room), newest first. */
+export function getUserSpeedruns(username: string): Promise<Submission[]> {
+  return request<Submission[]>(
+    `/api/users/by-username/${encodeURIComponent(username)}/speedruns`,
+  );
+}
+
+/** The caller's pending submissions and rejections (with examiner reasons). */
+export function getMyPendingRuns(): Promise<Submission[]> {
+  return request<Submission[]>("/api/users/me/pending-runs");
+}
+
+// ── Notifications (Records Phase 7) ─────────────────────────────────────────
+
+export interface AppNotification {
+  id: string;
+  message: string;
+  actionUrl: string;
+  isRead: boolean;
+  createdAt: string;
+}
+
+/** The caller's inbox, newest first (capped at 50 server-side). */
+export function getNotifications(): Promise<AppNotification[]> {
+  return request<AppNotification[]>("/api/notifications");
+}
+
+export function markNotificationRead(id: string): Promise<void> {
+  return request<void>(`/api/notifications/${id}/read`, { method: "PUT" });
 }
 
 export function getModQueue(): Promise<ModQueueItem[]> {

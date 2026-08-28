@@ -2,9 +2,14 @@ namespace GodGamerGauntlet.Api.Models;
 
 public class User
 {
+    public const int AvatarUrlMaxLength = 500;
+
     public Guid Id { get; set; }
 
     public required string Username { get; set; }
+
+    /// <summary>Public avatar image URL, shown on profiles and live-now cards.</summary>
+    public string? AvatarUrl { get; set; }
 
     /// <summary>
     /// Private login/contact address. Null for legacy handle-only accounts

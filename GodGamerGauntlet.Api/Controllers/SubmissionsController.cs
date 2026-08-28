@@ -114,6 +114,65 @@ public partial class SubmissionsController(AppDbContext context) : ControllerBas
         return dto is null ? NotFound() : Ok(dto);
     }
 
+    /// <summary>
+    /// A player's current verified PBs for the public profile trophy room.
+    /// Pending, rejected, and obsoleted runs never appear here.
+    /// </summary>
+    [HttpGet("~/api/users/by-username/{username}/speedruns")]
+    [ProducesResponseType(typeof(IEnumerable<SubmissionDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetPlayerSpeedruns(string username, CancellationToken cancellationToken)
+    {
+        var player = await context.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(u => u.Username == username, cancellationToken);
+        if (player is null) return NotFound();
+
+        var runs = await QueryFullSubmissions()
+            .Where(s =>
+                s.PlayerId == player.Id
+                && s.Status == SubmissionStatus.Verified
+                && !s.IsObsolete)
+            // Most recently verified first. (ReviewedAt is DateTime; PlayedOn
+            // is a DateTimeOffset, which SQLite cannot ORDER BY.)
+            .OrderByDescending(s => s.ReviewedAt)
+            .Take(200)
+            .ToListAsync(cancellationToken);
+
+        return Ok(runs.Select(ToDto));
+    }
+
+    /// <summary>
+    /// The caller's runs still in (or bounced from) the courtroom: pending
+    /// submissions plus rejections with the examiner's reason.
+    /// </summary>
+    [HttpGet("~/api/users/me/pending-runs")]
+    [Authorize]
+    [ProducesResponseType(typeof(IEnumerable<SubmissionDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetMyPendingRuns(CancellationToken cancellationToken)
+    {
+        var runs = await QueryFullSubmissions()
+            .Where(s =>
+                s.PlayerId == CurrentUserId
+                && (s.Status == SubmissionStatus.Pending || s.Status == SubmissionStatus.Rejected))
+            .OrderByDescending(s => s.SubmittedAt)
+            .Take(100)
+            .ToListAsync(cancellationToken);
+
+        return Ok(runs.Select(ToDto));
+    }
+
+    private IQueryable<Submission> QueryFullSubmissions() =>
+        context.Submissions
+            .AsNoTracking()
+            .Include(s => s.Game)
+            .Include(s => s.Category)
+            .Include(s => s.Player)
+            .Include(s => s.Examiner)
+            .Include(s => s.Variables)
+            .ThenInclude(x => x.VariableValue)
+            .ThenInclude(v => v!.Variable);
+
     private async Task<SubmissionDto?> LoadDtoAsync(Guid id, CancellationToken cancellationToken)
     {
         var submission = await context.Submissions

@@ -12,6 +12,10 @@ export default function SettingsPage() {
   const { user, loading, applyAuth } = useAuth();
 
   const [username, setUsername] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState("");
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+  const [avatarSaved, setAvatarSaved] = useState(false);
+  const [savingAvatar, setSavingAvatar] = useState(false);
   const [email, setEmail] = useState("");
   const [emailPassword, setEmailPassword] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
@@ -35,6 +39,7 @@ export default function SettingsPage() {
   useEffect(() => {
     if (!user) return;
     setUsername(user.needsUsername ? "" : user.username);
+    setAvatarUrl(user.avatarUrl ?? "");
     setEmail(user.email ?? "");
   }, [user]);
 
@@ -60,6 +65,23 @@ export default function SettingsPage() {
       );
     } finally {
       setSavingUsername(false);
+    }
+  }
+
+  async function saveAvatar(event: React.FormEvent) {
+    event.preventDefault();
+    setAvatarError(null);
+    setAvatarSaved(false);
+    setSavingAvatar(true);
+    try {
+      applyAuth(await api.updateProfile(avatarUrl.trim() || null));
+      setAvatarSaved(true);
+    } catch (err) {
+      setAvatarError(
+        err instanceof Error ? err.message : "Couldn't update avatar.",
+      );
+    } finally {
+      setSavingAvatar(false);
     }
   }
 
@@ -154,6 +176,53 @@ export default function SettingsPage() {
           className="self-start bg-gold px-4 py-2.5 text-sm text-dark transition hover:bg-gold/90 disabled:opacity-50"
         >
           {savingUsername ? "Saving…" : "Save username"}
+        </button>
+      </form>
+
+      <form
+        onSubmit={saveAvatar}
+        className="mt-10 flex flex-col gap-4 border-t border-gold/20 pt-8"
+      >
+        <h2 className="text-sm font-medium text-ink">Avatar</h2>
+        <p className="text-sm leading-relaxed text-muted">
+          Shown on your profile and on Live Now cards when you&apos;re
+          streaming a gauntlet. Paste a direct image URL; leave blank to
+          remove it.
+        </p>
+        <div className="flex items-start gap-4">
+          {avatarUrl.trim() ? (
+            // Free-form external URL — next/image would need domain allowlisting.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={avatarUrl.trim()}
+              alt="Avatar preview"
+              className="h-14 w-14 shrink-0 rounded-full border border-gold/25 object-cover"
+            />
+          ) : (
+            <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border border-gold/25 bg-white/5 font-mono text-lg text-faint">
+              {user.username.slice(0, 1).toUpperCase()}
+            </span>
+          )}
+          <label className="flex flex-1 flex-col gap-2 text-sm text-faint">
+            Image URL
+            <input
+              type="url"
+              value={avatarUrl}
+              onChange={(e) => setAvatarUrl(e.target.value)}
+              maxLength={500}
+              placeholder="https://example.com/me.png"
+              className="panel px-3.5 py-2.5 text-ink outline-none"
+            />
+          </label>
+        </div>
+        {avatarError && <p className="text-sm text-red-400/90">{avatarError}</p>}
+        {avatarSaved && <p className="text-sm text-gold">Avatar saved.</p>}
+        <button
+          type="submit"
+          disabled={savingAvatar}
+          className="self-start border border-gold/30 px-4 py-2.5 text-sm text-gold transition hover:bg-gold/10 disabled:opacity-50"
+        >
+          {savingAvatar ? "Saving…" : "Save avatar"}
         </button>
       </form>
 

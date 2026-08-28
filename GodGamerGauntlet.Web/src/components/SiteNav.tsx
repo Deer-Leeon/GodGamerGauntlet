@@ -2,15 +2,25 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
+import { useNotifications } from "@/lib/useNotifications";
+import type { User } from "@/lib/api";
+import { timeAgo } from "@/components/RunSocial";
 
 const links = [
   { href: "/", label: "Feed" },
   { href: "/draft", label: "Draft Room" },
+  { href: "/records", label: "Records" },
   { href: "/leaderboard", label: "Leaderboard" },
   { href: "/players", label: "Players" },
 ];
+
+function isActive(pathname: string | null, href: string): boolean {
+  if (!pathname) return false;
+  // Prefix match keeps Records lit inside /records/[gameId]/… subpages.
+  return href === "/" ? pathname === "/" : pathname.startsWith(href);
+}
 
 export default function SiteNav() {
   const pathname = usePathname();
@@ -29,7 +39,7 @@ export default function SiteNav() {
 
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
           {links.map((link) => {
-            const active = pathname === link.href;
+            const active = isActive(pathname, link.href);
             return (
               <Link
                 key={link.href}
@@ -49,6 +59,7 @@ export default function SiteNav() {
         <div className="ml-auto flex items-center gap-4 text-sm">
           {loading ? null : user ? (
             <>
+              <NotificationBell />
               <Link
                 href={`/u/${encodeURIComponent(user.username)}`}
                 className="text-muted hover:text-gold"
@@ -56,7 +67,7 @@ export default function SiteNav() {
                 {user.username}
               </Link>
               <AccountMenu
-                needsUsername={user.needsUsername}
+                user={user}
                 settingsActive={pathname === "/settings"}
                 onLogout={logout}
               />
@@ -75,15 +86,137 @@ export default function SiteNav() {
   );
 }
 
+function NotificationBell() {
+  // Rendered only for signed-in users, so polling is always enabled here.
+  const { notifications, unreadCount, markRead, refresh } =
+    useNotifications(true);
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const pathname = usePathname();
+  const router = useRouter();
+
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    function onPointerDown(event: PointerEvent) {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <div className="account-menu" ref={rootRef}>
+      <button
+        type="button"
+        aria-label={
+          unreadCount > 0
+            ? `Notifications, ${unreadCount} unread`
+            : "Notifications"
+        }
+        aria-expanded={open}
+        aria-haspopup="menu"
+        className={`relative px-0.5 transition ${
+          open ? "text-gold" : "text-faint hover:text-ink"
+        }`}
+        onClick={() => {
+          setOpen((value) => !value);
+          if (!open) refresh();
+        }}
+      >
+        <svg
+          aria-hidden
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="h-4.5 w-4.5"
+        >
+          <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+          <path d="M13.7 21a2 2 0 0 1-3.4 0" />
+        </svg>
+        {unreadCount > 0 && (
+          <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 font-mono text-[10px] leading-none text-white">
+            {unreadCount > 9 ? "9+" : unreadCount}
+          </span>
+        )}
+      </button>
+      {open ? (
+        <div
+          role="menu"
+          className="account-menu-panel max-h-96 w-80 overflow-y-auto"
+        >
+          {notifications.length === 0 ? (
+            <p className="px-4 py-4 text-sm text-faint">
+              Nothing yet. Verdicts on your runs will land here.
+            </p>
+          ) : (
+            notifications.map((notification) => (
+              <button
+                key={notification.id}
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  markRead(notification.id);
+                  setOpen(false);
+                  router.push(notification.actionUrl);
+                }}
+                className="border-b border-white/5 last:border-b-0"
+              >
+                <span className="flex items-start gap-2">
+                  <span
+                    aria-hidden
+                    className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${
+                      notification.isRead ? "bg-transparent" : "bg-gold"
+                    }`}
+                  />
+                  <span className="min-w-0">
+                    <span
+                      className={`block text-sm leading-snug ${
+                        notification.isRead ? "text-faint" : "text-ink"
+                      }`}
+                    >
+                      {notification.message}
+                    </span>
+                    <span className="mt-0.5 block text-[11px] text-faint/80">
+                      {timeAgo(notification.createdAt)}
+                    </span>
+                  </span>
+                </span>
+              </button>
+            ))
+          )}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function AccountMenu({
-  needsUsername,
+  user,
   settingsActive,
   onLogout,
 }: {
-  needsUsername: boolean;
+  user: User;
   settingsActive: boolean;
   onLogout: () => void;
 }) {
+  const needsUsername = user.needsUsername;
+  const canModerate = Boolean(user.isAdmin || user.isModerator);
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
@@ -129,11 +262,27 @@ function AccountMenu({
         <div className="account-menu-panel" role="menu">
           <Link
             role="menuitem"
+            href={`/u/${encodeURIComponent(user.username)}`}
+            onClick={() => setOpen(false)}
+          >
+            My profile & runs
+          </Link>
+          <Link
+            role="menuitem"
             href="/settings"
             onClick={() => setOpen(false)}
           >
             Account settings
           </Link>
+          {canModerate && (
+            <Link
+              role="menuitem"
+              href="/mod/queue"
+              onClick={() => setOpen(false)}
+            >
+              Mod queue
+            </Link>
+          )}
           <button
             type="button"
             role="menuitem"
