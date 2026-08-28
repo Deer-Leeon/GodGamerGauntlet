@@ -635,3 +635,194 @@ export async function deleteComment(
     );
   }
 }
+
+// ── Speedrun Records (verified ledger) ──────────────────────────────────────
+
+export interface RecordsValue {
+  id: string;
+  value: string;
+}
+
+export interface RecordsVariable {
+  id: string;
+  name: string;
+  isSubcategory: boolean;
+  isRequired: boolean;
+  values: RecordsValue[];
+}
+
+export interface RecordsCategory {
+  id: string;
+  name: string;
+  rules: string | null;
+  variables: RecordsVariable[];
+}
+
+export interface GameModeratorInfo {
+  userId: string;
+  username: string;
+  assignedAt: string;
+}
+
+export interface GameRecords {
+  gameId: string;
+  title: string;
+  thumb: string | null;
+  categories: RecordsCategory[];
+  moderators: GameModeratorInfo[];
+}
+
+export interface SubmissionVariableTag {
+  variableValueId: string;
+  variableName: string;
+  value: string;
+  isSubcategory: boolean;
+}
+
+export interface RecordRow {
+  rank: number;
+  submissionId: string;
+  playerId: string;
+  playerName: string;
+  primaryTimeMs: number;
+  playedOn: string;
+  isEmulator: boolean;
+  videoUrl: string;
+  examinerName: string | null;
+  variables: SubmissionVariableTag[];
+}
+
+export type SubmissionStatus = "Pending" | "Verified" | "Rejected";
+
+export interface Submission {
+  id: string;
+  gameId: string;
+  gameTitle: string;
+  categoryId: string;
+  categoryName: string;
+  playerId: string;
+  playerName: string;
+  primaryTimeMs: number;
+  videoUrl: string;
+  playedOn: string;
+  isEmulator: boolean;
+  status: SubmissionStatus;
+  isObsolete: boolean;
+  submittedAt: string;
+  reviewedAt: string | null;
+  examinerName: string | null;
+  rejectReason: string | null;
+  variables: SubmissionVariableTag[];
+}
+
+export interface ModQueueItem {
+  submissionId: string;
+  gameId: string;
+  gameTitle: string;
+  categoryName: string;
+  playerId: string;
+  playerName: string;
+  playerJoined: string;
+  primaryTimeMs: number;
+  videoUrl: string;
+  playedOn: string;
+  isEmulator: boolean;
+  submittedAt: string;
+  variables: SubmissionVariableTag[];
+}
+
+export function getGameRecords(gameId: string): Promise<GameRecords> {
+  return request<GameRecords>(`/api/games/${gameId}/records`);
+}
+
+export function getRecordsBoard(
+  gameId: string,
+  categoryId: string,
+  variableValueIds: string[],
+): Promise<RecordRow[]> {
+  const values = variableValueIds.length
+    ? `?values=${variableValueIds.join(",")}`
+    : "";
+  return request<RecordRow[]>(
+    `/api/games/${gameId}/categories/${categoryId}/leaderboard${values}`,
+  );
+}
+
+export interface SubmitRunInput {
+  gameId: string;
+  categoryId: string;
+  primaryTimeMs: number;
+  videoUrl: string;
+  playedOn: string;
+  isEmulator: boolean;
+  variableValueIds: string[];
+}
+
+export function submitRun(input: SubmitRunInput): Promise<Submission> {
+  return request<Submission>("/api/submissions", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function getSubmission(id: string): Promise<Submission> {
+  return request<Submission>(`/api/submissions/${id}`);
+}
+
+export function getModQueue(): Promise<ModQueueItem[]> {
+  return request<ModQueueItem[]>("/api/moderation/queue");
+}
+
+export function reviewSubmission(
+  id: string,
+  action: "Verify" | "Reject",
+  rejectReason?: string,
+): Promise<Submission> {
+  return request<Submission>(`/api/submissions/${id}/review`, {
+    method: "POST",
+    body: JSON.stringify({ action, rejectReason }),
+  });
+}
+
+/** Mirrors the API's proof-link rule so the form can validate before posting. */
+export function isValidProofUrl(url: string): boolean {
+  return /^https:\/\/(www\.|m\.)?(youtube\.com\/(watch\?|live\/|shorts\/)|youtu\.be\/|twitch\.tv\/(videos\/\d+|\w+\/(v|video)\/\d+|\w+\/clip\/)|clips\.twitch\.tv\/)\S+$/i.test(
+    url.trim(),
+  );
+}
+
+/** 5384210 → "1:29:44.210"; hours are omitted when zero. */
+export function formatRecordTime(ms: number): string {
+  const totalSeconds = Math.floor(ms / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const millis = Math.floor(ms % 1000);
+  const millisPart = millis > 0 ? `.${String(millis).padStart(3, "0")}` : "";
+  if (hours > 0) {
+    return `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}${millisPart}`;
+  }
+  return `${minutes}:${String(seconds).padStart(2, "0")}${millisPart}`;
+}
+
+/** "1:29:44.210", "29:44", "95.5" → milliseconds; null when unparseable. */
+export function parseRecordTime(text: string): number | null {
+  const trimmed = text.trim();
+  if (!trimmed) return null;
+  const match = /^(?:(\d{1,3}):)?(?:(\d{1,2}):)?(\d{1,2})(?:[.,](\d{1,3}))?$/.exec(
+    trimmed,
+  );
+  if (!match) return null;
+
+  const [, first, second, secondsRaw, millisRaw] = match;
+  // One colon → M:SS (first fills, second is empty); two → H:MM:SS.
+  const hours = second !== undefined ? Number(first ?? 0) : 0;
+  const minutes = second !== undefined ? Number(second) : Number(first ?? 0);
+  const seconds = Number(secondsRaw);
+  const millis = millisRaw ? Number(millisRaw.padEnd(3, "0")) : 0;
+
+  if (minutes > 59 || seconds > 59) return null;
+  const total =
+    hours * 3_600_000 + minutes * 60_000 + seconds * 1000 + millis;
+  return total > 0 ? total : null;
+}

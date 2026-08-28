@@ -285,4 +285,94 @@ public class CourtroomTests : IClassFixture<CourtApiFactory>
         Assert.True(await IsObsoleteAsync(lateSlowPc));
         Assert.False(await IsObsoleteAsync(fastPc));
     }
+
+    // ── The public ledger ────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task Records_metadata_exposes_categories_variables_and_moderators()
+    {
+        var anonymous = _factory.CreateClient();
+        var (admin, adminId) = await RegisterAsync("admin");
+        await PromoteToAdminAsync(adminId);
+        var (_, modId) = await RegisterAsync("boardmod");
+        var (gameId, _, _, _) = await SeedBoardAsync();
+
+        string modUsername;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            modUsername = (await db.Users.FindAsync(modId))!.Username;
+        }
+
+        await admin.PostAsJsonAsync(
+            $"/api/moderation/games/{gameId}/moderators", new { username = modUsername });
+
+        var response = await anonymous.GetAsync($"/api/games/{gameId}/records");
+        var raw = await response.Content.ReadAsStringAsync();
+        Assert.True(response.StatusCode == HttpStatusCode.OK,
+            $"Expected 200, got {(int)response.StatusCode}: {raw}");
+        var body = JsonDocument.Parse(raw).RootElement;
+
+        Assert.Equal(gameId, body.GetProperty("gameId").GetGuid());
+        var category = body.GetProperty("categories").EnumerateArray().Single();
+        Assert.Equal("Any%", category.GetProperty("name").GetString());
+        Assert.Equal("Reach the credits.", category.GetProperty("rules").GetString());
+
+        var variable = category.GetProperty("variables").EnumerateArray().Single();
+        Assert.True(variable.GetProperty("isSubcategory").GetBoolean());
+        Assert.Equal(2, variable.GetProperty("values").GetArrayLength());
+
+        Assert.Contains(body.GetProperty("moderators").EnumerateArray(),
+            m => m.GetProperty("username").GetString() == modUsername);
+    }
+
+    [Fact]
+    public async Task Leaderboard_shows_only_current_verified_runs_and_filters_by_value()
+    {
+        var (runnerA, _) = await RegisterAsync("runnerA");
+        var (runnerB, _) = await RegisterAsync("runnerB");
+        var (admin, adminId) = await RegisterAsync("admin");
+        await PromoteToAdminAsync(adminId);
+        var (gameId, categoryId, pcId, n64Id) = await SeedBoardAsync();
+
+        async Task SubmitAsync(HttpClient runner, long timeMs, Guid valueId, bool verify)
+        {
+            var created = await runner.PostAsJsonAsync("/api/submissions",
+                SubmitBody(gameId, categoryId, timeMs, [valueId]));
+            var id = (await ReadJsonAsync(created)).GetProperty("id").GetGuid();
+            if (verify)
+            {
+                var reviewed = await admin.PostAsJsonAsync(
+                    $"/api/submissions/{id}/review", new { action = "Verify" });
+                Assert.Equal(HttpStatusCode.OK, reviewed.StatusCode);
+            }
+        }
+
+        await SubmitAsync(runnerA, 100_000, pcId, verify: true); // obsoleted below
+        await SubmitAsync(runnerA, 90_000, pcId, verify: true);  // A's PC PB
+        await SubmitAsync(runnerB, 95_000, pcId, verify: true);  // B's PC PB
+        await SubmitAsync(runnerB, 80_000, n64Id, verify: true); // B's N64 PB
+        await SubmitAsync(runnerA, 50_000, pcId, verify: false); // pending, hidden
+
+        var anonymous = _factory.CreateClient();
+        var boardUrl = $"/api/games/{gameId}/categories/{categoryId}/leaderboard";
+
+        // Merged view: each player once, at their overall fastest.
+        var merged = await ReadJsonAsync(await anonymous.GetAsync(boardUrl));
+        var mergedTimes = merged.EnumerateArray()
+            .Select(row => row.GetProperty("primaryTimeMs").GetInt64()).ToArray();
+        Assert.Equal([80_000L, 90_000L], mergedTimes);
+        Assert.Equal(1, merged.EnumerateArray().First().GetProperty("rank").GetInt32());
+
+        // PC-only pill: B's N64 run drops out, both PC PBs rank.
+        var pcBoard = await ReadJsonAsync(await anonymous.GetAsync($"{boardUrl}?values={pcId}"));
+        var pcTimes = pcBoard.EnumerateArray()
+            .Select(row => row.GetProperty("primaryTimeMs").GetInt64()).ToArray();
+        Assert.Equal([90_000L, 95_000L], pcTimes);
+
+        // Unknown category 404s.
+        var missing = await anonymous.GetAsync(
+            $"/api/games/{gameId}/categories/{Guid.NewGuid()}/leaderboard");
+        Assert.Equal(HttpStatusCode.NotFound, missing.StatusCode);
+    }
 }

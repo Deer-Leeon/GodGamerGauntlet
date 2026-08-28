@@ -2,7 +2,7 @@
 
 > Living documentation for the godgamergauntlet.com backend. Update this file whenever the schema, API surface, or deployment story changes.
 >
-> **Last updated:** 2026-08-27 (Records Phase 2 — The Courtroom: per-game moderators, submission endpoints, verification queue, obsolete tracking)
+> **Last updated:** 2026-08-27 (Records Phase 3 — The Public Ledger: leaderboard endpoints, dense records UI, submission form, moderator courtroom dashboard)
 
 ---
 
@@ -662,7 +662,40 @@ Both verdicts stamp `ExaminerId = caller` and `ReviewedAt = UtcNow`, and a decid
 
 ### Integration tests (`GodGamerGauntlet.Api.Tests`)
 
-New xunit project: `WebApplicationFactory<Program>` boots the real HTTP pipeline (JWT auth, validation, controllers) over **in-memory SQLite** — `DbInitializer` detects a non-Npgsql provider and uses `EnsureCreatedAsync` instead of Postgres migrations (`Program` gained a `public partial class` marker for test visibility). Local Postgres credentials aren't available in this environment, so SQLite is the live-pipeline stand-in; Railway still runs the real Npgsql migrations. 8 tests cover: proof-link and required-variable validation, auth requirement, pending + public detail, bystander 403 + empty queue, admin-only moderator assignment + mod queue visibility, reject-reason enforcement + examiner audit + double-review block, and per-subcategory obsolescence (slow PB obsoleted, N64 board untouched, late slower run born obsolete). Run with `dotnet test GodGamerGauntlet.Api.Tests`.
+New xunit project: `WebApplicationFactory<Program>` boots the real HTTP pipeline (JWT auth, validation, controllers) over **in-memory SQLite** — `DbInitializer` detects a non-Npgsql provider and uses `EnsureCreatedAsync` instead of Postgres migrations (`Program` gained a `public partial class` marker for test visibility). Local Postgres credentials aren't available in this environment, so SQLite is the live-pipeline stand-in; Railway still runs the real Npgsql migrations. 10 tests cover: proof-link and required-variable validation, auth requirement, pending + public detail, bystander 403 + empty queue, admin-only moderator assignment + mod queue visibility, reject-reason enforcement + examiner audit + double-review block, per-subcategory obsolescence (slow PB obsoleted, N64 board untouched, late slower run born obsolete), records metadata exposure, and leaderboard filtering/dedup/404 (Phase 3). Run with `dotnet test GodGamerGauntlet.Api.Tests`.
+
+---
+
+## 5f. Speedrun Records — The Public Ledger (Records Phase 3)
+
+The public face of the record book: anonymous read endpoints plus three frontend routes — the dense leaderboard, the submission form, and the moderator courtroom.
+
+### REST API — Records (public, `RecordsController`)
+
+| Method | Route | Success | Errors |
+|---|---|---|---|
+| GET | `/api/games/{gameId}/records` | `200` → `GameRecordsDto` — game header (title, thumb), categories with their variables/values/rules (variables sorted by name, values by value), and the moderator roster (sorted by username — SQLite can't `ORDER BY` DateTimeOffset, so tests forced the portable sort) | `404` unknown game |
+| GET | `/api/games/{gameId}/categories/{categoryId}/leaderboard?values=id1,id2` | `200` → `RecordRowDto[]` — rank, player, `primaryTimeMs`, playedOn, isEmulator, videoUrl, examiner name, variable tags | `404` category not in that game |
+
+Leaderboard semantics: only `Verified` + non-obsolete runs; each `values` id must be carried by the run (`AND` across ids — the UI sends at most one per subcategory variable); sorted `PrimaryTimeMs ASC` with `SubmittedAt` tiebreak; capped at 500 rows before dedup. **Merged views dedupe per player**: with no pill selected a player's PC and N64 PBs are both current, but the board shows only their overall fastest — picking a pill splits the boards again. Unparseable/blank `values` entries are ignored.
+
+### `/records/[gameId]` — the dense board
+
+Client page fed by the two endpoints above. Game header (cover thumb, title, moderator links, gold **Submit run** button) → category tabs (same `-mb-px border-b-2` pattern as the gauntlet leaderboard) → one row of toggle pills per `IsSubcategory` variable (`All` + each value; switching category resets pills) → collapsible rules panel (`▸ Rules — {category}`, whitespace-preserved text) → the table: `# / Player / Time / Tags / Played / Proof` on the shared `feed-list` grid, 🏆 gold rank 1, `H:MM:SS.ms` times via `formatRecordTime`, variable-value tags + `EMU` badge, and a ▶ proof button per row.
+
+**Inline video modal** (`src/components/ProofPlayer.tsx`): `toEmbedUrl` converts proof links to embeds — `youtube.com/watch|live|shorts` + `youtu.be` → `youtube.com/embed`, `twitch.tv/videos/{id}` → `player.twitch.tv` (with the required `parent=` hostname param), clip URLs → `clips.twitch.tv/embed`; unembeddable links fall back to a link-out card. `ProofModal` is a fixed overlay (backdrop click or **Esc** closes, close button autofocused) with an "Open on site ↗" escape hatch. Shared by the board and the mod queue.
+
+### `/records/[gameId]/submit` — the submission form
+
+Auth-gated (sign-in prompt when logged out). Category select re-derives the variable controls on change; **time input** live-parses `H:MM:SS.ms` / `MM:SS` / `SS.ms` via `parseRecordTime` (echoes back "Reads as 1:29:44.210" or an error hint); **proof URL** validates against `isValidProofUrl` — the same regex as the server; one select per category variable (required ones gate submission, optional ones default to `—`); played-on date input (max today) and emulator checkbox. Submit stays disabled until everything passes (missing required variables are listed under the button), posts to `POST /api/submissions`, and swaps the form for a success panel ("pending review") with back-to-board and submit-another actions.
+
+### `/mod/queue` — the courtroom
+
+Auth-gated; non-mods simply see an empty docket (the API scopes the queue server-side). Cards ordered oldest-first, each showing game · category, player link, the claimed time in gold mono, `Variable: value` tags + EMU badge, played/submitted/member-since dates, and a click-to-load `ProofPlayer` embed (iframes load on demand so a long queue doesn't spawn a wall of players). Verdicts: **Verify** (green) fires immediately; **Reject** (red) expands an inline reason input (required, Enter submits). Reviews are **optimistic** — the card leaves the list instantly and is restored (re-sorted by `submittedAt`) with an error banner if `POST /api/submissions/{id}/review` fails.
+
+### api.ts additions
+
+Types `GameRecords`/`RecordsCategory`/`RecordsVariable`/`RecordsValue`, `RecordRow`, `Submission`, `ModQueueItem`; functions `getGameRecords`, `getRecordsBoard(gameId, categoryId, valueIds)`, `submitRun`, `getSubmission`, `getModQueue`, `reviewSubmission(id, action, reason?)`; helpers `formatRecordTime` (ms → `H:MM:SS.ms`, hours/millis omitted when zero), `parseRecordTime` (null on garbage, rejects minutes/seconds > 59), `isValidProofUrl` (mirror of the API's VOD regex).
 
 ---
 
@@ -729,6 +762,9 @@ Shared hook behind `/overlay/[runId]` and `/control/[runId]`. The server is the 
 | `/leaderboard` | Global Leaderboard — top-50 finished runs with rank (gold #FFD700 / silver #C0C0C0 / bronze #CD7F32 for the podium), streamer, earned score, slots survived (`n/10`), Completed/Failed badge, and finish time; "Draft a New Run" CTA. Linked from the home page, the Draft Room header, and the run tracker end state |
 | `/overlay/[runId]` | **OBS browser-source overlay** (Phase 8) — fully transparent background (`html.obs-overlay` CSS class), no scrollbars, ~420px wide. 3D cylindrical wheel of the 10 drafted games (`perspective: 1000px`, per-item `rotateX(offset × -32°) translateZ(168px)`, 0.45s `cubic-bezier(0.2,0.8,0.2,1)` rotation): active slot is a dark pill with cyan neon glow, cover, title, and `X/10` counter; adjacent slots angle back with reduced opacity; beaten slots show a green check + strikethrough. Neon-green `H:MM:SS.cc` timer below (amber pulse when paused, gold when finished). Hotkeys: **Space** play/pause, **Enter/NumpadEnter** split, **R×2** reset (armed for 1.5s with on-screen warning), **P** toggles hidden helper buttons. Actions authenticate via the `?key=` overlay key in the URL |
 | `/control/[runId]` | **Streamer control deck** (Phase 8) — mobile/OBS-dock-friendly: live mirrored timer + status, big tactile buttons (green ▶ Play / amber ❚❚ Pause, cyan "Game Beaten — Next", Undo Previous, two-step red Reset Gauntlet), now-playing card, up-next list, per-game split times, and one-click "Copy OBS Browser Source URL" (embeds the overlay key). Controls disabled for non-owners; state syncs via the shared `useOverlayRun` hook |
+| `/records/[gameId]` | **Speedrun records board** (Records Phase 3, section 5f) — category tabs, subcategory filter pills, dense verified leaderboard with inline proof-video modal and collapsible rules panel |
+| `/records/[gameId]/submit` | **Run submission form** (Records Phase 3) — auth-gated; live time parsing, proof-URL validation, dynamic category variables, pending-review confirmation |
+| `/mod/queue` | **Moderator courtroom** (Records Phase 3) — pending runs for games the caller moderates, on-demand video embeds, optimistic Verify/Reject with required rejection reason |
 
 ### The Draft Room (`/draft`)
 
@@ -831,3 +867,4 @@ cd GodGamerGauntlet.Web && npm run dev
 | 10 | **Gauntlet Lite**: `RunType` enum (`Standard` = 10 games, `Lite` = 5) on `Run` (`AddRunTypeToRuns` migration, string-converted with a `Standard` default that backfills existing rows, `IX_Runs_RunType`); `RunTypes.SlotCount`/`TryParse` as the single source of truth, replacing `RunController.RequiredSlotCount = 10` in both the initialize count check and the completion check; `initialize` accepts an optional `runType`; `GET /api/leaderboard?runType=` ranks Standard and Lite separately (the positional multiplier makes a shared board meaningless); `runType`/`totalSlots` added to `RunResponse`, `LeaderboardEntryDto`, `OverlayStateDto`, and `FeedPostDto`. Frontend: Draft Room mode toggle that re-packs picks when resizing the board, `RunTypeBadge` (LITE MODE) on draft/tracker/deck/feed, dynamic `x/N` counters on the overlay and control deck, Standard/Lite leaderboard tabs. Also fixed a latent split: `OverlayController.Split` completed a run at its max slot position while `/report` completed only at position 10, so any non-10-slot run could finish on the overlay but never via the API |
 | R1 | **Speedrun Records Phase 1 — Trust Schema**: `Category` / `Variable` / `VariableValue` (the rules engine, cascade-owned by mods) and `Submission` / `SubmissionVariable` (the verified ledger, restrict-delete everywhere) with `SubmissionStatus` (`Pending`/`Verified`/`Rejected` stored as strings), VOD-required `VideoUrl`, `PrimaryTimeMs > 0` check, examiner audit fields, leaderboard/PB/mod-queue indexes, and the `AddSpeedrunTrustSchema` migration (section 5d). No API surface yet — schema only |
 | R2 | **Speedrun Records Phase 2 — The Courtroom**: `GameModerator` (composite PK, cascade) + `Users.IsAdmin` + `Submissions.IsObsolete` (`AddModeratorAndObsoleteTracking` migration, leaderboard index now includes IsObsolete); `SubmissionsController` (`POST /api/submissions` with VOD-regex/category-ownership/required-variable validation, public `GET /{id}` with review history); `ModerationController` (`GET queue` scoped to moderated games, `POST /api/submissions/{id}/review` Verify/Reject with examiner audit + double-review block, admin-only moderator assign/remove); per-subcategory PB obsolescence recompute on verify (fastest stays, slower flagged — including a late slower run). New `GodGamerGauntlet.Api.Tests` xunit project: 8 WebApplicationFactory integration tests over in-memory SQLite (`DbInitializer` falls back to EnsureCreated off-Npgsql), all passing (section 5e) |
+| R3 | **Speedrun Records Phase 3 — The Public Ledger**: `RecordsController` (public `GET /api/games/{id}/records` metadata + `GET .../categories/{id}/leaderboard?values=` with verified/non-obsolete filter, AND-matched value filters, per-player dedup on merged views, 500-row cap); frontend `/records/[gameId]` (category tabs, subcategory pills, dense board, 🏆 rank 1, inline YouTube/Twitch proof modal via new `ProofPlayer`/`toEmbedUrl`, rules drawer), `/records/[gameId]/submit` (live `H:MM:SS.ms` parser, client-side VOD regex mirror, dynamic variable selects, pending-review confirmation), `/mod/queue` (oldest-first courtroom cards, on-demand embeds, optimistic Verify/Reject with restore-on-failure); api.ts records/submission/moderation clients + `formatRecordTime`/`parseRecordTime`/`isValidProofUrl`; 2 new integration tests (metadata exposure, leaderboard filter/dedup/404) → 10 total passing (section 5f) |
