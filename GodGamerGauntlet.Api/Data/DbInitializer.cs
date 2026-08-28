@@ -76,7 +76,22 @@ public static class DbInitializer
             await context.SaveChangesAsync();
         }
 
+        await PromoteFounderAdminAsync(context);
         await SeedFeaturedGamesAsync(context);
+    }
+
+    /// <summary>
+    /// There is no in-app "make admin" control. Until that exists, the site
+    /// owner is promoted on boot if the account is present. Idempotent.
+    /// </summary>
+    private static async Task PromoteFounderAdminAsync(AppDbContext context)
+    {
+        var founder = await context.Users
+            .FirstOrDefaultAsync(u => u.Username.ToLower() == "ljbuchie");
+        if (founder is null || founder.IsAdmin) return;
+
+        founder.IsAdmin = true;
+        await context.SaveChangesAsync();
     }
 
     /// <summary>
