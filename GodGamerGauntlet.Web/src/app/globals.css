@@ -39,6 +39,8 @@ body {
   min-height: 100dvh;
   flex-direction: column;
   background: var(--color-dark);
+  --site-nav-height: 3.5rem;
+  --browse-rail-width: 16rem;
 }
 
 /* Browse pages share one column so the nav and feed line up. */
@@ -511,12 +513,25 @@ html:has(.obs-control-root) .site-nav {
   }
 
   html.ggg-has-browse-rail .site-shell {
-    padding-left: 16rem;
+    --browse-rail-width: 16rem;
+    padding-left: var(--browse-rail-width);
     transition: padding-left 0.32s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   html.ggg-has-browse-rail.ggg-browse-rail-collapsed .site-shell {
-    padding-left: 2.5rem;
+    --browse-rail-width: 2.5rem;
+  }
+
+  /* Full-width nav so its bottom edge runs across the sidebar; the rail
+     starts under that line instead of punching a vertical through the header. */
+  html.ggg-has-browse-rail .site-nav {
+    margin-left: calc(-1 * var(--browse-rail-width));
+    width: calc(100% + var(--browse-rail-width));
+    padding-left: var(--browse-rail-width);
+    transition:
+      margin-left 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+      padding-left 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+      width 0.32s cubic-bezier(0.22, 1, 0.36, 1);
   }
 }
 
@@ -528,16 +543,15 @@ html:has(.obs-control-root) .site-nav {
   .browse-rail {
     display: flex;
     position: fixed;
-    top: 0;
+    top: var(--site-nav-height);
     left: 0;
     z-index: 30;
-    height: 100dvh;
+    height: calc(100dvh - var(--site-nav-height));
     width: 16rem;
     flex-direction: column;
     overflow: hidden;
     border-right: 1px solid rgb(196 180 154 / 0.25);
     background: var(--color-surface);
-    padding-top: 3.5rem;
     transition: width 0.32s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
@@ -553,7 +567,7 @@ html:has(.obs-control-root) .site-nav {
 @media (min-width: 1024px) {
   .browse-rail-toggle {
     position: absolute;
-    top: calc(3.5rem + 0.3rem);
+    top: 0.3rem;
     right: 0.35rem;
     z-index: 1;
     display: inline-flex;
