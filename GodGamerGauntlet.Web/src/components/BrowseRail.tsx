@@ -37,8 +37,6 @@ export default function BrowseRail() {
     setCollapsed(window.localStorage.getItem(COLLAPSED_KEY) === "1");
   }, []);
 
-  const open = allowed && !collapsed;
-
   function toggleCollapsed() {
     setCollapsed((current) => {
       const next = !current;
@@ -48,13 +46,17 @@ export default function BrowseRail() {
   }
 
   useEffect(() => {
-    if (open) {
-      document.documentElement.classList.add("ggg-has-browse-rail");
-    } else {
-      document.documentElement.classList.remove("ggg-has-browse-rail");
+    const root = document.documentElement;
+    if (!allowed) {
+      root.classList.remove("ggg-has-browse-rail", "ggg-browse-rail-collapsed");
+      return;
     }
-    return () => document.documentElement.classList.remove("ggg-has-browse-rail");
-  }, [open]);
+    root.classList.add("ggg-has-browse-rail");
+    root.classList.toggle("ggg-browse-rail-collapsed", collapsed);
+    return () => {
+      root.classList.remove("ggg-has-browse-rail", "ggg-browse-rail-collapsed");
+    };
+  }, [allowed, collapsed]);
 
   useEffect(() => {
     if (!allowed) return;
@@ -82,37 +84,22 @@ export default function BrowseRail() {
 
   if (!allowed) return null;
 
-  if (collapsed) {
-    return (
-      <button
-        type="button"
-        className="browse-rail-expand"
-        aria-label="Expand sidebar"
-        title="Expand sidebar"
-        onClick={toggleCollapsed}
-      >
-        <RailChevron direction="right" />
-      </button>
-    );
-  }
-
   const followed = sidebar?.followed ?? [];
   const live = sidebar?.live ?? [];
   const bestRuns = sidebar?.bestRuns ?? [];
 
   return (
-    <aside className="browse-rail">
-      <div className="browse-rail-toolbar">
-        <button
-          type="button"
-          className="browse-rail-collapse"
-          aria-label="Collapse sidebar"
-          title="Collapse sidebar"
-          onClick={toggleCollapsed}
-        >
-          <RailChevron direction="left" />
-        </button>
-      </div>
+    <aside className={`browse-rail${collapsed ? " is-collapsed" : ""}`}>
+      <button
+        type="button"
+        className="browse-rail-toggle"
+        aria-expanded={!collapsed}
+        aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        onClick={toggleCollapsed}
+      >
+        <RailChevron direction={collapsed ? "right" : "left"} />
+      </button>
       <div className="browse-rail-inner">
         <section>
           <h2>Followed</h2>

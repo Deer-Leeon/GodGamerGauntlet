@@ -512,6 +512,11 @@ html:has(.obs-control-root) .site-nav {
 
   html.ggg-has-browse-rail .site-shell {
     padding-left: 16rem;
+    transition: padding-left 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  html.ggg-has-browse-rail.ggg-browse-rail-collapsed .site-shell {
+    padding-left: 2.5rem;
   }
 }
 
@@ -529,26 +534,28 @@ html:has(.obs-control-root) .site-nav {
     height: 100dvh;
     width: 16rem;
     flex-direction: column;
+    overflow: hidden;
     border-right: 1px solid rgb(196 180 154 / 0.25);
     background: var(--color-surface);
     padding-top: 3.5rem;
+    transition: width 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .browse-rail.is-collapsed {
+    width: 2.5rem;
   }
 }
 
-.browse-rail-toolbar {
-  display: flex;
-  justify-content: flex-end;
-  padding: 0.35rem 0.45rem 0;
-}
-
-.browse-rail-collapse,
-.browse-rail-expand {
+.browse-rail-toggle {
   display: none;
 }
 
 @media (min-width: 1024px) {
-  .browse-rail-collapse,
-  .browse-rail-expand {
+  .browse-rail-toggle {
+    position: absolute;
+    top: calc(3.5rem + 0.3rem);
+    right: 0.35rem;
+    z-index: 1;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -557,27 +564,34 @@ html:has(.obs-control-root) .site-nav {
     color: var(--color-faint);
   }
 
-  .browse-rail-collapse:hover,
-  .browse-rail-expand:hover {
+  .browse-rail-toggle:hover {
     color: var(--color-ink);
     background: rgb(255 255 255 / 0.06);
-  }
-
-  .browse-rail-expand {
-    position: fixed;
-    top: 3.85rem;
-    left: 0.45rem;
-    z-index: 30;
-    border: 1px solid rgb(196 180 154 / 0.25);
-    background: var(--color-surface);
   }
 }
 
 .browse-rail-inner {
   min-height: 0;
+  width: 16rem;
   flex: 1;
   overflow-y: auto;
-  padding: 0.35rem 0.75rem 1.25rem;
+  padding: 0.3rem 0.75rem 1.25rem;
+  opacity: 1;
+  transition: opacity 0.18s ease 0.04s;
+}
+
+.browse-rail.is-collapsed .browse-rail-inner {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
+}
+
+.browse-rail section:first-child h2 {
+  display: flex;
+  min-height: 1.85rem;
+  align-items: center;
+  margin-bottom: 0.35rem;
+  padding-right: 1.75rem;
 }
 
 .browse-rail section + section {
