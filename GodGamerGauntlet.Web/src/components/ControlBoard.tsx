@@ -9,6 +9,7 @@ import { pinControlRun } from "@/lib/controlSession";
 import { useOverlayRun } from "@/lib/useOverlayRun";
 import { useOverlayHotkeys } from "@/lib/useOverlayHotkeys";
 import SpeedrunTimer, { formatSpeedrunTime } from "@/components/SpeedrunTimer";
+import AttemptCodeMark from "@/components/AttemptCodeMark";
 
 export type ControlBoardVariant = "dock" | "panel";
 
@@ -105,13 +106,16 @@ export default function ControlBoard({
             <span className="ml-2 font-normal text-gray-500">Lite</span>
           ) : null}
         </h1>
-        <p className="truncate font-mono text-[12px] tabular-nums text-gray-500">
-          {state.runStatus === "Completed"
-            ? "Clear"
-            : state.runStatus === "Failed"
-              ? "DNF"
-              : "Live"}{" "}
-          · {slotLabel}
+        <p className="flex min-w-0 items-baseline gap-2 font-mono text-[12px] tabular-nums text-gray-500">
+          <AttemptCodeMark code={state.attemptCode} />
+          <span className="truncate">
+            {state.runStatus === "Completed"
+              ? "Clear"
+              : state.runStatus === "Failed"
+                ? "DNF"
+                : "Live"}{" "}
+            · {slotLabel}
+          </span>
         </p>
       </header>
 

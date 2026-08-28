@@ -6,6 +6,7 @@ import { slotsForRunType, type OverlaySlot } from "@/lib/api";
 import { useOverlayRun } from "@/lib/useOverlayRun";
 import { useOverlayHotkeys } from "@/lib/useOverlayHotkeys";
 import SpeedrunTimer from "@/components/SpeedrunTimer";
+import AttemptCodeMark from "@/components/AttemptCodeMark";
 import { REACTIONS } from "@/components/RunSocial";
 
 /**
@@ -127,7 +128,10 @@ function OverlayView() {
             Time
             {isLite && <span className="text-gray-500">· Lite</span>}
           </span>
-          <CrowdTicks reactions={state.reactions ?? {}} />
+          <span className="flex items-center gap-2">
+            <AttemptCodeMark code={state.attemptCode} tone="overlay" />
+            <CrowdTicks reactions={state.reactions ?? {}} />
+          </span>
         </div>
 
         <SpeedrunTimer

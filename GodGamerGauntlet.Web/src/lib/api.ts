@@ -102,6 +102,8 @@ export interface Run {
   elapsedMs: number;
   /** Present on live runs so the client can keep ticking. */
   timerStatus?: TimerStatus;
+  /** Short public attempt id; rotates when the gauntlet is reset. */
+  attemptCode?: string | null;
   slots: RunSlot[];
   streamLinks?: StreamLink[];
 }
@@ -491,6 +493,8 @@ export interface OverlayState {
   games: OverlaySlot[];
   /** Only present when the caller is the run owner. */
   overlayKey: string | null;
+  /** Short public attempt id; rotates when the gauntlet is reset. */
+  attemptCode?: string | null;
   reactions?: Record<string, number>;
 }
 

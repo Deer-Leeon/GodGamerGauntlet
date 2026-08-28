@@ -24,6 +24,7 @@ import {
   VoteColumn,
 } from "@/components/RunSocial";
 import { RunTypeBadge } from "@/components/RunTypeBadge";
+import AttemptCodeMark from "@/components/AttemptCodeMark";
 import SpeedrunTimer, { formatSpeedrunTime } from "@/components/SpeedrunTimer";
 import MomentChips from "@/components/MomentChips";
 import { useOverlayRun } from "@/lib/useOverlayRun";
@@ -313,6 +314,9 @@ export default function LiveRunTrackerPage() {
               </Link>
             </h1>
             <RunTypeBadge runType={run.runType} />
+            <AttemptCodeMark
+              code={overlay.state?.attemptCode ?? run.attemptCode}
+            />
             <span
               className={
                 run.status === "Failed" ? "text-red-400/80" : "text-gold"

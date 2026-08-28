@@ -106,7 +106,8 @@ public class RunController(
             StartTime = DateTime.UtcNow,
             Status = RunStatus.Active,
             RunType = runType,
-            OverlayKey = Services.OverlayKeys.Create()
+            OverlayKey = Services.OverlayKeys.Create(),
+            AttemptCode = Services.AttemptCodes.Create(),
         };
 
         double totalDifficultyScore = 0;

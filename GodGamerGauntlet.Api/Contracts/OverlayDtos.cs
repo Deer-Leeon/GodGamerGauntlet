@@ -22,4 +22,5 @@ public record OverlayStateDto(
     long ElapsedMs,
     IReadOnlyList<OverlaySlotDto> Games,
     string? OverlayKey,
+    string? AttemptCode,
     IReadOnlyDictionary<string, int> Reactions);

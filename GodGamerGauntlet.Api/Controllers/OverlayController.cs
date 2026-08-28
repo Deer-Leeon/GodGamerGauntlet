@@ -39,6 +39,15 @@ public class OverlayController(AppDbContext context) : ControllerBase
         if (isOwner && string.IsNullOrEmpty(run.OverlayKey))
         {
             run.OverlayKey = OverlayKeys.Create();
+        }
+
+        if (string.IsNullOrEmpty(run.AttemptCode))
+        {
+            run.AttemptCode = await MintAttemptCodeAsync(cancellationToken);
+        }
+
+        if (context.ChangeTracker.HasChanges())
+        {
             await context.SaveChangesAsync(cancellationToken);
         }
 
@@ -185,6 +194,7 @@ public class OverlayController(AppDbContext context) : ControllerBase
         run.TimerStatus = "idle";
         run.TimerElapsedMs = 0;
         run.TimerUpdatedAt = null;
+        run.AttemptCode = await MintAttemptCodeAsync(cancellationToken);
 
         await context.SaveChangesAsync(cancellationToken);
         return Ok(await ToDtoAsync(run, includeKey: run.UserId == CurrentUserId, cancellationToken));
@@ -237,6 +247,19 @@ public class OverlayController(AppDbContext context) : ControllerBase
                 s.SplitTimeMs,
                 s.Status.ToString())).ToList(),
             includeKey ? run.OverlayKey : null,
+            run.AttemptCode,
             reactions);
+    }
+
+    private async Task<string> MintAttemptCodeAsync(CancellationToken cancellationToken)
+    {
+        for (var i = 0; i < 8; i++)
+        {
+            var code = AttemptCodes.Create();
+            var taken = await context.Runs.AnyAsync(r => r.AttemptCode == code, cancellationToken);
+            if (!taken) return code;
+        }
+
+        return AttemptCodes.Create();
     }
 }

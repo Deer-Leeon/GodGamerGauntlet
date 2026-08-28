@@ -54,6 +54,7 @@ public record RunResponse(
     long ElapsedMs,
     // idle | running | paused | finished — running clocks tick on the client.
     string TimerStatus,
+    string? AttemptCode,
     IReadOnlyList<RunSlotResponse> Slots,
     IReadOnlyList<StreamLinkDto> StreamLinks)
 {
@@ -72,6 +73,7 @@ public record RunResponse(
             run.TotalDifficultyScore,
             run.CurrentElapsedMs(now),
             run.TimerStatus,
+            run.AttemptCode,
             run.Slots.OrderBy(s => s.Position).Select(RunSlotResponse.FromEntity).ToList(),
             StreamLinkDto.FromUser(run.User));
     }

@@ -34,6 +34,11 @@ public class Run
     /// </summary>
     public string? OverlayKey { get; set; }
 
+    /// <summary>
+    /// Short public code for this attempt (e.g. XK4M2P). Rotates on reset.
+    /// </summary>
+    public string? AttemptCode { get; set; }
+
     public ICollection<RunSlot> Slots { get; set; } = new List<RunSlot>();
 
     public ICollection<RunVote> Votes { get; set; } = new List<RunVote>();

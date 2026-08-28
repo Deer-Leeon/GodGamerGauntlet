@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import ControlBoard from "@/components/ControlBoard";
 import { RunTypeBadge } from "@/components/RunTypeBadge";
+import AttemptCodeMark from "@/components/AttemptCodeMark";
 import { useOverlayRun } from "@/lib/useOverlayRun";
 import SpeedrunTimer, { formatSpeedrunTime } from "@/components/SpeedrunTimer";
 
@@ -57,6 +58,7 @@ function ControlStudio({ runId }: { runId: string }) {
             {state?.streamerName ?? "Gauntlet"}
           </h1>
           <RunTypeBadge runType={state?.runType} />
+          <AttemptCodeMark code={state?.attemptCode} />
         </div>
         <p className="mt-1 text-sm text-muted">
           Play, split, and reset from the sidebar — or keep those controls

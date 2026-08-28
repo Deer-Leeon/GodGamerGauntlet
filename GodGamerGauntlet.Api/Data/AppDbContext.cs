@@ -1,4 +1,5 @@
 using GodGamerGauntlet.Api.Models;
+using GodGamerGauntlet.Api.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace GodGamerGauntlet.Api.Data;
@@ -102,6 +103,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                   .HasDefaultValue(RunType.Standard);
             entity.Property(r => r.TimerStatus).HasMaxLength(20);
             entity.Property(r => r.OverlayKey).HasMaxLength(64);
+            entity.Property(r => r.AttemptCode).HasMaxLength(AttemptCodes.MaxLength);
+            entity.HasIndex(r => r.AttemptCode).IsUnique();
             // Leaderboards are ranked per run type.
             entity.HasIndex(r => r.RunType);
 
