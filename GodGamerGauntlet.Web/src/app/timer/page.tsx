@@ -8,75 +8,43 @@ export const metadata: Metadata = {
 };
 
 const REPO = "Deer-Leeon/GodGamerGauntlet";
-const LATEST_API = `https://api.github.com/repos/${REPO}/releases/latest`;
 const LIST_API = `https://api.github.com/repos/${REPO}/releases?per_page=10`;
 
-// Direct asset URLs — GitHub starts the download immediately. The API is only
-// used to stay current; if it fails (common from Vercel without a token), these
-// still ship the files instead of dumping people on the releases page.
-const FALLBACK_TAG = "timer-v0.1.2";
-const FALLBACK_MAC = assetDownloadUrl(
-  FALLBACK_TAG,
-  "GGG.Timer_0.1.2_aarch64.dmg",
-);
-const FALLBACK_WINDOWS = assetDownloadUrl(
-  FALLBACK_TAG,
-  "GGG.Timer_0.1.2_x64-setup.exe",
-);
+// Baked into the page so a private GitHub repo (releases API 404s from Vercel
+// without a token) still ships the current files.
+const CURRENT_TAG = "timer-v0.1.2";
 
 function assetDownloadUrl(tag: string, filename: string): string {
   return `https://github.com/${REPO}/releases/download/${encodeURIComponent(tag)}/${encodeURIComponent(filename)}`;
 }
 
-interface GitHubAsset {
-  name: string;
-  browser_download_url: string;
+function downloadsForTag(tag: string): {
+  mac: string;
+  windows: string;
+  tag: string;
+} {
+  const version = tag.replace(/^timer-v/, "");
+  return {
+    tag,
+    mac: assetDownloadUrl(tag, `GGG.Timer_${version}_aarch64.dmg`),
+    windows: assetDownloadUrl(tag, `GGG.Timer_${version}_x64-setup.exe`),
+  };
+}
+
+function newerTimerTag(a: string, b: string): string {
+  const pa = a.replace(/^timer-v/, "").split(".").map(Number);
+  const pb = b.replace(/^timer-v/, "").split(".").map(Number);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i += 1) {
+    const da = pa[i] ?? 0;
+    const db = pb[i] ?? 0;
+    if (da > db) return a;
+    if (da < db) return b;
+  }
+  return a;
 }
 
 interface GitHubRelease {
-  html_url: string;
   tag_name: string;
-  assets: GitHubAsset[];
-}
-
-const GITHUB_HEADERS = {
-  Accept: "application/vnd.github+json",
-  "User-Agent": "godgamergauntlet.com",
-  "X-GitHub-Api-Version": "2022-11-28",
-};
-
-function pickAssets(release: GitHubRelease): {
-  mac: string | null;
-  windows: string | null;
-} {
-  const assets = release.assets ?? [];
-  const mac =
-    assets.find(
-      (asset) =>
-        asset.name.endsWith(".dmg") &&
-        /aarch64|darwin-arm|apple-silicon/i.test(asset.name),
-    )?.browser_download_url ??
-    assets.find((asset) => asset.name.endsWith(".dmg"))?.browser_download_url ??
-    null;
-  const windows =
-    assets.find((asset) => /setup\.exe$/i.test(asset.name))
-      ?.browser_download_url ??
-    assets.find((asset) => /\.exe$/i.test(asset.name))?.browser_download_url ??
-    null;
-  return { mac, windows };
-}
-
-async function fetchJson(url: string): Promise<unknown | null> {
-  try {
-    const response = await fetch(url, {
-      next: { revalidate: 60 },
-      headers: GITHUB_HEADERS,
-    });
-    if (!response.ok) return null;
-    return await response.json();
-  } catch {
-    return null;
-  }
 }
 
 async function latestDownloads(): Promise<{
@@ -84,22 +52,29 @@ async function latestDownloads(): Promise<{
   windows: string;
   tag: string;
 }> {
-  const latest = (await fetchJson(LATEST_API)) as GitHubRelease | null;
-  let release =
-    latest?.tag_name?.startsWith("timer-v") ? latest : null;
-
-  if (!release) {
-    const list = (await fetchJson(LIST_API)) as GitHubRelease[] | null;
-    release =
-      list?.find((item) => item.tag_name?.startsWith("timer-v")) ?? null;
+  let tag = CURRENT_TAG;
+  try {
+    const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
+    const headers: Record<string, string> = {
+      Accept: "application/vnd.github+json",
+      "User-Agent": "godgamergauntlet.com",
+      "X-GitHub-Api-Version": "2022-11-28",
+    };
+    if (token) headers.Authorization = `Bearer ${token}`;
+    const response = await fetch(LIST_API, {
+      next: { revalidate: 60 },
+      headers,
+    });
+    if (response.ok) {
+      const list = (await response.json()) as GitHubRelease[];
+      const newest = list.find((item) => item.tag_name?.startsWith("timer-v"))
+        ?.tag_name;
+      if (newest) tag = newerTimerTag(CURRENT_TAG, newest);
+    }
+  } catch {
+    // Private repo / no token: keep CURRENT_TAG.
   }
-
-  const picked = release ? pickAssets(release) : { mac: null, windows: null };
-  return {
-    mac: picked.mac ?? FALLBACK_MAC,
-    windows: picked.windows ?? FALLBACK_WINDOWS,
-    tag: release?.tag_name ?? FALLBACK_TAG,
-  };
+  return downloadsForTag(tag);
 }
 
 export default async function TimerDownloadPage() {
