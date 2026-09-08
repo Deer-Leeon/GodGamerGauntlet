@@ -7,9 +7,13 @@ import {
   type OverlayAction,
   type OverlayState,
 } from "@/lib/api";
-import { displayedElapsed, predictOverlayState } from "@/lib/overlayOptimistic";
+import {
+  displayedElapsed,
+  keepRunningClock,
+  predictOverlayState,
+} from "@/lib/overlayOptimistic";
 
-const POLL_INTERVAL_MS = 2000;
+const POLL_INTERVAL_MS = 1000;
 
 function overlayShape(state: OverlayState | null): string {
   if (!state) return "";
@@ -94,14 +98,25 @@ export function useOverlayRun(
 
     const onMessage = (event: MessageEvent<OverlayState>) => {
       if (inflightRef.current > 0) return;
+      const incoming = event.data;
       setState((prev) => {
+        const keepClock = keepRunningClock(prev, incoming);
         const next = {
-          ...event.data,
+          ...incoming,
           overlayKey: prev?.overlayKey ?? null,
-          elapsedMs: prev?.elapsedMs ?? event.data.elapsedMs,
-          timerStatus: prev?.timerStatus ?? event.data.timerStatus,
+          ...(keepClock && prev
+            ? {
+                elapsedMs: prev.elapsedMs,
+                timerStatus: prev.timerStatus,
+              }
+            : {}),
         };
         stateRef.current = next;
+        if (!keepClock) {
+          const now = performance.now();
+          syncedAtRef.current = now;
+          setSyncedAt(now);
+        }
         return next;
       });
     };
@@ -125,7 +140,11 @@ export function useOverlayRun(
         if (cancelled || inflightRef.current > 0) return;
         if (stateRef.current) {
           if (overlayShape(next) === overlayShape(stateRef.current)) return;
-          applyState(next, false, true);
+          applyState(
+            next,
+            false,
+            keepRunningClock(stateRef.current, next),
+          );
           return;
         }
         applyState(next, false);
@@ -153,10 +172,7 @@ export function useOverlayRun(
         predictOverlayState(snapshot, action, syncedAtRef.current, frameNow);
       inflightRef.current += 1;
       if (predicted) {
-        const keepClock =
-          snapshot?.timerStatus === "running" &&
-          predicted.timerStatus === "running";
-        applyState(predicted, true, keepClock);
+        applyState(predicted, true, keepRunningClock(snapshot, predicted));
       }
       try {
         const next = await sendOverlayAction(
@@ -167,7 +183,7 @@ export function useOverlayRun(
             ? displayedElapsed(snapshot, syncedAtRef.current, frameNow)
             : undefined,
         );
-        applyState(next, true, Boolean(predicted));
+        applyState(next, true, keepRunningClock(snapshot, next));
         setActionError(null);
       } catch (err) {
         if (snapshot) applyState(snapshot, true);

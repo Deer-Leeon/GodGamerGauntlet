@@ -186,8 +186,8 @@ async function ledger(method, path, body) {
   return text ? JSON.parse(text) : null;
 }
 
-function staysRunning(prev, next) {
-  return prev?.timerStatus === "running" && next?.timerStatus === "running";
+function keepRunningClock(local, remote) {
+  return local?.timerStatus === "running" && remote?.timerStatus === "running";
 }
 
 function applyState(next, keepClock = false, silent = false) {
@@ -260,13 +260,13 @@ async function act(action) {
     ? predictOverlayState(snapshot, action, session.syncedAt, stampAt)
     : null;
   session.inflight += 1;
-  if (predicted) applyState(predicted, staysRunning(snapshot, predicted));
+  if (predicted) applyState(predicted, keepRunningClock(snapshot, predicted));
   try {
     const next = await ledger(
       "POST",
       `/api/runs/${session.runId}/overlay/${action}${overlayQuery(stamp)}`,
     );
-    applyState(next, Boolean(predicted), Boolean(predicted));
+    applyState(next, keepRunningClock(snapshot, next), Boolean(predicted));
   } catch (err) {
     if (snapshot) applyState(snapshot);
     session.error = formatError(err);
@@ -323,7 +323,7 @@ setInterval(() => {
     .then((next) => {
       if (session.inflight > 0 || !session.runId) return;
       if (overlayFingerprint(next) === overlayFingerprint(session.overlay)) return;
-      applyState(next, true);
+      applyState(next, keepRunningClock(session.overlay, next));
     })
     .catch(() => {});
 }, 2000);

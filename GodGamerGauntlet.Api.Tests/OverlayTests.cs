@@ -92,6 +92,11 @@ public class OverlayTests : IClassFixture<CourtApiFactory>
         Assert.Equal("paused", frozen.GetProperty("timerStatus").GetString());
         Assert.Equal(1234, frozen.GetProperty("elapsedMs").GetInt64());
 
+        var frozenGet = JsonDocument.Parse(await (await client.GetAsync($"/api/runs/{runId}/overlay"))
+            .Content.ReadAsStringAsync()).RootElement;
+        Assert.Equal("paused", frozenGet.GetProperty("timerStatus").GetString());
+        Assert.Equal(1234, frozenGet.GetProperty("elapsedMs").GetInt64());
+
         var stranger = await _factory.CreateClient()
             .PostAsync($"/api/runs/{runId}/overlay/toggle", null);
         Assert.Equal(HttpStatusCode.Forbidden, stranger.StatusCode);

@@ -252,18 +252,17 @@ export default function LiveRunTrackerPage() {
   const isOwner = user?.id === run.userId;
   const duration = formatDuration(run.startTime, run.endTime);
   const streamerName = run.streamerName;
-  const overlayElapsed = overlay.state?.elapsedMs;
-  const overlayStatus = overlay.state?.timerStatus;
-  const runElapsedMs =
-    overlayElapsed != null && overlayElapsed > 0
-      ? overlayElapsed
-      : run.elapsedMs > 0
-        ? run.elapsedMs
-        : (orderedSlots
-            .map((s) => overlayBySlot.get(s.position)?.splitTimeMs ?? s.splitTimeMs)
-            .filter((t): t is number => t != null && t > 0)
-            .sort((a, b) => b - a)[0] ?? null);
-  const liveTimerStatus = overlayStatus ?? run.timerStatus ?? "idle";
+  const runElapsedMs = overlay.state
+    ? overlay.state.elapsedMs
+    : run.elapsedMs > 0
+      ? run.elapsedMs
+      : (orderedSlots
+          .map((s) => overlayBySlot.get(s.position)?.splitTimeMs ?? s.splitTimeMs)
+          .filter((t): t is number => t != null && t > 0)
+          .sort((a, b) => b - a)[0] ?? null);
+  const liveTimerStatus = overlay.state
+    ? overlay.state.timerStatus
+    : (run.timerStatus ?? "idle");
   const showLiveClock = !isOver && (overlay.syncedAt > 0 || liveTimerStatus !== "idle");
 
   async function copyLink() {
@@ -415,7 +414,7 @@ export default function LiveRunTrackerPage() {
             </p>
             {showLiveClock ? (
               <SpeedrunTimer
-                elapsedMs={overlayElapsed ?? run.elapsedMs}
+                elapsedMs={overlay.state ? overlay.state.elapsedMs : run.elapsedMs}
                 timerStatus={liveTimerStatus}
                 syncedAt={overlay.syncedAt}
                 tone="site"
@@ -554,7 +553,7 @@ export default function LiveRunTrackerPage() {
                   </div>
                   {showLiveClock ? (
                     <SpeedrunTimer
-                      elapsedMs={overlayElapsed ?? run.elapsedMs}
+                      elapsedMs={overlay.state ? overlay.state.elapsedMs : run.elapsedMs}
                       timerStatus={liveTimerStatus}
                       syncedAt={overlay.syncedAt}
                       tone="site"

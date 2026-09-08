@@ -1,5 +1,16 @@
 import type { OverlayAction, OverlayState, RunSlotStatus } from "@/lib/api";
 
+/**
+ * Keep the local running origin only while both sides are still running.
+ * On pause, start, finish, or reset, take the ledger clock instead.
+ */
+export function keepRunningClock(
+  local: { timerStatus?: string } | null | undefined,
+  remote: { timerStatus?: string } | null | undefined,
+): boolean {
+  return local?.timerStatus === "running" && remote?.timerStatus === "running";
+}
+
 /** Elapsed ms the streamer currently sees, including local extrapolation. */
 export function displayedElapsed(
   state: OverlayState,
