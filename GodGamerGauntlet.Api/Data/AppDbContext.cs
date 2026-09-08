@@ -116,7 +116,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             // Leaderboards are ranked per run type.
             entity.HasIndex(r => r.RunType);
 
-            // A Run has 10 RunSlots (Standard) or 5 (Lite).
+            // A Run has 3–7 RunSlots (Sprint/Marathon/Endurance), or 5/10 for legacy Lite/Standard.
             entity.HasMany(r => r.Slots)
                   .WithOne(s => s.Run)
                   .HasForeignKey(s => s.RunId)

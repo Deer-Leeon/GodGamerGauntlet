@@ -9,6 +9,8 @@ import {
   getMyPendingRuns,
   getProfile,
   getUserSpeedruns,
+  LEGACY_RUN_TYPES,
+  LIVE_RUN_TYPES,
   type ProfileGame,
   type ProfileLiveRun,
   type ProfileMode,
@@ -25,6 +27,7 @@ import { StreamLinkList } from "@/components/StreamLinks";
 import { useOverlayRun } from "@/lib/useOverlayRun";
 import FollowButton from "@/components/FollowButton";
 import { useAuth } from "@/lib/auth";
+import { RunTypeBadge } from "@/components/RunTypeBadge";
 
 type HistoryFilter = "All" | RunType;
 type ProfileTab = "speedruns" | "gauntlets" | "courtroom";
@@ -122,10 +125,8 @@ export default function ProfilePage() {
     }
   }, [decoded]);
 
-  // Default to the trophy room when it has trophies, otherwise gauntlets.
-  // The courtroom is owner-only, so visitors deep-linking there fall back.
-  const fallbackTab: ProfileTab =
-    (speedruns?.length ?? 0) > 0 ? "speedruns" : "gauntlets";
+  // Default to gauntlets; speedruns are baselines, not the trophy room.
+  const fallbackTab: ProfileTab = "gauntlets";
   const tab: ProfileTab =
     pickedTab === null || (pickedTab === "courtroom" && !isOwner)
       ? fallbackTab
@@ -301,10 +302,21 @@ export default function ProfilePage() {
 
       {tab === "gauntlets" && (
         <>
-          <section className="mt-8 grid gap-8 sm:grid-cols-2">
-            <ModeCard label="Standard" mode={profile.standard} />
-            <ModeCard label="Lite" mode={profile.lite} />
+          <section className="mt-8 grid gap-8 sm:grid-cols-3">
+            <ModeCard label="Sprint" mode={profile.sprint} />
+            <ModeCard label="Marathon" mode={profile.marathon} />
+            <ModeCard label="Endurance" mode={profile.endurance} />
           </section>
+          {(profile.standard.attempts > 0 || profile.lite.attempts > 0) && (
+            <section className="mt-8 grid gap-8 sm:grid-cols-2">
+              {profile.standard.attempts > 0 && (
+                <ModeCard label="Legacy Standard" mode={profile.standard} />
+              )}
+              {profile.lite.attempts > 0 && (
+                <ModeCard label="Legacy Lite" mode={profile.lite} />
+              )}
+            </section>
+          )}
 
           <Bestiary
             beaten={profile.beaten ?? []}
@@ -318,7 +330,14 @@ export default function ProfilePage() {
               aria-label="Filter history"
               className="mt-4 flex gap-6 border-b border-gold/20 text-sm"
             >
-              {(["All", "Standard", "Lite"] as const).map((filter) => (
+              {(["All", ...LIVE_RUN_TYPES, ...LEGACY_RUN_TYPES] as const)
+                .filter((filter) => {
+                  if (filter === "All") return true;
+                  if (filter === "Sprint" || filter === "Marathon" || filter === "Endurance")
+                    return true;
+                  return profile.runs.some((run) => run.runType === filter);
+                })
+                .map((filter) => (
                 <button
                   key={filter}
                   role="tab"
@@ -397,9 +416,13 @@ function SpeedrunShelf({ runs }: { runs: Submission[] }) {
   if (runs.length === 0) {
     return (
       <p className="mt-6 text-sm text-faint">
-        No verified speedruns yet.{" "}
-        <Link href="/records" className="text-gold hover:text-gold/80">
-          Find a board and submit one.
+        No verified times yet.{" "}
+        <Link href="/draft" className="text-gold hover:text-gold/80">
+          Draft a gauntlet
+        </Link>
+        {" · "}
+        <Link href="/settings#src-claim" className="text-gold hover:text-gold/80">
+          Claim your speedrun.com PBs
         </Link>
       </p>
     );
@@ -446,6 +469,17 @@ function SpeedrunShelf({ runs }: { runs: Submission[] }) {
           >
             ▶
           </a>
+          {run.srcRunUrl && (
+            <a
+              href={run.srcRunUrl}
+              target="_blank"
+              rel="noreferrer"
+              title="Original listing on speedrun.com"
+              className="text-[10px] uppercase tracking-wide text-faint hover:text-gold"
+            >
+              SRC
+            </a>
+          )}
         </article>
       ))}
     </div>
@@ -525,7 +559,7 @@ function CourtroomShelf({ runs }: { runs: Submission[] | null }) {
 
 function LiveRunCallout({ live }: { live: ProfileLiveRun }) {
   const { state, syncedAt } = useOverlayRun(live.runId);
-  const isLite = (state?.runType ?? live.runType) === "Lite";
+  const runType = state?.runType ?? live.runType;
   const title = state?.games[state.currentSlotIndex]?.title ?? live.currentTitle ?? "the next game";
   const thumb =
     state?.games[state.currentSlotIndex]?.thumb ?? live.currentThumb;
@@ -556,7 +590,12 @@ function LiveRunCallout({ live }: { live: ProfileLiveRun }) {
       <span className="live-run-copy">
         <span className="live-run-title">
           On game {currentSlot} of {totalSlots}
-          {isLite ? " · Lite" : ""}
+          {runType ? (
+            <>
+              {" · "}
+              <RunTypeBadge runType={runType} />
+            </>
+          ) : null}
         </span>
         <span className="live-run-game">{title}</span>
       </span>
@@ -714,7 +753,6 @@ function GameShelf({
 
 function HistoryCard({ run }: { run: ProfileRun }) {
   const clear = run.status === "Completed";
-  const isLite = run.runType === "Lite";
   const elapsedMs = run.elapsedMs > 0 ? run.elapsedMs : null;
   const statuses = run.slotStatuses ?? [];
   const titles = run.slotTitles ?? [];
@@ -743,12 +781,8 @@ function HistoryCard({ run }: { run: ProfileRun }) {
               </span>
             </>
           )}
-          {isLite && (
-            <>
-              <span className="text-faint/70">·</span>
-              <span className="text-faint">Lite</span>
-            </>
-          )}
+          <span className="text-faint/70">·</span>
+          <RunTypeBadge runType={run.runType} />
           <span className="text-faint/70">·</span>
           <span className="text-faint">{timeAgo(run.endTime)}</span>
         </div>

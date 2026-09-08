@@ -14,6 +14,12 @@ import {
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { ProofModal } from "@/components/ProofPlayer";
+import { RosterDisclaimer } from "@/components/RosterDisclaimer";
+
+function originLabel(origin: string | undefined): string {
+  if (origin === "SrcImport" || origin === "SrcClaimImport") return "speedrun.com";
+  return "Gauntlet";
+}
 
 function formatPlayedOn(iso: string): string {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -136,7 +142,7 @@ export default function RecordsPage() {
           <div>
             <h1 className="text-2xl font-semibold">{records.title}</h1>
             <p className="mt-1 text-sm text-muted">
-              Speedrun records
+              Roster baseline
               {records.srcGameUrl && (
                 <span className="text-faint">
                   {" · "}
@@ -167,6 +173,7 @@ export default function RecordsPage() {
                 </span>
               )}
             </p>
+            <RosterDisclaimer />
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -180,9 +187,9 @@ export default function RecordsPage() {
           )}
           <Link
             href={`/records/${gameId}/submit`}
-            className="bg-gold px-4 py-2 text-sm text-dark transition hover:bg-gold/90"
+            className="border border-gold/30 px-4 py-2 text-sm text-muted transition hover:border-gold hover:text-ink"
           >
-            Submit run
+            Add a time
           </Link>
         </div>
       </header>
@@ -302,7 +309,7 @@ function FilterPill({
 }
 
 const GRID =
-  "grid grid-cols-[3rem_1fr_7rem_6rem] gap-3 sm:grid-cols-[3rem_1fr_8rem_1fr_7rem_4rem]";
+  "grid grid-cols-[3rem_1fr_7rem_6rem] gap-3 sm:grid-cols-[3rem_1fr_8rem_1fr_5rem_7rem_4rem]";
 
 function BoardTable({
   loading,
@@ -322,6 +329,7 @@ function BoardTable({
         <span>Player</span>
         <span className="text-right">Time</span>
         <span className="hidden sm:block">Tags</span>
+        <span className="hidden sm:block">Origin</span>
         <span className="hidden text-right sm:block">Played</span>
         <span className="text-center">Proof</span>
       </div>
@@ -330,7 +338,14 @@ function BoardTable({
 
       {!loading && rows.length === 0 && (
         <p className="py-14 text-sm text-faint">
-          No verified runs on this board yet. Claim the top spot.
+          No times on this roster game yet.{" "}
+          <Link href="/draft" className="text-gold hover:text-gold/80">
+            Draft a gauntlet
+          </Link>
+          {" · "}
+          <Link href="/settings#src-claim" className="text-gold hover:text-gold/80">
+            Claim your speedrun.com PBs
+          </Link>
         </p>
       )}
 
@@ -343,7 +358,7 @@ function BoardTable({
                   row.rank === 1 ? "text-gold" : "text-muted"
                 }`}
               >
-                {row.rank === 1 ? "🏆 1" : row.rank}
+                {row.rank}
               </span>
               <Link
                 href={`/u/${encodeURIComponent(row.playerUsername ?? row.playerName)}`}
@@ -374,6 +389,9 @@ function BoardTable({
                     EMU
                   </span>
                 )}
+              </span>
+              <span className="hidden text-xs text-faint sm:block">
+                {originLabel(row.origin)}
               </span>
               <span className="hidden text-right font-mono text-xs text-muted sm:block">
                 {formatPlayedOn(row.playedOn)}

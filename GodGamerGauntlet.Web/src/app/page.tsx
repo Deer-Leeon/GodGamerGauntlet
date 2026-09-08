@@ -27,6 +27,7 @@ import {
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import MomentChips from "@/components/MomentChips";
+import { RunTypeBadge } from "@/components/RunTypeBadge";
 
 const SORTS: { id: FeedSort; label: string }[] = [
   { id: "hot", label: "Hot" },
@@ -71,10 +72,9 @@ function HomeHero({ user }: { user: User | null }) {
           Draft the games. Survive the gauntlet.
         </h1>
         <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted">
-          God Gamer Gauntlet is a marathon format: draft a lineup of games,
-          beat them back to back on stream, and post your clear to the board.
-          Verified speedrun records live here too — per-game, VOD-reviewed,
-          ad-free.
+          God Gamer Gauntlet is a marathon format: draft 3, 5, or 7 games from
+          a closed 19-game roster, speedrun them start to finish on stream, and
+          post your clear to the arena.
         </p>
         <div className="mt-6 flex flex-wrap gap-3 text-sm">
           <Link
@@ -84,16 +84,16 @@ function HomeHero({ user }: { user: User | null }) {
             Sign in & draft a gauntlet
           </Link>
           <Link
-            href="/records"
-            className="border border-gold/30 px-5 py-2.5 text-muted transition hover:border-gold hover:text-ink"
-          >
-            Browse speedrun records
-          </Link>
-          <Link
             href="/leaderboard"
             className="border border-gold/30 px-5 py-2.5 text-muted transition hover:border-gold hover:text-ink"
           >
             Gauntlet leaderboard
+          </Link>
+          <Link
+            href="/records"
+            className="border border-gold/30 px-5 py-2.5 text-muted transition hover:border-gold hover:text-ink"
+          >
+            Roster baselines
           </Link>
         </div>
       </section>
@@ -259,7 +259,7 @@ function LiveCard({ card, syncedAt }: { card: LiveRunCard; syncedAt: number }) {
           <span className="text-faint">
             {" · "}
             {card.slotsCompleted}/{card.totalSlots}
-            {card.runType === "Lite" ? " · Lite" : ""}
+            {card.runType && card.runType !== "Standard" ? ` · ${card.runType}` : ""}
           </span>
         </span>
         <SpeedrunTimer
@@ -458,7 +458,6 @@ function PostCard({
   const completed = post.status === "Completed";
   const signedIn = !!currentUserId;
   const elapsedMs = feedElapsedMs(post);
-  const isLite = post.runType === "Lite";
 
   return (
     <article className="feed-row py-6">
@@ -500,12 +499,7 @@ function PostCard({
                 </span>
               </>
             )}
-            {isLite && (
-              <>
-                <span className="text-faint/70">·</span>
-                <span className="text-faint">Lite</span>
-              </>
-            )}
+            <RunTypeBadge runType={post.runType} />
           </div>
 
           {(post.moments ?? []).length > 0 && (
@@ -674,35 +668,41 @@ function FooterBar({
 }
 
 function TopBoards() {
-  const [standard, setStandard] = useState<LeaderboardEntry[] | null>(null);
-  const [lite, setLite] = useState<LeaderboardEntry[] | null>(null);
+  const [sprint, setSprint] = useState<LeaderboardEntry[] | null>(null);
+  const [marathon, setMarathon] = useState<LeaderboardEntry[] | null>(null);
+  const [endurance, setEndurance] = useState<LeaderboardEntry[] | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     Promise.all([
-      getLeaderboard("Standard", 5),
-      getLeaderboard("Lite", 5),
-    ]).then(([s, l]) => {
+      getLeaderboard("Sprint", 5),
+      getLeaderboard("Marathon", 5),
+      getLeaderboard("Endurance", 5),
+    ]).then(([s, m, e]) => {
       if (cancelled) return;
-      setStandard(s);
-      setLite(l);
+      setSprint(s);
+      setMarathon(m);
+      setEndurance(e);
     }).catch(() => {
       if (cancelled) return;
-      setStandard([]);
-      setLite([]);
+      setSprint([]);
+      setMarathon([]);
+      setEndurance([]);
     });
     return () => {
       cancelled = true;
     };
   }, []);
 
-  if (standard === null || lite === null) return null;
-  if (standard.length === 0 && lite.length === 0) return null;
+  if (sprint === null || marathon === null || endurance === null) return null;
+  if (sprint.length === 0 && marathon.length === 0 && endurance.length === 0)
+    return null;
 
   return (
-    <section className="mt-8 grid gap-8 sm:grid-cols-2">
-      <TopColumn title="Top Standard" runType="Standard" entries={standard} />
-      <TopColumn title="Top Lite" runType="Lite" entries={lite} />
+    <section className="mt-8 grid gap-8 sm:grid-cols-3">
+      <TopColumn title="Top Sprint" runType="Sprint" entries={sprint} />
+      <TopColumn title="Top Marathon" runType="Marathon" entries={marathon} />
+      <TopColumn title="Top Endurance" runType="Endurance" entries={endurance} />
     </section>
   );
 }

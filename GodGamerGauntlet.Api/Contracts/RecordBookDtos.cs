@@ -54,11 +54,12 @@ public record ProfileGameDto(
     string? Thumb,
     int Count);
 
+public record SeasonModeChampionDto(string RunType, LeaderboardEntryDto? Entry);
+
 public record SeasonChampionDto(
     string Season,
     string Label,
-    LeaderboardEntryDto? Standard,
-    LeaderboardEntryDto? Lite);
+    IReadOnlyList<SeasonModeChampionDto> Modes);
 
 public record ProfileModeDto(
     int Attempts,
@@ -92,6 +93,9 @@ public record PlayerCardDto(
     int AttemptCount,
     int ClearCount,
     int DnfCount,
+    int? SprintRank,
+    int? MarathonRank,
+    int? EnduranceRank,
     int? StandardRank,
     int? LiteRank,
     DateTime? LastRunAt);
@@ -110,6 +114,9 @@ public record UserProfileDto(
     IReadOnlyList<string> Titles,
     IReadOnlyList<ProfileGameDto> Beaten,
     IReadOnlyList<ProfileGameDto> Killers,
+    ProfileModeDto Sprint,
+    ProfileModeDto Marathon,
+    ProfileModeDto Endurance,
     ProfileModeDto Standard,
     ProfileModeDto Lite,
     IReadOnlyList<ProfileRunDto> Runs,

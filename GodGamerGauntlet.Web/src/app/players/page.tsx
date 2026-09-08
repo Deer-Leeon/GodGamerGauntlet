@@ -136,6 +136,9 @@ export default function PlayersPage() {
 
 function rankLine(player: PlayerCard): string | null {
   const parts: string[] = [];
+  if (player.sprintRank != null) parts.push(`#${player.sprintRank} Sprint`);
+  if (player.marathonRank != null) parts.push(`#${player.marathonRank} Marathon`);
+  if (player.enduranceRank != null) parts.push(`#${player.enduranceRank} Endurance`);
   if (player.standardRank != null) parts.push(`#${player.standardRank} Std`);
   if (player.liteRank != null) parts.push(`#${player.liteRank} Lite`);
   return parts.length === 0 ? null : parts.join(" · ");

@@ -1,18 +1,19 @@
-import type { RunType } from "@/lib/api";
+import { RUN_TYPE_SLOTS, type RunType } from "@/lib/api";
 
-/**
- * Marks a run as the 5-game Lite variant. Standard runs render nothing —
- * the full gauntlet is the default and needs no label.
- */
+/** Labels Sprint / Marathon / Endurance (and legacy Standard / Lite). */
 export function RunTypeBadge({
   runType,
 }: {
   runType: RunType | undefined | null;
 }) {
-  if (runType !== "Lite") return null;
+  if (!runType) return null;
+  const slots = RUN_TYPE_SLOTS[runType];
   return (
-    <span title="Gauntlet Lite — a 5-game run" className="text-sm text-faint">
-      Lite
+    <span
+      title={`${runType} — a ${slots}-game gauntlet`}
+      className="text-sm text-faint"
+    >
+      {runType}
     </span>
   );
 }

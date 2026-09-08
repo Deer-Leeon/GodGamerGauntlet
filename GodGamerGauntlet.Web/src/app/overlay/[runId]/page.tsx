@@ -95,7 +95,6 @@ function OverlayView() {
 
   const beatenCount = state.games.filter((g) => g.completed).length;
   const totalCount = state.games.length || slotsForRunType(state.runType);
-  const isLite = state.runType === "Lite";
 
   return (
     <main
@@ -126,7 +125,9 @@ function OverlayView() {
         <div className="flex items-center justify-between">
           <span className="flex items-center gap-1.5 text-[11px] text-gray-400">
             Time
-            {isLite && <span className="text-gray-500">· Lite</span>}
+            {state.runType && state.runType !== "Standard" && (
+              <span className="text-gray-500">· {state.runType}</span>
+            )}
           </span>
           <span className="flex items-center gap-2">
             <AttemptCodeMark code={state.attemptCode} tone="overlay" />

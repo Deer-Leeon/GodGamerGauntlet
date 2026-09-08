@@ -8,9 +8,9 @@ namespace GodGamerGauntlet.Api.Contracts;
 /// controller; the attributes only bound the request to the widest legal range.
 /// </summary>
 public record InitializeRunRequest(
-    [Required, MinLength(RunTypes.LiteSlotCount), MaxLength(RunTypes.StandardSlotCount)]
+    [Required, MinLength(RunTypes.MinLiveSlotCount), MaxLength(RunTypes.MaxLiveSlotCount)]
     List<Guid> GameIds,
-    // "Standard" or "Lite"; defaults to Standard when omitted.
+    // "Sprint", "Marathon", or "Endurance"; defaults to Marathon when omitted.
     string? RunType = null);
 
 public record ReportMatchRequest(

@@ -153,7 +153,7 @@ function SubmitRunForm() {
       <main className="site-content flex-1 px-5 py-8 sm:px-7">
         <h1 className="text-2xl font-semibold">Submit a run</h1>
         <p className="mt-4 text-sm text-muted">
-          You need an account to submit runs to the record book.
+          You need an account to add a time to this roster game.
         </p>
         <Link
           href="/login"
@@ -184,7 +184,7 @@ function SubmitRunForm() {
               href={`/records/${gameId}`}
               className="bg-gold px-4 py-2 text-dark transition hover:bg-gold/90"
             >
-              Back to leaderboard
+              Back to roster
             </Link>
             <button
               onClick={() => {

@@ -8,16 +8,17 @@ import {
   getHallOfFame,
   getLeaderboard,
   getSurvivalBoard,
+  LIVE_RUN_TYPES,
   RUN_TYPE_SLOTS,
   type LeaderboardEntry,
   type RunType,
   type SeasonChampion,
 } from "@/lib/api";
 
-const MODES: { id: RunType; label: string }[] = [
-  { id: "Standard", label: `Standard (${RUN_TYPE_SLOTS.Standard} games)` },
-  { id: "Lite", label: `Lite (${RUN_TYPE_SLOTS.Lite} games)` },
-];
+const MODES: { id: RunType; label: string }[] = LIVE_RUN_TYPES.map((id) => ({
+  id,
+  label: `${id} (${RUN_TYPE_SLOTS[id]} games)`,
+}));
 
 type View = "all" | "current" | "survival" | "seasons";
 
@@ -51,7 +52,7 @@ function formatClock(ms: number | null): string {
 }
 
 export default function LeaderboardPage() {
-  const [runType, setRunType] = useState<RunType>("Standard");
+  const [runType, setRunType] = useState<RunType>("Marathon");
   const [view, setView] = useState<View>("all");
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [seasons, setSeasons] = useState<SeasonChampion[]>([]);
@@ -185,7 +186,7 @@ export default function LeaderboardPage() {
           empty={
             view === "survival"
               ? `No ${runType} DNFs yet.`
-              : `No ${runType === "Lite" ? "Lite" : "Standard"} Clears yet.`
+              : `No ${runType} Clears yet.`
           }
           slotsLabel={view === "survival" ? "Furthest" : "Slots"}
           onInspect={setInspecting}
@@ -358,7 +359,7 @@ function InspectWheelModal({
             {formatClock(entry.elapsedMs)}
           </span>
           <span className="text-sm text-faint">
-            {entry.runType === "Lite" ? "Lite" : "Standard"} ·{" "}
+            {entry.runType} ·{" "}
             {entry.slotsCompleted}/{entry.totalSlots}
           </span>
           <button
@@ -440,10 +441,11 @@ function HallOfFame({
 }) {
   return (
     <div className="feed-list mt-5">
-      <div className="feed-head grid grid-cols-[7rem_1fr_1fr] gap-3 border-b border-gold/20 py-3.5 text-sm text-faint">
+      <div className="feed-head grid grid-cols-[7rem_1fr_1fr_1fr] gap-3 border-b border-gold/20 py-3.5 text-sm text-faint">
         <span>Month</span>
-        <span>Standard</span>
-        <span>Lite</span>
+        <span>Sprint</span>
+        <span>Marathon</span>
+        <span>Endurance</span>
       </div>
       {loading && <p className="py-14 text-sm text-faint">Loading…</p>}
       {!loading && seasons.length === 0 && (
@@ -452,16 +454,21 @@ function HallOfFame({
       <ol>
         {seasons.map((season) => (
           <li key={season.season} className="feed-row">
-            <div className="grid grid-cols-[7rem_1fr_1fr] items-center gap-3 py-3.5 text-sm">
+            <div className="grid grid-cols-[7rem_1fr_1fr_1fr] items-center gap-3 py-3.5 text-sm">
               <span className="text-muted">{season.label}</span>
-              <ChampCell entry={season.standard} />
-              <ChampCell entry={season.lite} />
+              <ChampCell entry={entryFor(season, "Sprint")} />
+              <ChampCell entry={entryFor(season, "Marathon")} />
+              <ChampCell entry={entryFor(season, "Endurance")} />
             </div>
           </li>
         ))}
       </ol>
     </div>
   );
+}
+
+function entryFor(season: SeasonChampion, runType: RunType) {
+  return season.modes.find((m) => m.runType === runType)?.entry ?? null;
 }
 
 function ChampCell({ entry }: { entry: LeaderboardEntry | null }) {

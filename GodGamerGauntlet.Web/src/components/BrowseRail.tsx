@@ -138,7 +138,7 @@ export default function BrowseRail() {
 
         <section>
           <h2>Best runs</h2>
-          <p className="browse-rail-blurb">Almost at a Clear — 8/10 or 4/5.</p>
+          <p className="browse-rail-blurb">Almost at a Clear — last stretch of a Sprint, Marathon, or Endurance.</p>
           {bestRuns.length === 0 ? (
             <p className="browse-rail-empty">Nobody that far along yet.</p>
           ) : (

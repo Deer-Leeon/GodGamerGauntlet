@@ -82,6 +82,10 @@ public static class DbInitializer
                 match.IsFeatured = true;
                 match.PopularityRank = rank;
                 match.BaseDifficulty = entry.BaseDifficulty;
+                if (entry.Thumb is not null)
+                {
+                    match.Thumb = entry.Thumb;
+                }
                 continue;
             }
 
@@ -90,6 +94,7 @@ public static class DbInitializer
                 Id = Guid.NewGuid(),
                 Title = entry.Title,
                 BaseDifficulty = entry.BaseDifficulty,
+                Thumb = entry.Thumb,
                 IsFeatured = true,
                 PopularityRank = rank
             });

@@ -126,9 +126,14 @@ public class RecordBook(AppDbContext context) : IRecordBook
     public async Task<IReadOnlyList<SeasonChampionDto>> GetHallOfFameAsync(
         CancellationToken cancellationToken = default)
     {
-        var standard = await LoadBoardRowsAsync(RunType.Standard, cancellationToken);
-        var lite = await LoadBoardRowsAsync(RunType.Lite, cancellationToken);
-        var months = standard.Concat(lite)
+        var byType = new Dictionary<RunType, IReadOnlyList<BoardRow>>();
+        foreach (var type in Enum.GetValues<RunType>())
+        {
+            byType[type] = await LoadBoardRowsAsync(type, cancellationToken);
+        }
+
+        var months = byType.Values
+            .SelectMany(rows => rows)
             .Where(r => r.EndTime is not null)
             .Select(r => Seasons.MonthStart(r.EndTime!.Value.ToUniversalTime()))
             .Distinct()
@@ -140,13 +145,17 @@ public class RecordBook(AppDbContext context) : IRecordBook
             .Select(month =>
             {
                 var next = month.AddMonths(1);
+                var modes = RunTypes.Live.Concat(RunTypes.Legacy)
+                    .Select(type => new SeasonModeChampionDto(
+                        type.ToString(),
+                        ChampionInMonth(byType[type], type, month, next)))
+                    .ToList();
                 return new SeasonChampionDto(
                     Seasons.Key(month),
                     Seasons.Label(month),
-                    ChampionInMonth(standard, RunType.Standard, month, next),
-                    ChampionInMonth(lite, RunType.Lite, month, next));
+                    modes);
             })
-            .Where(s => s.Standard is not null || s.Lite is not null)
+            .Where(s => s.Modes.Any(m => m.Entry is not null))
             .ToList();
     }
 
@@ -203,13 +212,12 @@ public class RecordBook(AppDbContext context) : IRecordBook
     public async Task<IReadOnlyDictionary<RunType, IReadOnlyList<PersonalBest>>> GetAllBoardsAsync(
         CancellationToken cancellationToken = default)
     {
-        var standard = await LoadBoardAsync(RunType.Standard, cancellationToken);
-        var lite = await LoadBoardAsync(RunType.Lite, cancellationToken);
-        return new Dictionary<RunType, IReadOnlyList<PersonalBest>>
+        var boards = new Dictionary<RunType, IReadOnlyList<PersonalBest>>();
+        foreach (var type in Enum.GetValues<RunType>())
         {
-            [RunType.Standard] = standard,
-            [RunType.Lite] = lite
-        };
+            boards[type] = await LoadBoardAsync(type, cancellationToken);
+        }
+        return boards;
     }
 
     public async Task<UserProfileDto?> GetProfileAsync(
@@ -269,11 +277,7 @@ public class RecordBook(AppDbContext context) : IRecordBook
             .Select(run => ToProfileRun(run, user.Id, boards, firstClearIds))
             .ToList();
 
-        var titles = EarnedTitles(
-            boards[RunType.Standard],
-            boards[RunType.Lite],
-            user.Id,
-            ordered);
+        var titles = EarnedTitles(boards, user.Id, ordered);
 
         return new UserProfileDto(
             user.Id,
@@ -289,6 +293,9 @@ public class RecordBook(AppDbContext context) : IRecordBook
             titles,
             Catalog(finished, RunSlotStatus.Won),
             Catalog(finished, RunSlotStatus.Lost),
+            BuildMode(ordered, RunType.Sprint, boards[RunType.Sprint], user.Id),
+            BuildMode(ordered, RunType.Marathon, boards[RunType.Marathon], user.Id),
+            BuildMode(ordered, RunType.Endurance, boards[RunType.Endurance], user.Id),
             BuildMode(ordered, RunType.Standard, boards[RunType.Standard], user.Id),
             BuildMode(ordered, RunType.Lite, boards[RunType.Lite], user.Id),
             runs,
@@ -338,6 +345,9 @@ public class RecordBook(AppDbContext context) : IRecordBook
             .ToListAsync(cancellationToken);
 
         var boards = await GetAllBoardsAsync(cancellationToken);
+        var sprintRank = boards[RunType.Sprint].ToDictionary(p => p.UserId, p => p.Rank);
+        var marathonRank = boards[RunType.Marathon].ToDictionary(p => p.UserId, p => p.Rank);
+        var enduranceRank = boards[RunType.Endurance].ToDictionary(p => p.UserId, p => p.Rank);
         var standardRank = boards[RunType.Standard].ToDictionary(p => p.UserId, p => p.Rank);
         var liteRank = boards[RunType.Lite].ToDictionary(p => p.UserId, p => p.Rank);
         var byUser = finished.GroupBy(r => r.UserId).ToDictionary(g => g.Key, g => g.ToList());
@@ -353,6 +363,9 @@ public class RecordBook(AppDbContext context) : IRecordBook
                     attemptCount,
                     runs?.Count(r => r.Status == RunStatus.Completed) ?? 0,
                     runs?.Count(r => r.Status == RunStatus.Failed) ?? 0,
+                    sprintRank.TryGetValue(user.Id, out var spr) ? spr : null,
+                    marathonRank.TryGetValue(user.Id, out var mr) ? mr : null,
+                    enduranceRank.TryGetValue(user.Id, out var er) ? er : null,
                     standardRank.TryGetValue(user.Id, out var sr) ? sr : null,
                     liteRank.TryGetValue(user.Id, out var lr) ? lr : null,
                     attemptCount == 0 ? null : runs!.Max(r => r.EndTime));
@@ -605,22 +618,35 @@ public class RecordBook(AppDbContext context) : IRecordBook
             .ToList();
 
     private static IReadOnlyList<string> EarnedTitles(
-        IReadOnlyList<PersonalBest> standard,
-        IReadOnlyList<PersonalBest> lite,
+        IReadOnlyDictionary<RunType, IReadOnlyList<PersonalBest>> boards,
         Guid userId,
         IReadOnlyList<FinishedSlice> runs)
     {
         var titles = new List<string>();
-        var std = standard.FirstOrDefault(p => p.UserId == userId);
-        var litePb = lite.FirstOrDefault(p => p.UserId == userId);
-        if (std?.Rank == 1) titles.Add("God Gamer");
+        var marathonPb = boards[RunType.Marathon].FirstOrDefault(p => p.UserId == userId);
+        var sprintPb = boards[RunType.Sprint].FirstOrDefault(p => p.UserId == userId);
+        var endurancePb = boards[RunType.Endurance].FirstOrDefault(p => p.UserId == userId);
+        var std = boards[RunType.Standard].FirstOrDefault(p => p.UserId == userId);
+        var litePb = boards[RunType.Lite].FirstOrDefault(p => p.UserId == userId);
+
+        if (endurancePb?.Rank == 1) titles.Add("God Gamer");
+        else if (marathonPb?.Rank == 1) titles.Add("God Gamer");
+        else if (std?.Rank == 1) titles.Add("God Gamer");
+
+        if (sprintPb?.Rank == 1) titles.Add("Sprint Champion");
+        if (marathonPb?.Rank == 1 && endurancePb?.Rank != 1) titles.Add("Marathon Champion");
+        if (endurancePb?.Rank == 1) titles.Add("Endurance Champion");
         if (litePb?.Rank == 1) titles.Add("Lite Champion");
-        if (std is { Rank: <= 3 }) titles.Add("Podium");
-        if (runs.Any(r => r.Status == RunStatus.Completed && r.RunType == RunType.Standard))
-            titles.Add("Standard Clear");
-        if (runs.Any(r => r.Status == RunStatus.Completed && r.RunType == RunType.Lite))
-            titles.Add("Lite Clear");
-        if (runs.Any(r => r.RunType == RunType.Standard && r.SlotsCompleted >= 7))
+        if (marathonPb is { Rank: <= 3 } || endurancePb is { Rank: <= 3 } || std is { Rank: <= 3 })
+            titles.Add("Podium");
+
+        foreach (var type in RunTypes.Live.Concat(RunTypes.Legacy))
+        {
+            if (runs.Any(r => r.Status == RunStatus.Completed && r.RunType == type))
+                titles.Add($"{type.DisplayName()} Clear");
+        }
+
+        if (runs.Any(r => r.RunType.IsDeepProgress(r.SlotsCompleted)))
             titles.Add("Deep Run");
         if (runs.Any(r => r.Status == RunStatus.Failed && r.SlotsCompleted == 0))
             titles.Add("First Blood");

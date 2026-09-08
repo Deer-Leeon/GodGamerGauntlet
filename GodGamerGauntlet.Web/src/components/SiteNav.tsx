@@ -11,7 +11,7 @@ import { timeAgo } from "@/components/RunSocial";
 const links = [
   { href: "/", label: "Feed" },
   { href: "/draft", label: "Draft Room" },
-  { href: "/records", label: "Records" },
+  { href: "/records", label: "Roster" },
   { href: "/leaderboard", label: "Leaderboard" },
   { href: "/players", label: "Players" },
 ];

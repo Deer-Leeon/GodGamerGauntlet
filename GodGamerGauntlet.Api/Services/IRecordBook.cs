@@ -23,7 +23,7 @@ public interface IRecordBook
         Guid runId,
         CancellationToken cancellationToken = default);
 
-    /// <summary>Standard and Lite PB maps keyed by user id, for stamping a page of posts.</summary>
+    /// <summary>Live and legacy PB maps keyed by run type, for stamping a page of posts.</summary>
     Task<IReadOnlyDictionary<RunType, IReadOnlyList<PersonalBest>>> GetAllBoardsAsync(
         CancellationToken cancellationToken = default);
 

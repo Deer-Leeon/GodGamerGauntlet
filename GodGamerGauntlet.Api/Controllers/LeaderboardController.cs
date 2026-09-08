@@ -9,7 +9,7 @@ namespace GodGamerGauntlet.Api.Controllers;
 [Route("api/leaderboard")]
 public class LeaderboardController(IRecordBook recordBook) : ControllerBase
 {
-    /// <param name="runType">"Standard" or "Lite". Defaults to Standard.</param>
+    /// <param name="runType">Sprint, Marathon, Endurance, or legacy Standard/Lite. Defaults to Marathon.</param>
     /// <param name="limit">How many PBs to return (1–50, default 50).</param>
     /// <param name="season">"all" (default), "current", or "yyyy-MM".</param>
     [HttpGet]
@@ -23,7 +23,8 @@ public class LeaderboardController(IRecordBook recordBook) : ControllerBase
     {
         if (!RunTypes.TryParse(runType, out var type))
         {
-            return BadRequest("runType must be 'Standard' or 'Lite'.");
+            return BadRequest(
+                "runType must be 'Sprint', 'Marathon', 'Endurance', 'Standard', or 'Lite'.");
         }
 
         if (!Seasons.TryRange(season, out _, out _))
@@ -45,7 +46,8 @@ public class LeaderboardController(IRecordBook recordBook) : ControllerBase
     {
         if (!RunTypes.TryParse(runType, out var type))
         {
-            return BadRequest("runType must be 'Standard' or 'Lite'.");
+            return BadRequest(
+                "runType must be 'Sprint', 'Marathon', 'Endurance', 'Standard', or 'Lite'.");
         }
 
         var entries = await recordBook.GetSurvivalBoardAsync(type, limit, cancellationToken);

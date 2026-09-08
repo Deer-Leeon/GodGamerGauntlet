@@ -419,7 +419,7 @@ public class FeedController(AppDbContext context, IRecordBook recordBook) : Cont
             var isPb = false;
             if (run.Status == RunStatus.Completed)
             {
-                var board = boards[run.RunType];
+                var board = boards.GetValueOrDefault(run.RunType) ?? [];
                 var pb = board.FirstOrDefault(p => p.UserId == run.UserId);
                 isPb = pb is not null && pb.RunId == run.Id;
                 boardRank = isPb ? pb!.Rank : null;

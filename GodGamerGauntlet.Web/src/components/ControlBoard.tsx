@@ -102,8 +102,8 @@ export default function ControlBoard({
       <header className="flex shrink-0 items-baseline justify-between gap-2">
         <h1 className="text-sm font-medium text-ink">
           Control deck
-          {state.runType === "Lite" ? (
-            <span className="ml-2 font-normal text-gray-500">Lite</span>
+          {state.runType ? (
+            <span className="ml-2 font-normal text-gray-500">{state.runType}</span>
           ) : null}
         </h1>
         <p className="flex min-w-0 items-baseline gap-2 font-mono text-[12px] tabular-nums text-gray-500">
@@ -264,7 +264,7 @@ export default function ControlBoard({
                         {segmentMs !== null && (
                           <Link
                             href={`/records/${game.gameId}/submit?timeMs=${segmentMs}&sourceRunId=${runId}`}
-                            title="Submit this split to the speedrun records board"
+                            title="Add this split as a Gauntlet time"
                             className="text-gold/70 transition hover:text-gold"
                           >
                             Submit ↗

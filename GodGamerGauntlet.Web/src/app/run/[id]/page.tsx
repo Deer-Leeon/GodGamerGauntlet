@@ -222,7 +222,7 @@ export default function LiveRunTrackerPage() {
       <main className="site-content flex-1 px-6 py-10">
         <div className="h-24 animate-pulse border-b border-white/12" />
         <div className="mt-6 space-y-0">
-          {Array.from({ length: RUN_TYPE_SLOTS.Standard }).map((_, i) => (
+          {Array.from({ length: RUN_TYPE_SLOTS.Endurance }).map((_, i) => (
             <div key={i} className="h-16 animate-pulse border-b border-white/8" />
           ))}
         </div>
@@ -498,7 +498,7 @@ export default function LiveRunTrackerPage() {
                       href={`/records/${slot.gameId}/submit?timeMs=${segmentMs}&sourceRunId=${id}`}
                       className="text-[11px] text-gold/70 transition hover:text-gold"
                     >
-                      Submit as speedrun →
+                      Add as a time →
                     </Link>
                   )}
                 </div>

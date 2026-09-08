@@ -3,13 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { getCatalog, type CatalogPage } from "@/lib/api";
+import { RosterDisclaimer } from "@/components/RosterDisclaimer";
 
 const PAGE_SIZE = 40;
 const DEBOUNCE_MS = 300;
 
 export default function RecordsDirectoryPage() {
   const [searchText, setSearchText] = useState("");
-  // The query actually sent to the API, updated after the debounce settles.
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const [result, setResult] = useState<CatalogPage | null>(null);
@@ -52,12 +52,14 @@ export default function RecordsDirectoryPage() {
   return (
     <main className="site-content flex-1 px-5 py-8 sm:px-7">
       <header className="border-b border-gold/20 pb-6">
-        <h1 className="text-2xl font-semibold">Speedrun records</h1>
+        <h1 className="text-2xl font-semibold">Gauntlet roster</h1>
         <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted">
-          Every game in the gauntlet roster keeps a board here. Pick one to see
-          its verified times, category rules, and record history — or submit a
-          run of your own.
+          These 19 games are the whole catalog — what you draft, and the only
+          boards we would import from speedrun.com. Times here are
+          Gauntlet-verified VODs or attributed imports; every imported row
+          links out.
         </p>
+        <RosterDisclaimer />
       </header>
 
       <div className="mt-6 flex flex-wrap items-center gap-4">
@@ -84,7 +86,7 @@ export default function RecordsDirectoryPage() {
       )}
 
       {loading && !result && (
-        <p className="py-14 text-sm text-faint">Loading catalog…</p>
+        <p className="py-14 text-sm text-faint">Loading roster…</p>
       )}
 
       {result && result.items.length === 0 && !loading && (

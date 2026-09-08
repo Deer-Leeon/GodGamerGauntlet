@@ -16,14 +16,14 @@ public static class RunMoments
         if (isPersonalBest) moments.Add("New PB");
         if (isFirstClear)
         {
-            moments.Add(runType == RunType.Lite ? "First Lite Clear" : "First Standard Clear");
+            moments.Add($"First {runType.DisplayName()} Clear");
         }
 
         if (status == RunStatus.Failed)
         {
             var stoppedOn = Math.Min(slotsCompleted + 1, totalSlots);
             moments.Add($"Died on game {stoppedOn}");
-            if (runType == RunType.Standard && slotsCompleted >= 7)
+            if (runType.IsDeepProgress(slotsCompleted))
             {
                 moments.Add("Deep DNF");
             }
@@ -41,7 +41,7 @@ public static class RunMoments
         int? boardRank,
         int? wouldBeRank)
     {
-        var mode = runType == RunType.Lite ? "Lite" : "Standard";
+        var mode = runType.DisplayName();
         if (status == RunStatus.Failed)
         {
             var stoppedOn = Math.Min(slotsCompleted + 1, totalSlots);

@@ -26,7 +26,7 @@ public static class LiveRunRules
     }
 
     /// <summary>
-    /// Far enough that a spectator might see a Clear: game 8+ of 10, or 4+ of 5.
+    /// Far enough that a spectator might see a Clear: ~80% of the way through.
     /// </summary>
     public static bool IsFarAlong(LiveRunDto run) =>
         run.CurrentSlot >= Math.Max(2, (int)Math.Ceiling(run.TotalSlots * 0.8));

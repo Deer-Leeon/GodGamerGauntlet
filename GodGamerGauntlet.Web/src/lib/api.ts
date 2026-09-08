@@ -65,17 +65,34 @@ export type RunStatus = "Active" | "Failed" | "Completed";
 export type RunSlotStatus = "Pending" | "Won" | "Lost";
 export type TimerStatus = "idle" | "running" | "paused" | "finished";
 
-/** Standard is the full 10-game gauntlet; Lite is the 5-game variant. */
-export type RunType = "Standard" | "Lite";
+/** Sprint/Marathon/Endurance are live draft modes; Standard/Lite are legacy. */
+export type RunType =
+  | "Sprint"
+  | "Marathon"
+  | "Endurance"
+  | "Standard"
+  | "Lite";
 
 export const RUN_TYPE_SLOTS: Record<RunType, number> = {
+  Sprint: 3,
+  Marathon: 5,
+  Endurance: 7,
   Standard: 10,
   Lite: 5,
 };
 
+export const LIVE_RUN_TYPES: RunType[] = ["Sprint", "Marathon", "Endurance"];
+export const LEGACY_RUN_TYPES: RunType[] = ["Standard", "Lite"];
+
+export function isLiveRunType(runType: RunType): boolean {
+  return LIVE_RUN_TYPES.includes(runType);
+}
+
 /** Slot count for a run type, tolerant of unknown values from older payloads. */
 export function slotsForRunType(runType: RunType | undefined | null): number {
-  return runType ? (RUN_TYPE_SLOTS[runType] ?? RUN_TYPE_SLOTS.Standard) : RUN_TYPE_SLOTS.Standard;
+  return runType
+    ? (RUN_TYPE_SLOTS[runType] ?? RUN_TYPE_SLOTS.Marathon)
+    : RUN_TYPE_SLOTS.Marathon;
 }
 
 export interface RunSlot {
@@ -274,6 +291,9 @@ export interface PlayerCard {
   attemptCount: number;
   clearCount: number;
   dnfCount: number;
+  sprintRank: number | null;
+  marathonRank: number | null;
+  enduranceRank: number | null;
   standardRank: number | null;
   liteRank: number | null;
   lastRunAt: string | null;
@@ -287,7 +307,7 @@ export function getPlayers(): Promise<PlayerCard[]> {
 /** The run is created for the authenticated user (JWT required). */
 export function initializeRun(
   gameIds: string[],
-  runType: RunType = "Standard",
+  runType: RunType = "Marathon",
 ): Promise<Run> {
   return request<Run>("/api/runs/initialize", {
     method: "POST",
@@ -324,7 +344,7 @@ export interface LeaderboardEntry {
 
 /** Best Clear per player on one board. */
 export function getLeaderboard(
-  runType: RunType = "Standard",
+  runType: RunType = "Marathon",
   limit = 50,
   season: "all" | "current" | string = "all",
 ): Promise<LeaderboardEntry[]> {
@@ -334,7 +354,7 @@ export function getLeaderboard(
 }
 
 export function getSurvivalBoard(
-  runType: RunType = "Standard",
+  runType: RunType = "Marathon",
   limit = 50,
 ): Promise<LeaderboardEntry[]> {
   return request<LeaderboardEntry[]>(
@@ -342,11 +362,15 @@ export function getSurvivalBoard(
   );
 }
 
+export interface SeasonModeChampion {
+  runType: RunType;
+  entry: LeaderboardEntry | null;
+}
+
 export interface SeasonChampion {
   season: string;
   label: string;
-  standard: LeaderboardEntry | null;
-  lite: LeaderboardEntry | null;
+  modes: SeasonModeChampion[];
 }
 
 export function getHallOfFame(): Promise<SeasonChampion[]> {
@@ -431,6 +455,9 @@ export interface UserProfile {
   titles: string[];
   beaten: ProfileGame[];
   killers: ProfileGame[];
+  sprint: ProfileMode;
+  marathon: ProfileMode;
+  endurance: ProfileMode;
   standard: ProfileMode;
   lite: ProfileMode;
   runs: ProfileRun[];

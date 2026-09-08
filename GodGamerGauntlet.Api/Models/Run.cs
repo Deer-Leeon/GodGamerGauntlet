@@ -14,8 +14,8 @@ public class Run
 
     public RunStatus Status { get; set; }
 
-    /// <summary>Standard (10 games) or Lite (5). Drives slot limits and leaderboard split.</summary>
-    public RunType RunType { get; set; } = RunType.Standard;
+    /// <summary>Sprint (3), Marathon (5), Endurance (7). Legacy Standard (10) / Lite (5) still rank.</summary>
+    public RunType RunType { get; set; } = RunType.Marathon;
 
     public double TotalDifficultyScore { get; set; }
 

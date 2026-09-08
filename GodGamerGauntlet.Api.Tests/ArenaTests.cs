@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -10,7 +11,7 @@ namespace GodGamerGauntlet.Api.Tests;
 
 /// <summary>
 /// Phase 9: the global arena. Score = sum of beaten slots' BaseDifficulty;
-/// equal scores favor the faster gauntlet clock; Standard and Lite never mix.
+/// equal scores favor the faster gauntlet clock; run types never mix.
 /// </summary>
 public class ArenaTests : IClassFixture<CourtApiFactory>
 {
@@ -139,5 +140,75 @@ public class ArenaTests : IClassFixture<CourtApiFactory>
         var liteEntry = Assert.Single(liteOurs);
         Assert.Equal(liteName, liteEntry.GetProperty("streamerName").GetString());
         Assert.Equal(199, liteEntry.GetProperty("totalScore").GetDouble());
+    }
+
+    [Fact]
+    public async Task Marathon_and_sprint_boards_stay_separate()
+    {
+        var (marathonId, marathonName) = await RegisterAsync("arena_mar");
+        var (sprintId, sprintName) = await RegisterAsync("arena_spr");
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var g60 = new Game { Id = Guid.NewGuid(), Title = "Sep Sixty", BaseDifficulty = 60 };
+            var g40 = new Game { Id = Guid.NewGuid(), Title = "Sep Forty", BaseDifficulty = 40 };
+            var g50 = new Game { Id = Guid.NewGuid(), Title = "Sep Fifty", BaseDifficulty = 50 };
+            db.AddRange(g60, g40, g50);
+            var end = DateTime.UtcNow.AddDays(-2);
+            db.Add(MakeClear(marathonId, RunType.Marathon, 3_000_000, end, g60, g40, g50));
+            db.Add(MakeClear(sprintId, RunType.Sprint, 1_000_000, end, g60, g40, g50));
+            await db.SaveChangesAsync();
+        }
+
+        var client = _factory.CreateClient();
+        var marathon = JsonDocument.Parse(await (await client.GetAsync(
+                "/api/leaderboard?runType=Marathon&limit=50"))
+            .Content.ReadAsStringAsync()).RootElement;
+        Assert.Contains(marathon.EnumerateArray(), e => e.GetProperty("streamerName").GetString() == marathonName);
+        Assert.DoesNotContain(marathon.EnumerateArray(), e => e.GetProperty("streamerName").GetString() == sprintName);
+
+        var sprint = JsonDocument.Parse(await (await client.GetAsync(
+                "/api/leaderboard?runType=Sprint&limit=50"))
+            .Content.ReadAsStringAsync()).RootElement;
+        Assert.Contains(sprint.EnumerateArray(), e => e.GetProperty("streamerName").GetString() == sprintName);
+        Assert.DoesNotContain(sprint.EnumerateArray(), e => e.GetProperty("streamerName").GetString() == marathonName);
+    }
+
+    [Fact]
+    public async Task Initialize_accepts_sprint_and_rejects_legacy_or_wrong_length()
+    {
+        var client = _factory.CreateClient();
+        var username = $"init_{Guid.NewGuid():N}"[..20];
+        var register = await client.PostAsJsonAsync(
+            "/api/auth/register",
+            new { username, email = $"{username}@test.local", password = "hunter2hunter2" });
+        register.EnsureSuccessStatusCode();
+        var auth = await register.Content.ReadFromJsonAsync<AuthResponse>(Json);
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", auth!.Token);
+
+        var gamesJson = JsonDocument.Parse(await (await client.GetAsync("/api/games"))
+            .Content.ReadAsStringAsync()).RootElement;
+        var ids = gamesJson.EnumerateArray()
+            .Select(g => g.GetProperty("id").GetGuid())
+            .Take(7)
+            .ToList();
+        Assert.True(ids.Count >= 7);
+
+        var fourSprint = await client.PostAsJsonAsync(
+            "/api/runs/initialize",
+            new { gameIds = ids.Take(4).ToList(), runType = "Sprint" });
+        Assert.Equal(HttpStatusCode.BadRequest, fourSprint.StatusCode);
+
+        var legacy = await client.PostAsJsonAsync(
+            "/api/runs/initialize",
+            new { gameIds = ids.Take(3).ToList(), runType = "Standard" });
+        Assert.Equal(HttpStatusCode.BadRequest, legacy.StatusCode);
+
+        var ok = await client.PostAsJsonAsync(
+            "/api/runs/initialize",
+            new { gameIds = ids.Take(3).ToList(), runType = "Sprint" });
+        ok.EnsureSuccessStatusCode();
     }
 }

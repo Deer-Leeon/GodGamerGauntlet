@@ -24,14 +24,19 @@ import {
 
 const MODES: { id: RunType; label: string; blurb: string }[] = [
   {
-    id: "Standard",
-    label: "Standard",
-    blurb: "Ten games. Survive them in order.",
+    id: "Sprint",
+    label: "Sprint",
+    blurb: "Three full-game speedruns, start to finish.",
   },
   {
-    id: "Lite",
-    label: "Lite",
-    blurb: "Five games. Ranked on its own board.",
+    id: "Marathon",
+    label: "Marathon",
+    blurb: "Five full-game speedruns. The standard night.",
+  },
+  {
+    id: "Endurance",
+    label: "Endurance",
+    blurb: "Seven full-game speedruns. Bring a long VOD.",
   },
 ];
 
@@ -39,29 +44,6 @@ function formatScore(value: number): string {
   return value.toLocaleString("en-US", {
     maximumFractionDigits: 0,
   });
-}
-
-function GamePrice({ game }: { game: Game }) {
-  // RAWG-sourced games carry no pricing; hide the tag entirely.
-  if (game.normalPrice === null || game.normalPrice <= 0) return null;
-  const discounted =
-    game.salePrice !== null &&
-    game.salePrice > 0 &&
-    game.salePrice < game.normalPrice;
-  return (
-    <p className="mt-0.5 font-mono text-xs tabular-nums text-faint">
-      {discounted ? (
-        <>
-          <span className="text-gold">${game.salePrice!.toFixed(2)}</span>{" "}
-          <span className="text-faint/70 line-through">
-            ${game.normalPrice.toFixed(2)}
-          </span>
-        </>
-      ) : (
-        <span>${game.normalPrice.toFixed(2)}</span>
-      )}
-    </p>
-  );
 }
 
 function GameThumb({ game }: { game: Game }) {
@@ -92,11 +74,11 @@ function GameThumb({ game }: { game: Game }) {
 export default function DraftRoomPage() {
   const { user, loading: authLoading } = useAuth();
   const [games, setGames] = useState<Game[]>([]);
-  const [runType, setRunType] = useState<RunType>("Standard");
+  const [runType, setRunType] = useState<RunType>("Marathon");
   const slotCount = RUN_TYPE_SLOTS[runType];
-  const activeMode = MODES.find((m) => m.id === runType) ?? MODES[0];
+  const activeMode = MODES.find((m) => m.id === runType) ?? MODES[1];
   const [slots, setSlots] = useState<(Game | null)[]>(() =>
-    Array(RUN_TYPE_SLOTS.Standard).fill(null),
+    Array(RUN_TYPE_SLOTS.Marathon).fill(null),
   );
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -225,8 +207,8 @@ export default function DraftRoomPage() {
   }
 
   /**
-   * Resizes the board, keeping drafted picks in order. Shrinking to Lite drops
-   * anything past the fifth pick, so the board is never left over capacity.
+   * Resizes the board, keeping drafted picks in order. Shrinking drops
+   * anything past the new length.
    */
   function changeMode(next: RunType) {
     if (next === runType) return;
@@ -300,7 +282,7 @@ export default function DraftRoomPage() {
         <div>
           <h1 className="text-2xl font-semibold">Draft Room</h1>
           <p className="mt-2 text-sm leading-relaxed text-muted">
-            Build a {slotCount}-game gauntlet. Survive the lineup.
+            Build a {slotCount}-game speedrun gauntlet from the 19-game roster.
           </p>
         </div>
         <div className="text-right">
@@ -374,10 +356,10 @@ export default function DraftRoomPage() {
         <section ref={catalogRef}>
           <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
             <div>
-              <h2 className="text-sm font-medium text-ink">Catalog</h2>
+              <h2 className="text-sm font-medium text-ink">Roster</h2>
               <p className="mt-1.5 text-sm text-faint" aria-live="polite">
                 {loading
-                  ? "Loading catalog…"
+                  ? "Loading roster…"
                   : rankedGames.length === games.length
                     ? `${games.length.toLocaleString()} games`
                     : `${rankedGames.length.toLocaleString()} of ${games.length.toLocaleString()} games`}
@@ -426,7 +408,7 @@ export default function DraftRoomPage() {
             </div>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="text-xs leading-relaxed text-faint">
-                Filter with sale, free, &gt;80, or &lt;$10
+                Filter with &gt;80 or &lt;70 for difficulty
               </p>
               <select
                 value={sort}
@@ -435,14 +417,12 @@ export default function DraftRoomPage() {
                   setPage(1);
                 }}
                 className="border border-gold/20 bg-surface px-3 py-2 text-sm text-ink outline-none"
-                aria-label="Sort catalog"
+                aria-label="Sort roster"
               >
-                <option value="featured">Featured &amp; popular</option>
+                <option value="featured">Roster order</option>
                 <option value="relevance">Best match</option>
                 <option value="title">Title A–Z</option>
                 <option value="difficulty">Difficulty</option>
-                <option value="price">Price: low to high</option>
-                <option value="sale">On sale first</option>
               </select>
             </div>
           </div>
@@ -465,8 +445,8 @@ export default function DraftRoomPage() {
               <li className="py-10 text-sm text-faint">
                 No games match{" "}
                 <span className="font-mono text-ink">{query}</span>. Try a
-                shorter title, or drop filters like{" "}
-                <span className="font-mono">sale</span>.
+                shorter title, or drop a filter like{" "}
+                <span className="font-mono">&gt;80</span>.
               </li>
             )}
             {pagedGames.map(({ game }) => {
@@ -490,7 +470,6 @@ export default function DraftRoomPage() {
                           ),
                       )}
                     </span>
-                    <GamePrice game={game} />
                   </div>
                   <span className="shrink-0 font-mono text-sm tabular-nums text-gold">
                     {game.baseDifficulty}
@@ -601,9 +580,7 @@ export default function DraftRoomPage() {
                 : !user
                   ? "Sign in to launch"
                   : boardFull
-                    ? runType === "Lite"
-                      ? "Launch Lite run"
-                      : "Launch run"
+                    ? `Launch ${runType}`
                     : `Fill all ${slotCount} slots (${filledCount}/${slotCount})`}
             </button>
           </div>

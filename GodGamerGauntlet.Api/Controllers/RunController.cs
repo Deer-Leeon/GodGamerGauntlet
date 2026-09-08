@@ -72,9 +72,9 @@ public class RunController(
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Initialize(InitializeRunRequest request, CancellationToken cancellationToken)
     {
-        if (!RunTypes.TryParse(request.RunType, out var runType))
+        if (!RunTypes.TryParse(request.RunType, out var runType) || runType.IsLegacy())
         {
-            return BadRequest("runType must be 'Standard' or 'Lite'.");
+            return BadRequest("runType must be 'Sprint', 'Marathon', or 'Endurance'.");
         }
 
         var requiredSlotCount = runType.SlotCount();

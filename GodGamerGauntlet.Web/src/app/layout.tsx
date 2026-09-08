@@ -25,7 +25,7 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "God Gamer Gauntlet",
   description:
-    "Draft 10 games, survive the gauntlet, prove you are the god gamer.",
+    "Draft 3, 5, or 7 games. Speedrun them start to finish.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

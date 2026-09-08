@@ -1,21 +1,11 @@
 import type { Game } from "@/lib/api";
 
-export type CatalogSort =
-  | "featured"
-  | "relevance"
-  | "title"
-  | "difficulty"
-  | "price"
-  | "sale";
+export type CatalogSort = "featured" | "relevance" | "title" | "difficulty";
 
 export interface SearchFilters {
   titleTokens: string[];
   minDifficulty?: number;
   maxDifficulty?: number;
-  minPrice?: number;
-  maxPrice?: number;
-  onSaleOnly: boolean;
-  freeOnly: boolean;
 }
 
 export interface RankedGame {
@@ -36,28 +26,6 @@ function normalize(value: string): string {
     .trim();
 }
 
-/** Effective price, or null when the source (RAWG) has no pricing data. */
-function currentPrice(game: Game): number | null {
-  if (game.normalPrice === null) return null;
-  if (game.salePrice !== null && game.salePrice > 0 && game.salePrice < game.normalPrice) {
-    return game.salePrice;
-  }
-  return game.normalPrice;
-}
-
-function isOnSale(game: Game): boolean {
-  return (
-    game.normalPrice !== null &&
-    game.salePrice !== null &&
-    game.salePrice > 0 &&
-    game.salePrice < game.normalPrice
-  );
-}
-
-function isFree(game: Game): boolean {
-  return currentPrice(game) === 0;
-}
-
 function fuzzyIncludes(haystack: string, needle: string): boolean {
   let i = 0;
   for (const char of haystack) {
@@ -68,38 +36,14 @@ function fuzzyIncludes(haystack: string, needle: string): boolean {
 }
 
 /**
- * Parses a catalog query into title tokens plus structured filters.
- *
- * Operators (case-insensitive, space-separated):
- *   sale / discounted     — currently discounted
- *   free                  — $0
- *   >80  <50              — difficulty range
- *   $10  <$15  >$5        — current price (sale price when discounted)
+ * Parses a roster query into title tokens plus difficulty filters (&gt;80, &lt;50).
  */
 export function parseQuery(raw: string): SearchFilters {
   const filters: SearchFilters = {
     titleTokens: [],
-    onSaleOnly: false,
-    freeOnly: false,
   };
 
-  const rewritten = raw
-    .trim()
-    .toLowerCase()
-    .replace(/\bon\s+sale\b/g, "sale")
-    .replace(/\bunder\s+\$?/g, "<$")
-    .replace(/\$</g, "<$");
-
-  for (const token of rewritten.split(/\s+/).filter(Boolean)) {
-    if (token === "sale" || token === "discount" || token === "discounted") {
-      filters.onSaleOnly = true;
-      continue;
-    }
-    if (token === "free") {
-      filters.freeOnly = true;
-      continue;
-    }
-
+  for (const token of raw.split(/\s+/).filter(Boolean)) {
     const difficultyGt = token.match(/^>(\d{1,3})$/);
     if (difficultyGt) {
       filters.minDifficulty = Number(difficultyGt[1]);
@@ -108,22 +52,6 @@ export function parseQuery(raw: string): SearchFilters {
     const difficultyLt = token.match(/^<(\d{1,3})$/);
     if (difficultyLt) {
       filters.maxDifficulty = Number(difficultyLt[1]);
-      continue;
-    }
-
-    const priceEq = token.match(/^\$(\d+(?:\.\d+)?)$/);
-    if (priceEq) {
-      filters.maxPrice = Number(priceEq[1]);
-      continue;
-    }
-    const priceLt = token.match(/^<\$(\d+(?:\.\d+)?)$/);
-    if (priceLt) {
-      filters.maxPrice = Number(priceLt[1]);
-      continue;
-    }
-    const priceGt = token.match(/^>\$(\d+(?:\.\d+)?)$/);
-    if (priceGt) {
-      filters.minPrice = Number(priceGt[1]);
       continue;
     }
 
@@ -137,43 +65,31 @@ function tokenScore(titleNorm: string, words: string[], token: string): number |
   const needle = normalize(token);
   if (!needle) return 0;
   if (titleNorm === needle) return 1000;
-  if (titleNorm.startsWith(needle)) return 500;
-  if (words.some((word) => word === needle)) return 350;
-  if (words.some((word) => word.startsWith(needle))) return 250;
-  if (titleNorm.includes(needle)) return 120;
-  if (needle.length >= 3 && fuzzyIncludes(titleNorm.replace(/ /g, ""), needle.replace(/ /g, ""))) {
-    return 40;
-  }
+  if (words.includes(needle)) return 400;
+  if (titleNorm.startsWith(needle)) return 200;
+  if (titleNorm.includes(needle)) return 80;
+  if (needle.length >= 3 && fuzzyIncludes(titleNorm, needle)) return 20;
   return null;
 }
 
 function matchesFilters(game: Game, filters: SearchFilters): boolean {
-  if (filters.onSaleOnly && !isOnSale(game)) return false;
-  if (filters.freeOnly && !isFree(game)) return false;
-  if (filters.minDifficulty !== undefined && game.baseDifficulty < filters.minDifficulty) {
+  if (
+    filters.minDifficulty !== undefined &&
+    game.baseDifficulty < filters.minDifficulty
+  ) {
     return false;
   }
-  if (filters.maxDifficulty !== undefined && game.baseDifficulty > filters.maxDifficulty) {
+  if (
+    filters.maxDifficulty !== undefined &&
+    game.baseDifficulty > filters.maxDifficulty
+  ) {
     return false;
-  }
-  const price = currentPrice(game);
-  if (filters.minPrice !== undefined || filters.maxPrice !== undefined) {
-    // Price filters only make sense for games that actually have a price.
-    if (price === null) return false;
-    if (filters.minPrice !== undefined && price < filters.minPrice) return false;
-    if (filters.maxPrice !== undefined && price > filters.maxPrice) return false;
   }
   return true;
 }
 
-/** Sort helper: games without pricing data go last. */
-function priceForSort(game: Game): number {
-  return currentPrice(game) ?? Number.POSITIVE_INFINITY;
-}
-
-/** Mirrors the API's default order: curated staples, then RAWG popularity. */
+/** Roster display order (PopularityRank on the closed 19). */
 function compareFeatured(a: Game, b: Game): number {
-  if (a.isFeatured !== b.isFeatured) return a.isFeatured ? -1 : 1;
   if (a.popularityRank !== b.popularityRank) {
     return a.popularityRank - b.popularityRank;
   }
@@ -221,18 +137,9 @@ export function searchGames(
         return compareFeatured(a.game, b.game);
       case "relevance":
         if (b.score !== a.score) return b.score - a.score;
-        // Equally-good text matches fall back to the curated/popularity order.
         return compareFeatured(a.game, b.game);
       case "difficulty":
         return b.game.baseDifficulty - a.game.baseDifficulty;
-      case "price":
-        return priceForSort(a.game) - priceForSort(b.game);
-      case "sale": {
-        const aSale = isOnSale(a.game) ? 1 : 0;
-        const bSale = isOnSale(b.game) ? 1 : 0;
-        if (bSale !== aSale) return bSale - aSale;
-        return priceForSort(a.game) - priceForSort(b.game);
-      }
       default:
         return a.game.title.localeCompare(b.game.title);
     }

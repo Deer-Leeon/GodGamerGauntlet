@@ -146,8 +146,8 @@ export default function SettingsPage() {
       applyAuth(result);
       setSrcSaved(
         result.tookReservedHandle
-          ? `You're now ${result.user.username}. ${result.runsImported} flagship PBs imported.`
-          : `Linked speedrun.com. ${result.runsImported} flagship PBs imported.`,
+          ? `You're now ${result.user.username}. ${result.runsImported} of your roster PBs imported.`
+          : `Linked speedrun.com. ${result.runsImported} of your roster PBs imported.`,
       );
     } catch (err) {
       setSrcError(
@@ -268,8 +268,8 @@ export default function SettingsPage() {
         <h2 className="text-sm font-medium text-ink">speedrun.com account</h2>
         {user.srcUserId ? (
           <p className="text-sm leading-relaxed text-muted">
-            Linked. Imported boards use this identity; the name is locked to
-            you.
+            Linked. We import <em>your</em> personal bests on the 19 roster
+            games; the name is locked to you.
           </p>
         ) : (
           <>
