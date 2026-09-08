@@ -168,6 +168,11 @@ export default function LiveRunTrackerPage() {
       : null;
 
   const overlay = useOverlayRun(run?.status === "Active" ? id : "");
+  useEffect(() => {
+    if (run?.status === "Active" && user?.id === run.userId) {
+      pinControlRun(run.id);
+    }
+  }, [run?.status, run?.id, run?.userId, user?.id]);
   const overlayBySlot = useMemo(() => {
     const map = new Map<
       number,
@@ -252,18 +257,22 @@ export default function LiveRunTrackerPage() {
   const isOwner = user?.id === run.userId;
   const duration = formatDuration(run.startTime, run.endTime);
   const streamerName = run.streamerName;
-  const runElapsedMs = overlay.state
-    ? overlay.state.elapsedMs
+  const liveClock =
+    !isOver && overlay.state && overlay.syncedAt > 0
+      ? {
+          elapsedMs: overlay.state.elapsedMs,
+          timerStatus: overlay.state.timerStatus,
+          syncedAt: overlay.syncedAt,
+        }
+      : null;
+  const runElapsedMs = liveClock
+    ? liveClock.elapsedMs
     : run.elapsedMs > 0
       ? run.elapsedMs
       : (orderedSlots
           .map((s) => overlayBySlot.get(s.position)?.splitTimeMs ?? s.splitTimeMs)
           .filter((t): t is number => t != null && t > 0)
           .sort((a, b) => b - a)[0] ?? null);
-  const liveTimerStatus = overlay.state
-    ? overlay.state.timerStatus
-    : (run.timerStatus ?? "idle");
-  const showLiveClock = !isOver && (overlay.syncedAt > 0 || liveTimerStatus !== "idle");
 
   async function copyLink() {
     const url = window.location.href;
@@ -412,11 +421,11 @@ export default function LiveRunTrackerPage() {
             <p className="font-mono text-2xl tabular-nums text-gold">
               {wonCount}/{run.totalSlots}
             </p>
-            {showLiveClock ? (
+            {liveClock ? (
               <SpeedrunTimer
-                elapsedMs={overlay.state ? overlay.state.elapsedMs : run.elapsedMs}
-                timerStatus={liveTimerStatus}
-                syncedAt={overlay.syncedAt}
+                elapsedMs={liveClock.elapsedMs}
+                timerStatus={liveClock.timerStatus}
+                syncedAt={liveClock.syncedAt}
                 tone="site"
                 className="text-xl"
               />
@@ -551,11 +560,11 @@ export default function LiveRunTrackerPage() {
                       {base}
                     </p>
                   </div>
-                  {showLiveClock ? (
+                  {liveClock ? (
                     <SpeedrunTimer
-                      elapsedMs={overlay.state ? overlay.state.elapsedMs : run.elapsedMs}
-                      timerStatus={liveTimerStatus}
-                      syncedAt={overlay.syncedAt}
+                      elapsedMs={liveClock.elapsedMs}
+                      timerStatus={liveClock.timerStatus}
+                      syncedAt={liveClock.syncedAt}
                       tone="site"
                       className="shrink-0 text-sm"
                     />

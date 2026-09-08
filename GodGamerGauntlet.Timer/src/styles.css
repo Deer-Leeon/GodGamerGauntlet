@@ -18,6 +18,10 @@ body,
   height: 100%;
 }
 
+#app {
+  overflow: auto;
+}
+
 body {
   background: var(--dark);
   color: var(--muted);
@@ -204,4 +208,52 @@ select {
 .hint {
   font-size: 11px;
   color: var(--faint);
+}
+
+.btn-tiny {
+  padding: 4px 8px;
+  font-size: 11px;
+  width: auto;
+}
+
+.binds {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid rgb(255 255 255 / 0.08);
+}
+
+.binds-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--faint);
+  font-size: 12px;
+}
+
+.bind {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.bind > span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.bind .btn {
+  min-width: 148px;
+  text-align: right;
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 12px;
+}
+
+.bind .listening {
+  color: var(--ink);
+  border-color: var(--gold);
+  background: rgb(196 180 154 / 0.12);
 }

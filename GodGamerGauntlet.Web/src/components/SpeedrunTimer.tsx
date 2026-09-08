@@ -52,7 +52,10 @@ export default function SpeedrunTimer({
   }, [timerStatus]);
 
   const displayMs =
-    timerStatus === "running" && tickNow !== null && tickNow > syncedAt
+    timerStatus === "running" &&
+    syncedAt > 0 &&
+    tickNow !== null &&
+    tickNow > syncedAt
       ? elapsedMs + (tickNow - syncedAt)
       : elapsedMs;
 

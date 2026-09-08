@@ -1,5 +1,10 @@
 import type { OverlayAction, OverlayState, RunSlotStatus } from "@/lib/api";
 
+type ClockFields = {
+  timerStatus?: string;
+  elapsedMs: number;
+};
+
 /**
  * Keep the local running origin only while both sides are still running.
  * On pause, start, finish, or reset, take the ledger clock instead.
@@ -13,7 +18,7 @@ export function keepRunningClock(
 
 /** Elapsed ms the streamer currently sees, including local extrapolation. */
 export function displayedElapsed(
-  state: OverlayState,
+  state: ClockFields,
   syncedAt: number,
   now = typeof performance !== "undefined" ? performance.now() : 0,
 ): number {
@@ -21,6 +26,35 @@ export function displayedElapsed(
     return Math.max(0, state.elapsedMs + (now - syncedAt));
   }
   return state.elapsedMs;
+}
+
+/**
+ * Elapsed to show when adopting a remote status change. Pause/finish freeze
+ * the digits already on screen so a late ledger stamp cannot jump the clock.
+ */
+export function elapsedWhenAdoptingRemote(
+  local: ClockFields | null | undefined,
+  remote: ClockFields,
+  syncedAt: number,
+  now: number,
+): number {
+  if (!local) return remote.elapsedMs;
+  if (
+    local.timerStatus === "running" &&
+    (remote.timerStatus === "paused" || remote.timerStatus === "finished")
+  ) {
+    return displayedElapsed(local, syncedAt, now);
+  }
+  if (
+    (local.timerStatus === "paused" || local.timerStatus === "finished") &&
+    (remote.timerStatus === "paused" || remote.timerStatus === "finished")
+  ) {
+    return local.elapsedMs;
+  }
+  if (local.timerStatus === "paused" && remote.timerStatus === "running") {
+    return local.elapsedMs;
+  }
+  return remote.elapsedMs;
 }
 
 /**

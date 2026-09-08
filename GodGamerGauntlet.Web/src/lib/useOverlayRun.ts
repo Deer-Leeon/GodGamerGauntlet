@@ -1,6 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   getOverlayState,
   sendOverlayAction,
@@ -9,6 +18,7 @@ import {
 } from "@/lib/api";
 import {
   displayedElapsed,
+  elapsedWhenAdoptingRemote,
   keepRunningClock,
   predictOverlayState,
 } from "@/lib/overlayOptimistic";
@@ -43,7 +53,7 @@ export interface OverlayRun {
  * the API is the ledger and is written in the background. Polls keep other
  * browsers in range; same-browser tabs still share BroadcastChannel.
  */
-export function useOverlayRun(
+export function useOverlayRunSource(
   runId: string,
   overlayKey?: string | null,
 ): OverlayRun {
@@ -76,7 +86,16 @@ export function useOverlayRun(
           timerStatus: stateRef.current.timerStatus,
         };
       } else {
-        const now = performance.now();
+        const now = frameNowRef.current || performance.now();
+        next = {
+          ...next,
+          elapsedMs: elapsedWhenAdoptingRemote(
+            stateRef.current,
+            next,
+            syncedAtRef.current,
+            now,
+          ),
+        };
         syncedAtRef.current = now;
         setSyncedAt(now);
       }
@@ -101,19 +120,23 @@ export function useOverlayRun(
       const incoming = event.data;
       setState((prev) => {
         const keepClock = keepRunningClock(prev, incoming);
+        const now = frameNowRef.current || performance.now();
         const next = {
           ...incoming,
           overlayKey: prev?.overlayKey ?? null,
-          ...(keepClock && prev
-            ? {
-                elapsedMs: prev.elapsedMs,
-                timerStatus: prev.timerStatus,
-              }
-            : {}),
+          elapsedMs: keepClock && prev
+            ? prev.elapsedMs
+            : elapsedWhenAdoptingRemote(
+                prev,
+                incoming,
+                syncedAtRef.current,
+                now,
+              ),
+          timerStatus:
+            keepClock && prev ? prev.timerStatus : incoming.timerStatus,
         };
         stateRef.current = next;
         if (!keepClock) {
-          const now = performance.now();
           syncedAtRef.current = now;
           setSyncedAt(now);
         }
@@ -210,4 +233,48 @@ export function useOverlayRun(
     previousGame,
     resetGauntlet,
   };
+}
+
+const OverlayRunContext = createContext<{
+  boundRunId: string;
+  overlay: OverlayRun;
+} | null>(null);
+
+/** One overlay poller for the pinned control-deck run, shared by /run and the rail. */
+export function OverlayRunProvider({
+  runId,
+  children,
+}: {
+  runId: string;
+  children: ReactNode;
+}) {
+  const overlay = useOverlayRunSource(runId);
+  const value = useMemo(
+    () => ({ boundRunId: runId, overlay }),
+    [runId, overlay],
+  );
+  return (
+    <OverlayRunContext.Provider value={value}>
+      {children}
+    </OverlayRunContext.Provider>
+  );
+}
+
+/**
+ * Overlay/control sync. The acting surface paints immediately (local clock);
+ * the API is the ledger and is written in the background. Polls keep other
+ * browsers in range; same-browser tabs still share BroadcastChannel.
+ * If this run is the pinned control-deck run, reuse that poller so /run and
+ * the sidebar cannot show two different clocks.
+ */
+export function useOverlayRun(
+  runId: string,
+  overlayKey?: string | null,
+): OverlayRun {
+  const shared = useContext(OverlayRunContext);
+  const takeShared = Boolean(
+    runId && !overlayKey && shared?.boundRunId && shared.boundRunId === runId,
+  );
+  const local = useOverlayRunSource(takeShared ? "" : runId, overlayKey);
+  return takeShared && shared ? shared.overlay : local;
 }

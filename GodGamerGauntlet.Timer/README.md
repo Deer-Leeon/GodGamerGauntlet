@@ -55,7 +55,7 @@ API preset: production Railway host, or `http://127.0.0.1:5000` for local.
 
 Sources → **Window Capture** → `GGG Timer`. Do not wrap this UI in a Browser Source.
 
-Defaults: Space start/pause, Enter split, R twice reset, P undo. Always on top is on. macOS may prompt for Accessibility so hotkeys work over a fullscreen game.
+Defaults: Space start/pause, Enter split, R twice reset, P undo. **Pause hotkeys** unregisters them so the game keeps the keys; this window still accepts the binds. Click a shortcut to reassign, Esc to cancel. Always on top is on. macOS may prompt for Accessibility so global hotkeys work over a fullscreen game.
 
 ## Out of scope
 

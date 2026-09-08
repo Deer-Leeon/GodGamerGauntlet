@@ -16,7 +16,111 @@ const KEYS = {
   token: "ggg_timer_token",
   username: "ggg_timer_username",
   hotkeys: "ggg_timer_hotkeys",
+  binds: "ggg_timer_binds",
 };
+
+const BIND_ACTIONS = ["toggle", "split", "undo", "reset"];
+const DEFAULT_BINDS = {
+  toggle: "Space",
+  split: "Enter",
+  undo: "P",
+  reset: "R",
+};
+const BIND_LABELS = {
+  toggle: "Start / Pause",
+  split: "Split",
+  undo: "Undo",
+  reset: "Reset (twice)",
+};
+
+function loadBinds() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(KEYS.binds) || "null");
+    if (!raw || typeof raw !== "object") return { ...DEFAULT_BINDS };
+    const next = { ...DEFAULT_BINDS };
+    for (const action of BIND_ACTIONS) {
+      if (typeof raw[action] === "string" && raw[action].trim()) {
+        next[action] = raw[action].trim();
+      }
+    }
+    return next;
+  } catch {
+    return { ...DEFAULT_BINDS };
+  }
+}
+
+function saveBinds() {
+  localStorage.setItem(KEYS.binds, JSON.stringify(session.binds));
+}
+
+function keyFromCode(code) {
+  if (code === "Space") return "Space";
+  if (code === "Enter" || code === "NumpadEnter") return "Enter";
+  if (code === "Escape") return "Esc";
+  if (code === "Backspace") return "Backspace";
+  if (code === "Tab") return "Tab";
+  if (code === "Delete") return "Delete";
+  if (code === "Home") return "Home";
+  if (code === "End") return "End";
+  if (code === "PageUp") return "PageUp";
+  if (code === "PageDown") return "PageDown";
+  if (code === "Insert") return "Insert";
+  if (code.startsWith("Arrow")) return code.slice(5);
+  if (/^F([1-9]|1[0-9]|2[0-4])$/.test(code)) return code;
+  if (/^Key[A-Z]$/.test(code)) return code.slice(3);
+  if (/^Digit[0-9]$/.test(code)) return code.slice(5);
+  if (/^Numpad[0-9]$/.test(code)) return code;
+  const extras = {
+    Minus: "Minus",
+    Equal: "Equal",
+    BracketLeft: "LeftBracket",
+    BracketRight: "RightBracket",
+    Backslash: "Backslash",
+    Semicolon: "Semicolon",
+    Quote: "Quote",
+    Comma: "Comma",
+    Period: "Period",
+    Slash: "Slash",
+    Backquote: "Backquote",
+    NumpadAdd: "Plus",
+    NumpadSubtract: "Minus",
+    NumpadMultiply: "NumpadMultiply",
+    NumpadDivide: "NumpadDivide",
+    NumpadDecimal: "NumpadDecimal",
+  };
+  return extras[code] || null;
+}
+
+function shortcutFromEvent(event) {
+  const key = keyFromCode(event.code);
+  if (!key) return null;
+  if (["Control", "Shift", "Alt", "Meta"].includes(event.key)) return null;
+  const mods = [];
+  if (event.ctrlKey) mods.push("Control");
+  if (event.altKey) mods.push("Alt");
+  if (event.shiftKey) mods.push("Shift");
+  if (event.metaKey) mods.push("Command");
+  return [...mods, key].join("+");
+}
+
+function isTypingTarget(target) {
+  if (!(target instanceof HTMLElement)) return false;
+  const tag = target.tagName;
+  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true;
+  return target.isContentEditable;
+}
+
+function formatBind(shortcut) {
+  return shortcut || "—";
+}
+
+function bindForAction(action) {
+  return session.binds[action] || DEFAULT_BINDS[action];
+}
+
+function actionForShortcut(shortcut) {
+  return BIND_ACTIONS.find((action) => bindForAction(action) === shortcut) || null;
+}
 
 const appEl = document.getElementById("app");
 
@@ -40,6 +144,9 @@ const session = {
   inflight: 0,
   error: "",
   hotkeys: localStorage.getItem(KEYS.hotkeys) !== "0",
+  binds: loadBinds(),
+  capturing: null,
+  bindError: "",
   alwaysOnTop: true,
   resetArmed: false,
   tick: 0,
@@ -48,6 +155,7 @@ const session = {
 let resetTimer = null;
 let tickTimer = null;
 let lastFrameNow = 0;
+let windowFocused = true;
 
 function overlayFingerprint(state) {
   if (!state) return "";
@@ -65,6 +173,26 @@ function displayedElapsed(state, syncedAt, now = lastFrameNow || performance.now
     return Math.max(0, state.elapsedMs + (now - syncedAt));
   }
   return state?.elapsedMs ?? 0;
+}
+
+function elapsedWhenAdoptingRemote(local, remote, syncedAt, now) {
+  if (!local) return remote.elapsedMs;
+  if (
+    local.timerStatus === "running" &&
+    (remote.timerStatus === "paused" || remote.timerStatus === "finished")
+  ) {
+    return displayedElapsed(local, syncedAt, now);
+  }
+  if (
+    (local.timerStatus === "paused" || local.timerStatus === "finished") &&
+    (remote.timerStatus === "paused" || remote.timerStatus === "finished")
+  ) {
+    return local.elapsedMs;
+  }
+  if (local.timerStatus === "paused" && remote.timerStatus === "running") {
+    return local.elapsedMs;
+  }
+  return remote.elapsedMs;
 }
 
 function predictOverlayState(state, action, syncedAt, now = lastFrameNow || performance.now()) {
@@ -205,7 +333,16 @@ function applyState(next, keepClock = false, silent = false) {
         : {}),
     };
   } else if (!keepClock) {
-    session.syncedAt = performance.now();
+    next = {
+      ...next,
+      elapsedMs: elapsedWhenAdoptingRemote(
+        session.overlay,
+        next,
+        session.syncedAt,
+        lastFrameNow || performance.now(),
+      ),
+    };
+    session.syncedAt = lastFrameNow || performance.now();
   }
   const skipRender =
     silent ||
@@ -328,18 +465,81 @@ setInterval(() => {
     .catch(() => {});
 }, 2000);
 
+function dispatchAction(action) {
+  if (action === "reset") requestReset();
+  else void act(action);
+}
+
+async function startCapture(action) {
+  session.capturing = action;
+  session.bindError = "";
+  await unregisterAll().catch(() => {});
+  render();
+}
+
+function cancelCapture() {
+  session.capturing = null;
+  session.bindError = "";
+  void syncHotkeys();
+  render();
+}
+
+function applyCapturedShortcut(shortcut) {
+  const action = session.capturing;
+  if (!action) return;
+  const taken = BIND_ACTIONS.find(
+    (other) => other !== action && bindForAction(other) === shortcut,
+  );
+  if (taken) {
+    session.bindError = `${shortcut} is already ${BIND_LABELS[taken]}.`;
+    session.capturing = null;
+    void syncHotkeys();
+    render();
+    return;
+  }
+  session.binds = { ...session.binds, [action]: shortcut };
+  session.capturing = null;
+  session.bindError = "";
+  saveBinds();
+  void syncHotkeys();
+  render();
+}
+
+function restoreDefaultBinds() {
+  session.binds = { ...DEFAULT_BINDS };
+  session.capturing = null;
+  session.bindError = "";
+  saveBinds();
+  void syncHotkeys();
+  render();
+}
+
+async function setHotkeysEnabled(on) {
+  session.hotkeys = on;
+  localStorage.setItem(KEYS.hotkeys, on ? "1" : "0");
+  if (!on) session.capturing = null;
+  await syncHotkeys();
+  render();
+}
+
 async function syncHotkeys() {
   await unregisterAll().catch(() => {});
-  if (!session.hotkeys || !session.runId) return;
-  const bind = async (shortcut, handler) => {
-    await register(shortcut, (event) => {
-      if (event.state === "Pressed") handler();
-    });
-  };
-  await bind("Space", () => void act("toggle"));
-  await bind("Enter", () => void act("split"));
-  await bind("R", () => requestReset());
-  await bind("P", () => void act("undo"));
+  if (!session.hotkeys || !session.runId || session.capturing) return;
+  for (const action of BIND_ACTIONS) {
+    const shortcut = bindForAction(action);
+    try {
+      await register(shortcut, (event) => {
+        if (event.state !== "Pressed") return;
+        if (session.capturing) return;
+        if (windowFocused) return;
+        dispatchAction(action);
+      });
+    } catch (err) {
+      session.bindError =
+        `${shortcut} could not be bound globally (${formatError(err)}). ` +
+        "It still works while this window is focused.";
+    }
+  }
 }
 
 async function setAlwaysOnTop(on) {
@@ -388,6 +588,7 @@ function disconnect() {
   session.overlayKey = "";
   session.token = "";
   session.error = "";
+  session.capturing = null;
   localStorage.removeItem(KEYS.token);
   void unregisterAll();
   render();
@@ -529,15 +730,36 @@ function renderRun(preserveClock = false) {
           .join("")}
       </div>
       <div class="keys">
-        <button class="btn btn-gold" data-act="toggle">${state.timerStatus === "running" ? "Pause" : "Start"} <span class="hint">Space</span></button>
-        <button class="btn" data-act="split">Split <span class="hint">Enter</span></button>
-        <button class="btn" data-act="undo">Undo <span class="hint">P</span></button>
-        <button class="btn ${session.resetArmed ? "armed" : ""}" data-reset>Reset <span class="hint">R×2</span></button>
+        <button class="btn btn-gold" data-act="toggle">${state.timerStatus === "running" ? "Pause" : "Start"} <span class="hint">${escapeHtml(formatBind(bindForAction("toggle")))}</span></button>
+        <button class="btn" data-act="split">Split <span class="hint">${escapeHtml(formatBind(bindForAction("split")))}</span></button>
+        <button class="btn" data-act="undo">Undo <span class="hint">${escapeHtml(formatBind(bindForAction("undo")))}</span></button>
+        <button class="btn ${session.resetArmed ? "armed" : ""}" data-reset>Reset <span class="hint">${escapeHtml(formatBind(bindForAction("reset")))}×2</span></button>
       </div>
-      <label class="check">
-        <input id="hotkeys" type="checkbox" ${session.hotkeys ? "checked" : ""} />
-        Global hotkeys (even when the game is focused)
-      </label>
+      <button class="btn ${session.hotkeys ? "" : "armed"}" data-hotkeys type="button">
+        ${session.hotkeys ? "Pause hotkeys — keys go to the game" : "Resume hotkeys"}
+      </button>
+      ${
+        session.hotkeys
+          ? ""
+          : `<p class="hint">Global hotkeys are paused. The game keeps Space/Enter. This window still accepts the binds below.</p>`
+      }
+      <div class="binds">
+        <div class="binds-head">
+          <span>Reassign shortcuts</span>
+          <button type="button" class="btn btn-tiny" data-defaults>Defaults</button>
+        </div>
+        ${BIND_ACTIONS.map((action) => {
+          const listening = session.capturing === action;
+          const label = listening
+            ? "Press a key… (Esc to cancel)"
+            : formatBind(bindForAction(action));
+          return `<div class="bind">
+            <span>${BIND_LABELS[action]}</span>
+            <button type="button" class="btn ${listening ? "listening" : ""}" data-capture="${action}">${escapeHtml(label)}</button>
+          </div>`;
+        }).join("")}
+      </div>
+      ${session.bindError ? `<p class="error">${escapeHtml(session.bindError)}</p>` : ""}
       <label class="check">
         <input id="aot" type="checkbox" ${session.alwaysOnTop ? "checked" : ""} />
         Always on top (Window Capture this window)
@@ -554,15 +776,29 @@ function renderRun(preserveClock = false) {
     button.addEventListener("click", () => void act(button.dataset.act));
   });
   appEl.querySelector("[data-reset]").addEventListener("click", () => requestReset());
-  document.getElementById("hotkeys").addEventListener("change", (event) => {
-    session.hotkeys = event.target.checked;
-    localStorage.setItem(KEYS.hotkeys, session.hotkeys ? "1" : "0");
-    void syncHotkeys();
+  appEl.querySelector("[data-hotkeys]").addEventListener("click", () => {
+    void setHotkeysEnabled(!session.hotkeys);
+  });
+  appEl.querySelector("[data-defaults]").addEventListener("click", () => {
+    restoreDefaultBinds();
+  });
+  appEl.querySelectorAll("[data-capture]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const action = button.dataset.capture;
+      if (session.capturing === action) {
+        cancelCapture();
+        return;
+      }
+      void startCapture(action);
+    });
   });
   document.getElementById("aot").addEventListener("change", (event) => {
     void setAlwaysOnTop(event.target.checked);
   });
   appEl.querySelector("[data-disconnect]").addEventListener("click", () => disconnect());
+  if (session.capturing) {
+    document.activeElement?.blur();
+  }
 }
 
 function render(options = {}) {
@@ -572,3 +808,40 @@ function render(options = {}) {
 
 render();
 void setAlwaysOnTop(true);
+void getCurrentWindow()
+  .onFocusChanged((event) => {
+    windowFocused = Boolean(event.payload);
+  })
+  .catch(() => {});
+
+document.addEventListener(
+  "keydown",
+  (event) => {
+    if (session.capturing) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        cancelCapture();
+        return;
+      }
+      if (event.repeat) return;
+      const shortcut = shortcutFromEvent(event);
+      if (!shortcut) return;
+      event.preventDefault();
+      event.stopPropagation();
+      applyCapturedShortcut(shortcut);
+      return;
+    }
+    if (isTypingTarget(event.target)) return;
+    if (event.repeat) return;
+    if (!session.runId || !session.overlay) return;
+    const shortcut = shortcutFromEvent(event);
+    if (!shortcut) return;
+    const action = actionForShortcut(shortcut);
+    if (!action) return;
+    event.preventDefault();
+    event.stopPropagation();
+    dispatchAction(action);
+  },
+  true,
+);

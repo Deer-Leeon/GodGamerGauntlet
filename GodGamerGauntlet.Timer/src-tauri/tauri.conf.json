@@ -15,9 +15,9 @@
         "label": "main",
         "title": "GGG Timer",
         "width": 420,
-        "height": 740,
+        "height": 820,
         "minWidth": 360,
-        "minHeight": 520,
+        "minHeight": 600,
         "alwaysOnTop": true,
         "visible": true
       }

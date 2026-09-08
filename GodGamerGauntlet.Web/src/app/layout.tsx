@@ -5,6 +5,7 @@ import { AuthProvider } from "@/lib/auth";
 import SiteNav from "@/components/SiteNav";
 import ControlRail from "@/components/ControlRail";
 import BrowseRail from "@/components/BrowseRail";
+import OverlayShell from "@/components/OverlayShell";
 import "./globals.css";
 
 const outfit = Outfit({
@@ -36,12 +37,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="bg-dark text-muted">
         <AuthProvider>
-          <div className="site-shell">
-            <SiteNav />
-            {children}
-            <BrowseRail />
-            <ControlRail />
-          </div>
+          <OverlayShell>
+            <div className="site-shell">
+              <SiteNav />
+              {children}
+              <BrowseRail />
+              <ControlRail />
+            </div>
+          </OverlayShell>
         </AuthProvider>
         <Analytics />
       </body>

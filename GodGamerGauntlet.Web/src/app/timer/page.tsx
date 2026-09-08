@@ -150,10 +150,11 @@ export default async function TimerDownloadPage() {
             Source for this window — that would add CEF lag.
           </li>
           <li>
-            Keep the window always on top (default). Global hotkeys work while
-            the game is fullscreen: Space start/pause, Enter split, R twice to
-            reset. On macOS, grant Accessibility to GGG Timer when prompted, or
-            hotkeys will not fire over another app.
+            Keep the window always on top (default). Pause hotkeys when the
+            game needs Space/Enter; click a shortcut in the app to reassign.
+            Defaults are Space start/pause, Enter split, R twice to reset, P
+            undo. On macOS, grant Accessibility to GGG Timer when prompted, or
+            global hotkeys will not fire over another app.
           </li>
         </ol>
       </section>
