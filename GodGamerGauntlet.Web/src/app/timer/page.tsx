@@ -14,14 +14,14 @@ const LIST_API = `https://api.github.com/repos/${REPO}/releases?per_page=10`;
 // Direct asset URLs — GitHub starts the download immediately. The API is only
 // used to stay current; if it fails (common from Vercel without a token), these
 // still ship the files instead of dumping people on the releases page.
-const FALLBACK_TAG = "timer-v0.1.1";
+const FALLBACK_TAG = "timer-v0.1.2";
 const FALLBACK_MAC = assetDownloadUrl(
   FALLBACK_TAG,
-  "GGG.Timer_0.1.1_aarch64.dmg",
+  "GGG.Timer_0.1.2_aarch64.dmg",
 );
 const FALLBACK_WINDOWS = assetDownloadUrl(
   FALLBACK_TAG,
-  "GGG.Timer_0.1.1_x64-setup.exe",
+  "GGG.Timer_0.1.2_x64-setup.exe",
 );
 
 function assetDownloadUrl(tag: string, filename: string): string {
