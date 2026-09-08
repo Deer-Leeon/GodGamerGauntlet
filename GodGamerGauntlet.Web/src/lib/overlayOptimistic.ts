@@ -29,31 +29,14 @@ export function displayedElapsed(
 }
 
 /**
- * Elapsed to show when adopting a remote status change. Pause/finish freeze
- * the digits already on screen so a late ledger stamp cannot jump the clock.
+ * Clock to show when we are not keeping a running origin. Always the ledger
+ * stamp — never the follower's extrapolated digits. Freezing the on-screen
+ * value made the website run ahead after each pause/resume (poll lag stacked).
  */
 export function elapsedWhenAdoptingRemote(
-  local: ClockFields | null | undefined,
+  _local: ClockFields | null | undefined,
   remote: ClockFields,
-  syncedAt: number,
-  now: number,
 ): number {
-  if (!local) return remote.elapsedMs;
-  if (
-    local.timerStatus === "running" &&
-    (remote.timerStatus === "paused" || remote.timerStatus === "finished")
-  ) {
-    return displayedElapsed(local, syncedAt, now);
-  }
-  if (
-    (local.timerStatus === "paused" || local.timerStatus === "finished") &&
-    (remote.timerStatus === "paused" || remote.timerStatus === "finished")
-  ) {
-    return local.elapsedMs;
-  }
-  if (local.timerStatus === "paused" && remote.timerStatus === "running") {
-    return local.elapsedMs;
-  }
   return remote.elapsedMs;
 }
 

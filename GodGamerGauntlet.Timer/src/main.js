@@ -216,6 +216,7 @@ function overlayFingerprint(state) {
     currentSlotIndex: state.currentSlotIndex,
     attemptCode: state.attemptCode,
     games: state.games,
+    elapsedMs: state.timerStatus === "running" ? null : state.elapsedMs,
   });
 }
 
@@ -226,23 +227,7 @@ function displayedElapsed(state, syncedAt, now = lastFrameNow || performance.now
   return state?.elapsedMs ?? 0;
 }
 
-function elapsedWhenAdoptingRemote(local, remote, syncedAt, now) {
-  if (!local) return remote.elapsedMs;
-  if (
-    local.timerStatus === "running" &&
-    (remote.timerStatus === "paused" || remote.timerStatus === "finished")
-  ) {
-    return displayedElapsed(local, syncedAt, now);
-  }
-  if (
-    (local.timerStatus === "paused" || local.timerStatus === "finished") &&
-    (remote.timerStatus === "paused" || remote.timerStatus === "finished")
-  ) {
-    return local.elapsedMs;
-  }
-  if (local.timerStatus === "paused" && remote.timerStatus === "running") {
-    return local.elapsedMs;
-  }
+function elapsedWhenAdoptingRemote(_local, remote) {
   return remote.elapsedMs;
 }
 
@@ -386,12 +371,7 @@ function applyState(next, keepClock = false, silent = false) {
   } else if (!keepClock) {
     next = {
       ...next,
-      elapsedMs: elapsedWhenAdoptingRemote(
-        session.overlay,
-        next,
-        session.syncedAt,
-        lastFrameNow || performance.now(),
-      ),
+      elapsedMs: elapsedWhenAdoptingRemote(session.overlay, next),
     };
     session.syncedAt = lastFrameNow || performance.now();
   }
@@ -454,7 +434,7 @@ async function act(action) {
       "POST",
       `/api/runs/${session.runId}/overlay/${action}${overlayQuery(stamp)}`,
     );
-    applyState(next, keepRunningClock(snapshot, next), Boolean(predicted));
+    applyState(next, keepRunningClock(session.overlay, next), Boolean(predicted));
   } catch (err) {
     if (snapshot) applyState(snapshot);
     session.error = formatError(err);
@@ -514,7 +494,7 @@ setInterval(() => {
       applyState(next, keepRunningClock(session.overlay, next));
     })
     .catch(() => {});
-}, 2000);
+}, 1000);
 
 function dispatchAction(action) {
   const now = performance.now();

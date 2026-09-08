@@ -33,6 +33,9 @@ function overlayShape(state: OverlayState | null): string {
     currentSlotIndex: state.currentSlotIndex,
     attemptCode: state.attemptCode,
     games: state.games,
+    // Frozen elapsed is ledger identity. Running elapsed ticks on every GET
+    // and must not retrigger apply (that would reset the local origin).
+    elapsedMs: state.timerStatus === "running" ? null : state.elapsedMs,
   });
 }
 
@@ -89,12 +92,7 @@ export function useOverlayRunSource(
         const now = frameNowRef.current || performance.now();
         next = {
           ...next,
-          elapsedMs: elapsedWhenAdoptingRemote(
-            stateRef.current,
-            next,
-            syncedAtRef.current,
-            now,
-          ),
+          elapsedMs: elapsedWhenAdoptingRemote(stateRef.current, next),
         };
         syncedAtRef.current = now;
         setSyncedAt(now);
@@ -126,12 +124,7 @@ export function useOverlayRunSource(
           overlayKey: prev?.overlayKey ?? null,
           elapsedMs: keepClock && prev
             ? prev.elapsedMs
-            : elapsedWhenAdoptingRemote(
-                prev,
-                incoming,
-                syncedAtRef.current,
-                now,
-              ),
+            : elapsedWhenAdoptingRemote(prev, incoming),
           timerStatus:
             keepClock && prev ? prev.timerStatus : incoming.timerStatus,
         };
@@ -206,7 +199,7 @@ export function useOverlayRunSource(
             ? displayedElapsed(snapshot, syncedAtRef.current, frameNow)
             : undefined,
         );
-        applyState(next, true, keepRunningClock(snapshot, next));
+        applyState(next, true, keepRunningClock(stateRef.current, next));
         setActionError(null);
       } catch (err) {
         if (snapshot) applyState(snapshot, true);
