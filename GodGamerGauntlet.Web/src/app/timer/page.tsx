@@ -7,9 +7,26 @@ export const metadata: Metadata = {
     "Download the desktop gauntlet timer. Local clock, global hotkeys, website as the ledger.",
 };
 
-const RELEASES = "https://github.com/Deer-Leeon/GodGamerGauntlet/releases";
-const LATEST_API =
-  "https://api.github.com/repos/Deer-Leeon/GodGamerGauntlet/releases/latest";
+const REPO = "Deer-Leeon/GodGamerGauntlet";
+const LATEST_API = `https://api.github.com/repos/${REPO}/releases/latest`;
+const LIST_API = `https://api.github.com/repos/${REPO}/releases?per_page=10`;
+
+// Direct asset URLs — GitHub starts the download immediately. The API is only
+// used to stay current; if it fails (common from Vercel without a token), these
+// still ship the files instead of dumping people on the releases page.
+const FALLBACK_TAG = "timer-v0.1.0";
+const FALLBACK_MAC = assetDownloadUrl(
+  FALLBACK_TAG,
+  "GGG.Timer_0.1.0_aarch64.dmg",
+);
+const FALLBACK_WINDOWS = assetDownloadUrl(
+  FALLBACK_TAG,
+  "GGG.Timer_0.1.0_x64-setup.exe",
+);
+
+function assetDownloadUrl(tag: string, filename: string): string {
+  return `https://github.com/${REPO}/releases/download/${encodeURIComponent(tag)}/${encodeURIComponent(filename)}`;
+}
 
 interface GitHubAsset {
   name: string;
@@ -22,53 +39,71 @@ interface GitHubRelease {
   assets: GitHubAsset[];
 }
 
-async function latestDownloads(): Promise<{
+const GITHUB_HEADERS = {
+  Accept: "application/vnd.github+json",
+  "User-Agent": "godgamergauntlet.com",
+  "X-GitHub-Api-Version": "2022-11-28",
+};
+
+function pickAssets(release: GitHubRelease): {
   mac: string | null;
   windows: string | null;
-  releaseUrl: string;
-  tag: string | null;
-} | null> {
+} {
+  const assets = release.assets ?? [];
+  const mac =
+    assets.find(
+      (asset) =>
+        asset.name.endsWith(".dmg") &&
+        /aarch64|darwin-arm|apple-silicon/i.test(asset.name),
+    )?.browser_download_url ??
+    assets.find((asset) => asset.name.endsWith(".dmg"))?.browser_download_url ??
+    null;
+  const windows =
+    assets.find((asset) => /setup\.exe$/i.test(asset.name))
+      ?.browser_download_url ??
+    assets.find((asset) => /\.exe$/i.test(asset.name))?.browser_download_url ??
+    null;
+  return { mac, windows };
+}
+
+async function fetchJson(url: string): Promise<unknown | null> {
   try {
-    const response = await fetch(LATEST_API, {
-      next: { revalidate: 120 },
-      headers: { Accept: "application/vnd.github+json" },
+    const response = await fetch(url, {
+      next: { revalidate: 60 },
+      headers: GITHUB_HEADERS,
     });
     if (!response.ok) return null;
-    const release = (await response.json()) as GitHubRelease;
-    if (!release.tag_name?.startsWith("timer-v")) {
-      return { mac: null, windows: null, releaseUrl: RELEASES, tag: null };
-    }
-    const assets = release.assets ?? [];
-    const mac =
-      assets.find(
-        (asset) =>
-          asset.name.endsWith(".dmg") &&
-          /aarch64|darwin-arm|apple-silicon/i.test(asset.name),
-      )?.browser_download_url ??
-      assets.find((asset) => asset.name.endsWith(".dmg"))
-        ?.browser_download_url ??
-      null;
-    const windows =
-      assets.find(
-        (asset) =>
-          /\.exe$/i.test(asset.name) || /setup\.exe$/i.test(asset.name),
-      )?.browser_download_url ?? null;
-    return {
-      mac,
-      windows,
-      releaseUrl: release.html_url || RELEASES,
-      tag: release.tag_name,
-    };
+    return await response.json();
   } catch {
     return null;
   }
 }
 
+async function latestDownloads(): Promise<{
+  mac: string;
+  windows: string;
+  tag: string;
+}> {
+  const latest = (await fetchJson(LATEST_API)) as GitHubRelease | null;
+  let release =
+    latest?.tag_name?.startsWith("timer-v") ? latest : null;
+
+  if (!release) {
+    const list = (await fetchJson(LIST_API)) as GitHubRelease[] | null;
+    release =
+      list?.find((item) => item.tag_name?.startsWith("timer-v")) ?? null;
+  }
+
+  const picked = release ? pickAssets(release) : { mac: null, windows: null };
+  return {
+    mac: picked.mac ?? FALLBACK_MAC,
+    windows: picked.windows ?? FALLBACK_WINDOWS,
+    tag: release?.tag_name ?? FALLBACK_TAG,
+  };
+}
+
 export default async function TimerDownloadPage() {
   const downloads = await latestDownloads();
-  const macUrl = downloads?.mac ?? null;
-  const windowsUrl = downloads?.windows ?? null;
-  const releaseUrl = downloads?.releaseUrl ?? RELEASES;
 
   return (
     <main className="site-content flex-1 px-6 py-12">
@@ -83,25 +118,22 @@ export default async function TimerDownloadPage() {
 
       <div className="mt-8 flex flex-wrap gap-3">
         <a
-          href={macUrl ?? releaseUrl}
+          href={downloads.mac}
           className="bg-gold px-4 py-2 text-sm text-dark transition hover:bg-gold/90"
         >
           Download for Mac (Apple Silicon)
         </a>
         <a
-          href={windowsUrl ?? releaseUrl}
+          href={downloads.windows}
           className="border border-gold/35 px-4 py-2 text-sm text-gold transition hover:bg-gold/10"
         >
           Download for Windows
         </a>
       </div>
       <p className="mt-3 max-w-2xl text-xs leading-relaxed text-faint">
-        {downloads?.tag
-          ? `Latest build: ${downloads.tag}. `
-          : "Builds appear here after a timer-v* GitHub Release. "}
-        Unsigned v1. On a Mac, right-click the app → Open the first time.
-        Windows SmartScreen may warn until we code-sign. Intel Macs are not a
-        v1 target.
+        Latest build: {downloads.tag}. Unsigned v1. On a Mac, right-click the
+        app → Open the first time. Windows SmartScreen may warn until we
+        code-sign. Intel Macs are not a v1 target.
       </p>
 
       <section className="mt-12 max-w-2xl">
