@@ -38,7 +38,8 @@ public record GameRecordsDto(
     string Title,
     string? Thumb,
     IReadOnlyList<RecordsCategoryDto> Categories,
-    IReadOnlyList<ModeratorDto> Moderators);
+    IReadOnlyList<ModeratorDto> Moderators,
+    string? SrcGameUrl);
 
 /// <summary>One row on a verified speedrun leaderboard.</summary>
 public record RecordRowDto(
@@ -51,4 +52,8 @@ public record RecordRowDto(
     bool IsEmulator,
     string VideoUrl,
     string? ExaminerName,
-    IReadOnlyList<SubmissionVariableDto> Variables);
+    IReadOnlyList<SubmissionVariableDto> Variables,
+    string Origin,
+    string? SrcRunUrl,
+    bool PlayerIsReserved,
+    string PlayerUsername);

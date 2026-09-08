@@ -1,6 +1,7 @@
 using GodGamerGauntlet.Api.Contracts;
 using GodGamerGauntlet.Api.Data;
 using GodGamerGauntlet.Api.Models;
+using GodGamerGauntlet.Api.Services.Src;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -39,6 +40,10 @@ public class RecordsController(AppDbContext context) : ControllerBase
             .Select(m => new ModeratorDto(m.UserId, m.User!.Username, m.AssignedAt))
             .ToListAsync(cancellationToken);
 
+        var srcLink = await context.GameSrcLinks
+            .AsNoTracking()
+            .FirstOrDefaultAsync(l => l.GameId == gameId, cancellationToken);
+
         var dto = new GameRecordsDto(
             game.Id,
             game.Title,
@@ -60,7 +65,8 @@ public class RecordsController(AppDbContext context) : ControllerBase
                             .ToList()))
                     .ToList()))
                 .ToList(),
-            moderators);
+            moderators,
+            srcLink?.SrcWeblink);
 
         return Ok(dto);
     }
@@ -124,13 +130,17 @@ public class RecordsController(AppDbContext context) : ControllerBase
                 index + 1,
                 s.Id,
                 s.PlayerId,
-                s.Player?.Username ?? "unknown",
+                SrcUsernames.PublicName(s.Player),
                 s.PrimaryTimeMs,
                 s.PlayedOn,
                 s.IsEmulator,
                 s.VideoUrl,
                 s.Examiner?.Username,
-                SubmissionsController.ToVariableDtos(s)))
+                SubmissionsController.ToVariableDtos(s),
+                s.Origin.ToString(),
+                string.IsNullOrWhiteSpace(s.SrcRunId) ? null : SrcUsernames.RunWeblink(s.SrcRunId),
+                s.Player?.IsReserved == true,
+                s.Player?.Username ?? "unknown"))
             .ToList();
 
         return Ok(rows);

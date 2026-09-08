@@ -5,45 +5,6 @@ namespace GodGamerGauntlet.Api.Data;
 
 public static class DbInitializer
 {
-    /// <summary>
-    /// Competitive staples that must head the draft catalog regardless of what
-    /// RAWG's most-added ordering says. RAWG titles match RAWG's naming so the
-    /// sync merges into those rows; web-native titles use a synthetic ExternalId
-    /// so restarts upsert instead of inserting a second row.
-    /// </summary>
-    private static readonly (
-        string Title,
-        int BaseDifficulty,
-        string? ExternalId,
-        string? Thumb
-    )[] FeaturedGames =
-    [
-        ("Counter-Strike 2", 92, null, null),
-        ("League of Legends", 90, null, null),
-        ("Dota 2", 95, null, null),
-        ("VALORANT", 88, null, null),
-        ("Tekken 7", 85, null, null),
-        ("Super Smash Bros. Melee", 93, null, null),
-        ("Street Fighter 6", 84, null, null),
-        ("Rocket League", 80, null, null),
-        ("Overwatch 2", 78, null, null),
-        ("Apex Legends", 82, null, null),
-        ("Fortnite", 76, null, null),
-        ("StarCraft II", 94, null, null),
-        (
-            "Chess.com",
-            95,
-            "web-chess-com",
-            "https://upload.wikimedia.org/wikipedia/commons/thumb/8/88/Chesscom_logo_pawn_flat.svg/330px-Chesscom_logo_pawn_flat.svg.png"
-        ),
-        (
-            "GeoGuessr",
-            85,
-            "web-geoguessr",
-            "https://upload.wikimedia.org/wikipedia/commons/b/b4/GeoGuessr_logo.png"
-        )
-    ];
-
     public static async Task InitializeAsync(AppDbContext context)
     {
         if (context.Database.IsNpgsql())
@@ -60,8 +21,8 @@ public static class DbInitializer
     }
 
     /// <summary>
-    /// Seeds the demo user and the curated featured games. Idempotent — the rest
-    /// of the catalog comes from RAWG.
+    /// Seeds the demo user and the closed <see cref="GauntletRoster"/> catalog.
+    /// Idempotent.
     /// </summary>
     public static async Task SeedAsync(AppDbContext context)
     {
@@ -77,7 +38,8 @@ public static class DbInitializer
         }
 
         await PromoteFounderAdminAsync(context);
-        await SeedFeaturedGamesAsync(context);
+        await SeedRosterGamesAsync(context);
+        await RetireNonRosterGamesAsync(context);
     }
 
     /// <summary>
@@ -95,73 +57,83 @@ public static class DbInitializer
     }
 
     /// <summary>
-    /// Pins the curated staples at <c>IsFeatured = true</c> and
-    /// <c>PopularityRank = 0</c>. Matches by ExternalId first, then
-    /// case-insensitive title — the same keys as <c>UpsertGamesAsync</c> — so
-    /// re-running never duplicates a game.
+    /// Upserts the roster and pins it with <c>IsFeatured = true</c> — the flag
+    /// now means "in the catalog", and every query filters on it. Matches by
+    /// case-insensitive title so an earlier RAWG row is reused (keeping its
+    /// cover art) instead of duplicated.
     /// </summary>
-    private static async Task SeedFeaturedGamesAsync(AppDbContext context)
+    private static async Task SeedRosterGamesAsync(AppDbContext context)
     {
-        var titles = FeaturedGames.Select(g => g.Title).ToList();
-        var externalIds = FeaturedGames
-            .Select(g => g.ExternalId)
-            .Where(id => id is not null)
-            .Cast<string>()
-            .ToList();
+        var titles = GauntletRoster.Games.Select(g => g.Title).ToList();
 
-        var existing = await context.Games
-            .Where(g =>
-                titles.Contains(g.Title)
-                || (g.ExternalId != null && externalIds.Contains(g.ExternalId)))
-            .ToListAsync();
-        var byTitle = existing
+        var byTitle = (await context.Games
+                .Where(g => titles.Contains(g.Title))
+                .ToListAsync())
             .GroupBy(g => g.Title.ToLowerInvariant())
             .ToDictionary(g => g.Key, g => g.First());
-        var byExternalId = existing
-            .Where(g => g.ExternalId is not null)
-            .ToDictionary(g => g.ExternalId!);
 
-        foreach (var (title, baseDifficulty, externalId, thumb) in FeaturedGames)
+        for (var rank = 0; rank < GauntletRoster.Games.Count; rank++)
         {
-            var match =
-                (externalId is not null
-                    && byExternalId.TryGetValue(externalId, out var byId)
-                    ? byId
-                    : null)
-                ?? byTitle.GetValueOrDefault(title.ToLowerInvariant());
+            var entry = GauntletRoster.Games[rank];
+            var match = byTitle.GetValueOrDefault(entry.Title.ToLowerInvariant());
 
             if (match is not null)
             {
                 match.IsFeatured = true;
-                match.PopularityRank = 0;
-                match.ExternalId ??= externalId;
-                // Seed thumbs must overwrite: the first web-native URLs 404'd,
-                // and `??=` would have left those broken strings in place forever.
-                if (thumb is not null)
-                {
-                    match.Thumb = thumb;
-                }
+                match.PopularityRank = rank;
+                match.BaseDifficulty = entry.BaseDifficulty;
                 continue;
             }
 
-            var inserted = new Game
+            context.Games.Add(new Game
             {
                 Id = Guid.NewGuid(),
-                Title = title,
-                BaseDifficulty = baseDifficulty,
-                ExternalId = externalId,
-                Thumb = thumb,
+                Title = entry.Title,
+                BaseDifficulty = entry.BaseDifficulty,
                 IsFeatured = true,
-                PopularityRank = 0
-            };
-            context.Games.Add(inserted);
-            byTitle[title.ToLowerInvariant()] = inserted;
-            if (externalId is not null)
-            {
-                byExternalId[externalId] = inserted;
-            }
+                PopularityRank = rank
+            });
         }
 
+        await context.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Takes everything outside the roster off the catalog, then hard-deletes
+    /// the rows nothing points at. A leftover game that still has run slots,
+    /// boards, or submissions keeps its row so that history stays readable by
+    /// id — it just stops appearing in the Draft Room and records directory.
+    /// </summary>
+    private static async Task RetireNonRosterGamesAsync(AppDbContext context)
+    {
+        var stale = await context.Games
+            .Where(g => g.IsFeatured)
+            .ToListAsync();
+        stale = stale.Where(g => !GauntletRoster.Contains(g.Title)).ToList();
+
+        foreach (var game in stale)
+        {
+            game.IsFeatured = false;
+        }
+
+        await context.SaveChangesAsync();
+
+        // EF cannot translate this to a single delete across five dependents on
+        // every provider, so gather the referenced ids first.
+        var referenced = new HashSet<Guid>();
+        referenced.UnionWith(await context.RunSlots.Select(s => s.GameId).Distinct().ToListAsync());
+        referenced.UnionWith(await context.Categories.Select(c => c.GameId).Distinct().ToListAsync());
+        referenced.UnionWith(await context.Submissions.Select(s => s.GameId).Distinct().ToListAsync());
+        referenced.UnionWith(await context.GameModerators.Select(m => m.GameId).Distinct().ToListAsync());
+        referenced.UnionWith(await context.GameSrcLinks.Select(l => l.GameId).Distinct().ToListAsync());
+
+        var orphans = await context.Games
+            .Where(g => !g.IsFeatured && !referenced.Contains(g.Id))
+            .ToListAsync();
+
+        if (orphans.Count == 0) return;
+
+        context.Games.RemoveRange(orphans);
         await context.SaveChangesAsync();
     }
 }

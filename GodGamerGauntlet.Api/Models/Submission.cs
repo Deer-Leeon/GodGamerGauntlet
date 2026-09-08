@@ -10,6 +10,7 @@ public class Submission
 {
     public const int VideoUrlMaxLength = 500;
     public const int RejectReasonMaxLength = 1000;
+    public const int SrcRunIdMaxLength = 16;
 
     public Guid Id { get; set; }
 
@@ -31,6 +32,11 @@ public class Submission
     public bool IsEmulator { get; set; }
 
     public SubmissionStatus Status { get; set; } = SubmissionStatus.Pending;
+
+    public SubmissionOrigin Origin { get; set; } = SubmissionOrigin.Native;
+
+    /// <summary>speedrun.com run id. Unique when set so re-imports are idempotent.</summary>
+    public string? SrcRunId { get; set; }
 
     /// <summary>
     /// True when a faster verified run by the same player on the same board

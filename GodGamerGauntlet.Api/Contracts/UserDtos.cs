@@ -33,7 +33,10 @@ public record AccountDto(
     bool IsAdmin,
     bool IsModerator,
     string? AvatarUrl,
-    IReadOnlyList<StreamLinkDto> StreamLinks)
+    IReadOnlyList<StreamLinkDto> StreamLinks,
+    bool IsReserved,
+    string? SrcUserId,
+    string? DisplayName)
 {
     /// <param name="isModerator">Whether the user has any GameModerator assignment.</param>
     public static AccountDto FromEntity(User user, bool isModerator = false) =>
@@ -46,7 +49,10 @@ public record AccountDto(
             user.IsAdmin,
             isModerator,
             user.AvatarUrl,
-            StreamLinkDto.FromUser(user));
+            StreamLinkDto.FromUser(user),
+            user.IsReserved,
+            user.SrcUserId,
+            user.DisplayName);
 }
 
 /// <summary>Settings payload: avatar only. Stream URLs live in StreamLinks.</summary>

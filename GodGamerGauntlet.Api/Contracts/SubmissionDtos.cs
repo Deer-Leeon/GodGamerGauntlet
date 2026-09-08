@@ -37,7 +37,9 @@ public record SubmissionDto(
     DateTime? ReviewedAt,
     string? ExaminerName,
     string? RejectReason,
-    IReadOnlyList<SubmissionVariableDto> Variables);
+    IReadOnlyList<SubmissionVariableDto> Variables,
+    string Origin,
+    string? SrcRunUrl);
 
 /// <summary>A pending run in a moderator's verification queue.</summary>
 public record ModerationQueueItemDto(

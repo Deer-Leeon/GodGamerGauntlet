@@ -9,11 +9,16 @@ public class Category
 {
     public const int NameMaxLength = 100;
 
+    public const int SrcIdMaxLength = 16;
+
     public Guid Id { get; set; }
 
     public Guid GameId { get; set; }
 
     public required string Name { get; set; }
+
+    /// <summary>speedrun.com category id when this board was imported.</summary>
+    public string? SrcCategoryId { get; set; }
 
     /// <summary>Markdown rules the community moderators maintain.</summary>
     public string? Rules { get; set; }

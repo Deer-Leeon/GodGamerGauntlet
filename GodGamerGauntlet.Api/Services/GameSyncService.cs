@@ -6,14 +6,30 @@ namespace GodGamerGauntlet.Api.Services;
 public class GameSyncService(
     RawgClient rawg,
     IGameRepository gameRepository,
+    IConfiguration configuration,
     ILogger<GameSyncService> logger) : IGameSyncService
 {
     private static readonly TimeSpan RequestDelay = TimeSpan.FromMilliseconds(1500);
     private const int PagesToFetch = 500;
     private const int DefaultDifficulty = 70;
 
+    /// <summary>
+    /// Off by default: the catalog is the closed <c>GauntletRoster</c>, and an
+    /// ingest would refill it with 20,000 games we hold no speedrun.com licence
+    /// for. Set <c>Catalog:RawgSyncEnabled</c> to reopen it.
+    /// </summary>
+    public bool SyncEnabled =>
+        bool.TryParse(configuration["Catalog:RawgSyncEnabled"], out var enabled) && enabled;
+
     public async Task<GameSyncResult> SyncAsync(CancellationToken cancellationToken = default)
     {
+        if (!SyncEnabled)
+        {
+            logger.LogInformation(
+                "RAWG sync skipped: catalog is the closed gauntlet roster (Catalog:RawgSyncEnabled is false).");
+            return new GameSyncResult(0, 0);
+        }
+
         if (!rawg.IsConfigured)
         {
             logger.LogWarning("RAWG sync skipped: no RawgApiKey configured.");

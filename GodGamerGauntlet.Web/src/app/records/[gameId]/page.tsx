@@ -137,6 +137,19 @@ export default function RecordsPage() {
             <h1 className="text-2xl font-semibold">{records.title}</h1>
             <p className="mt-1 text-sm text-muted">
               Speedrun records
+              {records.srcGameUrl && (
+                <span className="text-faint">
+                  {" · "}
+                  <a
+                    href={records.srcGameUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-muted hover:text-gold"
+                  >
+                    Source: speedrun.com
+                  </a>
+                </span>
+              )}
               {records.moderators.length > 0 && (
                 <span className="text-faint">
                   {" · moderated by "}
@@ -333,10 +346,15 @@ function BoardTable({
                 {row.rank === 1 ? "🏆 1" : row.rank}
               </span>
               <Link
-                href={`/u/${encodeURIComponent(row.playerName)}`}
+                href={`/u/${encodeURIComponent(row.playerUsername ?? row.playerName)}`}
                 className="truncate font-medium text-ink hover:text-gold"
               >
                 {row.playerName}
+                {row.playerIsReserved && (
+                  <span className="ml-1.5 text-[10px] font-normal uppercase tracking-wide text-faint">
+                    Unclaimed
+                  </span>
+                )}
               </Link>
               <span className="text-right font-mono tabular-nums text-ink">
                 {formatRecordTime(row.primaryTimeMs)}
@@ -373,6 +391,17 @@ function BoardTable({
                 >
                   ▶
                 </button>
+                {row.srcRunUrl && (
+                  <a
+                    href={row.srcRunUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    title="Original listing on speedrun.com"
+                    className="ml-2 text-[10px] uppercase tracking-wide text-faint hover:text-gold"
+                  >
+                    SRC
+                  </a>
+                )}
               </span>
             </div>
           </li>

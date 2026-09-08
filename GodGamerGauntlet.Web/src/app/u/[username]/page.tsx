@@ -178,7 +178,18 @@ export default function ProfilePage() {
               className="h-12 w-12 rounded-full border border-gold/25 object-cover"
             />
           )}
-          <h1 className="text-2xl font-semibold">{profile.username}</h1>
+          <h1 className="text-2xl font-semibold">
+            {profile.displayName ?? profile.username}
+          </h1>
+          {profile.displayName &&
+            profile.displayName !== profile.username && (
+              <span className="text-sm text-faint">@{profile.username}</span>
+            )}
+          {profile.isReserved && (
+            <span className="border border-gold/30 px-2 py-0.5 text-[11px] uppercase tracking-wide text-gold">
+              Unclaimed
+            </span>
+          )}
           {profile.live && <span className="live-run-chip">Live</span>}
         </div>
         {profile.title && (
@@ -209,7 +220,30 @@ export default function ProfilePage() {
               : " · No finished gauntlets yet"}
         </p>
         <StreamLinkList links={profile.streamLinks} />
-        {user?.id !== profile.id && (
+        {profile.isReserved && (
+          <div className="mt-4 max-w-xl border border-gold/30 bg-gold/5 px-4 py-3 text-sm leading-relaxed text-muted">
+            Unclaimed record holder. This profile is a placeholder for a
+            speedrun.com runner until they prove they own that account.
+            {user ? (
+              <>
+                {" "}
+                <Link href="/settings#src-claim" className="text-gold hover:underline">
+                  Claim it in Settings
+                </Link>{" "}
+                with your speedrun.com API key.
+              </>
+            ) : (
+              <>
+                {" "}
+                <Link href="/login" className="text-gold hover:underline">
+                  Sign in
+                </Link>{" "}
+                to claim this name.
+              </>
+            )}
+          </div>
+        )}
+        {user?.id !== profile.id && !profile.isReserved && (
           <div className="mt-4">
             <FollowButton
               username={profile.username}

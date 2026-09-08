@@ -1,4 +1,5 @@
 using GodGamerGauntlet.Api.Data;
+using GodGamerGauntlet.Api.Services.Src;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Data.Sqlite;
@@ -22,6 +23,7 @@ public class CourtApiFactory : WebApplicationFactory<Program>
 
         builder.UseSetting("Jwt:Secret", "integration-test-secret");
         builder.UseSetting("RawgApiKey", "");
+        builder.UseSetting("SrcImport:BulkEnabled", "false");
 
         builder.ConfigureServices(services =>
         {
@@ -30,6 +32,14 @@ public class CourtApiFactory : WebApplicationFactory<Program>
             services.Remove(descriptor);
 
             services.AddDbContext<AppDbContext>(options => options.UseSqlite(_connection));
+
+            foreach (var src in services.Where(d => d.ServiceType == typeof(ISrcClient)).ToList())
+            {
+                services.Remove(src);
+            }
+
+            services.AddSingleton<FakeSrcClient>();
+            services.AddSingleton<ISrcClient>(sp => sp.GetRequiredService<FakeSrcClient>());
         });
     }
 

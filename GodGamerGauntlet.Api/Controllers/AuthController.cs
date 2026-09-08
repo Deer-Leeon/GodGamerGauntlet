@@ -4,6 +4,7 @@ using GodGamerGauntlet.Api.Data;
 using GodGamerGauntlet.Api.Models;
 using GodGamerGauntlet.Api.Repositories;
 using GodGamerGauntlet.Api.Services;
+using GodGamerGauntlet.Api.Services.Src;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -36,9 +37,11 @@ public class AuthController(
             return BadRequest(emailError);
         }
 
-        if (await userRepository.GetByUsernameAsync(username, cancellationToken) is not null)
+        if (await userRepository.GetByUsernameAsync(username, cancellationToken) is { } taken)
         {
-            return Conflict($"Username '{username}' is already taken.");
+            return taken.IsReserved
+                ? Conflict(SrcUsernames.ReservedMessage)
+                : Conflict($"Username '{username}' is already taken.");
         }
 
         if (await userRepository.GetByEmailAsync(email, cancellationToken) is not null)
@@ -68,7 +71,8 @@ public class AuthController(
         var user = await userRepository.GetByLoginAsync(request.Username, cancellationToken);
 
         // Legacy pre-auth accounts have no hash and cannot log in.
-        if (user?.PasswordHash is null)
+        // Reserved SRC placeholders also cannot log in until claimed.
+        if (user?.PasswordHash is null || user.IsReserved)
         {
             return Unauthorized("Invalid username, email, or password.");
         }
@@ -114,7 +118,9 @@ public class AuthController(
         var taken = await userRepository.GetByUsernameAsync(username, cancellationToken);
         if (taken is not null && taken.Id != user.Id)
         {
-            return Conflict($"Username '{username}' is already taken.");
+            return taken.IsReserved
+                ? Conflict(SrcUsernames.ReservedMessage)
+                : Conflict($"Username '{username}' is already taken.");
         }
 
         user.Username = username;

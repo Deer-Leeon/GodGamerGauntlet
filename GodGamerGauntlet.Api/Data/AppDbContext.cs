@@ -22,6 +22,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<SubmissionVariable> SubmissionVariables => Set<SubmissionVariable>();
     public DbSet<GameModerator> GameModerators => Set<GameModerator>();
     public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<GameSrcLink> GameSrcLinks => Set<GameSrcLink>();
+    public DbSet<UsernameReservation> UsernameReservations => Set<UsernameReservation>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -35,7 +37,13 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .HasFilter("\"Email\" IS NOT NULL");
             entity.Property(u => u.PasswordHash).HasMaxLength(500);
             entity.Property(u => u.IsAdmin).HasDefaultValue(false);
+            entity.Property(u => u.IsReserved).HasDefaultValue(false);
             entity.Property(u => u.AvatarUrl).HasMaxLength(User.AvatarUrlMaxLength);
+            entity.Property(u => u.DisplayName).HasMaxLength(User.DisplayNameMaxLength);
+            entity.Property(u => u.SrcUserId).HasMaxLength(User.SrcUserIdMaxLength);
+            entity.HasIndex(u => u.SrcUserId)
+                .IsUnique()
+                .HasFilter("\"SrcUserId\" IS NOT NULL");
 
             // A User has many Runs.
             entity.HasMany(u => u.Runs)
@@ -192,6 +200,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.Property(c => c.Name)
                   .HasMaxLength(Category.NameMaxLength)
                   .IsRequired();
+            entity.Property(c => c.SrcCategoryId).HasMaxLength(Category.SrcIdMaxLength);
+            entity.HasIndex(c => c.SrcCategoryId)
+                .IsUnique()
+                .HasFilter("\"SrcCategoryId\" IS NOT NULL");
             // One "Any%" per game.
             entity.HasIndex(c => new { c.GameId, c.Name }).IsUnique();
 
@@ -211,6 +223,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.Property(v => v.Name)
                   .HasMaxLength(Variable.NameMaxLength)
                   .IsRequired();
+            entity.Property(v => v.SrcVariableId).HasMaxLength(Variable.SrcIdMaxLength);
+            entity.HasIndex(v => new { v.CategoryId, v.SrcVariableId })
+                .IsUnique()
+                .HasFilter("\"SrcVariableId\" IS NOT NULL");
             entity.HasIndex(v => new { v.CategoryId, v.Name }).IsUnique();
 
             entity.HasMany(v => v.Values)
@@ -224,6 +240,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.Property(x => x.Value)
                   .HasMaxLength(VariableValue.ValueMaxLength)
                   .IsRequired();
+            entity.Property(x => x.SrcValueId).HasMaxLength(VariableValue.SrcIdMaxLength);
+            entity.HasIndex(x => new { x.VariableId, x.SrcValueId })
+                .IsUnique()
+                .HasFilter("\"SrcValueId\" IS NOT NULL");
             entity.HasIndex(x => new { x.VariableId, x.Value }).IsUnique();
         });
 
@@ -238,6 +258,14 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                   .HasConversion<string>()
                   .HasMaxLength(20)
                   .HasDefaultValue(SubmissionStatus.Pending);
+            entity.Property(s => s.Origin)
+                  .HasConversion<string>()
+                  .HasMaxLength(20)
+                  .HasDefaultValue(SubmissionOrigin.Native);
+            entity.Property(s => s.SrcRunId).HasMaxLength(Submission.SrcRunIdMaxLength);
+            entity.HasIndex(s => s.SrcRunId)
+                .IsUnique()
+                .HasFilter("\"SrcRunId\" IS NOT NULL");
             entity.ToTable(t => t.HasCheckConstraint(
                 "CK_Submissions_PrimaryTimeMs", "\"PrimaryTimeMs\" > 0"));
             entity.Property(s => s.IsObsolete).HasDefaultValue(false);
@@ -325,6 +353,42 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
             // The inbox query: caller's notifications, newest first.
             entity.HasIndex(n => new { n.UserId, n.CreatedAt });
+        });
+
+        modelBuilder.Entity<GameSrcLink>(entity =>
+        {
+            entity.Property(l => l.SrcGameId)
+                .HasMaxLength(GameSrcLink.SrcIdMaxLength)
+                .IsRequired();
+            entity.Property(l => l.SrcAbbreviation)
+                .HasMaxLength(GameSrcLink.AbbreviationMaxLength)
+                .IsRequired();
+            entity.Property(l => l.SrcWeblink).HasMaxLength(GameSrcLink.WeblinkMaxLength);
+            entity.Property(l => l.ImportEnabled).HasDefaultValue(true);
+            entity.HasIndex(l => l.SrcGameId).IsUnique();
+            entity.HasIndex(l => l.SrcAbbreviation).IsUnique();
+            entity.HasIndex(l => l.GameId).IsUnique();
+
+            entity.HasOne(l => l.Game)
+                .WithMany()
+                .HasForeignKey(l => l.GameId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<UsernameReservation>(entity =>
+        {
+            entity.Property(r => r.ReservedUsername)
+                .HasMaxLength(UsernameReservation.UsernameMaxLength)
+                .IsRequired();
+            entity.Property(r => r.SrcUserId).HasMaxLength(UsernameReservation.SrcIdMaxLength);
+            entity.Property(r => r.GuestName).HasMaxLength(UsernameReservation.GuestNameMaxLength);
+            entity.Property(r => r.ClaimMethod).HasMaxLength(UsernameReservation.ClaimMethodMaxLength);
+            entity.HasIndex(r => r.UserId);
+
+            entity.HasOne(r => r.User)
+                .WithMany()
+                .HasForeignKey(r => r.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 }

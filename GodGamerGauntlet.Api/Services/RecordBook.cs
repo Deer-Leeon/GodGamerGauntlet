@@ -297,7 +297,10 @@ public class RecordBook(AppDbContext context) : IRecordBook
             viewerId is Guid viewer && viewer != user.Id
                 && await context.UserFollows.AnyAsync(
                     f => f.FollowerId == viewer && f.FollowedId == user.Id,
-                    cancellationToken));
+                    cancellationToken),
+            user.IsReserved,
+            user.DisplayName,
+            user.SrcUserId is not null);
     }
 
     private static ProfileLiveRunDto? ToLive(Run? run)

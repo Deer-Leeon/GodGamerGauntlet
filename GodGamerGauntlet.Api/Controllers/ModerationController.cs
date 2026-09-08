@@ -208,7 +208,7 @@ public class ModerationController(
     /// </summary>
     private async Task<Submission?> FindBoardBestAsync(Submission verified, CancellationToken cancellationToken)
     {
-        var boardKey = SubcategoryKey(verified);
+        var boardKey = SubmissionObsolescence.SubcategoryKey(verified);
 
         var candidates = await context.Submissions
             .AsNoTracking()
@@ -223,7 +223,7 @@ public class ModerationController(
             .ToListAsync(cancellationToken);
 
         return candidates
-            .Where(s => SubcategoryKey(s).SetEquals(boardKey))
+            .Where(s => SubmissionObsolescence.SubcategoryKey(s).SetEquals(boardKey))
             .OrderBy(s => s.PrimaryTimeMs)
             .ThenBy(s => s.SubmittedAt)
             .FirstOrDefault();
@@ -238,7 +238,7 @@ public class ModerationController(
     /// </summary>
     private async Task RecomputeObsolescenceAsync(Submission verified, CancellationToken cancellationToken)
     {
-        var boardKey = SubcategoryKey(verified);
+        var boardKey = SubmissionObsolescence.SubcategoryKey(verified);
 
         var rivals = await context.Submissions
             .Include(s => s.Variables)
@@ -252,23 +252,12 @@ public class ModerationController(
             .ToListAsync(cancellationToken);
 
         var board = rivals
-            .Where(s => SubcategoryKey(s).SetEquals(boardKey))
+            .Where(s => SubmissionObsolescence.SubcategoryKey(s).SetEquals(boardKey))
             .Append(verified)
-            .OrderBy(s => s.PrimaryTimeMs)
-            .ThenBy(s => s.SubmittedAt)
             .ToList();
 
-        for (var i = 0; i < board.Count; i++)
-        {
-            board[i].IsObsolete = i > 0;
-        }
+        SubmissionObsolescence.RecomputePlayerBoard(board);
     }
-
-    private static HashSet<Guid> SubcategoryKey(Submission submission) =>
-        submission.Variables
-            .Where(x => x.VariableValue?.Variable?.IsSubcategory == true)
-            .Select(x => x.VariableValueId)
-            .ToHashSet();
 
     // ── Moderator assignment (global admin only) ─────────────────────────────
 

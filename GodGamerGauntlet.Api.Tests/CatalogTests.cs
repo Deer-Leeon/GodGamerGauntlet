@@ -1,6 +1,7 @@
 using System.Text.Json;
 using GodGamerGauntlet.Api.Data;
 using GodGamerGauntlet.Api.Models;
+using GodGamerGauntlet.Api.Services.Src;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
@@ -14,7 +15,7 @@ public class CatalogTests : IClassFixture<CourtApiFactory>
     public CatalogTests(CourtApiFactory factory) => _factory = factory;
 
     [Fact]
-    public async Task Catalog_searches_paginates_and_keeps_featured_first()
+    public async Task Catalog_lists_roster_games_only_and_paginates()
     {
         // Unique prefix: the factory database is shared with the other suites.
         var prefix = $"Catseek{Guid.NewGuid():N}"[..16];
@@ -29,32 +30,42 @@ public class CatalogTests : IClassFixture<CourtApiFactory>
                     Id = Guid.NewGuid(),
                     Title = $"{prefix} Quest {i}",
                     BaseDifficulty = 50,
-                    // Game 3 is curated: featured outranks better popularity.
-                    IsFeatured = i == 3,
+                    IsFeatured = true,
                     PopularityRank = 100 - i * 10,
                 });
             }
+
+            // Retired: matches the search but is off the roster, so it must
+            // never reach the directory.
+            db.Games.Add(new Game
+            {
+                Id = Guid.NewGuid(),
+                Title = $"{prefix} Quest Retired",
+                BaseDifficulty = 50,
+                IsFeatured = false,
+                PopularityRank = 1,
+            });
             await db.SaveChangesAsync();
         }
 
         var client = _factory.CreateClient();
 
-        // Page 1 of 2: featured first, then ascending popularity rank.
+        // Page 1 of 2: roster order is ascending popularity rank.
         var response = await client.GetAsync(
             $"/api/catalog?search={prefix}&page=1&pageSize=3");
         response.EnsureSuccessStatusCode();
         var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync()).RootElement;
 
+        // Six rows match the prefix; the retired one is filtered out.
         Assert.Equal(5, body.GetProperty("totalCount").GetInt32());
         Assert.Equal(2, body.GetProperty("totalPages").GetInt32());
         Assert.Equal(1, body.GetProperty("currentPage").GetInt32());
 
         var titles = body.GetProperty("items").EnumerateArray()
             .Select(g => g.GetProperty("title").GetString()).ToArray();
-        // Ranks are 100/90/80/70/60 for games 0-4; featured game 3 jumps the
-        // queue, then the best remaining ranks: game 4 (60), game 2 (80).
+        // Ranks are 100/90/80/70/60 for games 0-4, so the best ranks lead.
         Assert.Equal(
-            [$"{prefix} Quest 3", $"{prefix} Quest 4", $"{prefix} Quest 2"],
+            [$"{prefix} Quest 4", $"{prefix} Quest 3", $"{prefix} Quest 2"],
             titles);
 
         // Page 2 has the remainder.
@@ -78,5 +89,33 @@ public class CatalogTests : IClassFixture<CourtApiFactory>
         Assert.Equal(0, none.GetProperty("totalCount").GetInt32());
         Assert.Equal(1, none.GetProperty("totalPages").GetInt32());
         Assert.Equal(0, none.GetProperty("items").GetArrayLength());
+    }
+
+    /// <summary>
+    /// The Draft Room list and the speedrun.com board list are the same games —
+    /// that equality is what the licence request to Elo describes.
+    /// </summary>
+    [Fact]
+    public async Task Draft_catalog_is_exactly_the_gauntlet_roster()
+    {
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            await DbInitializer.SeedAsync(db);
+        }
+
+        var response = await _factory.CreateClient().GetAsync("/api/games");
+        response.EnsureSuccessStatusCode();
+        var titles = JsonDocument.Parse(await response.Content.ReadAsStringAsync())
+            .RootElement.EnumerateArray()
+            .Select(g => g.GetProperty("title").GetString()!)
+            .ToList();
+
+        Assert.Equal(
+            GauntletRoster.Games.Select(g => g.Title).ToList(),
+            titles);
+        Assert.Equal(
+            GauntletRoster.Games.Select(g => g.Title).OrderBy(t => t).ToList(),
+            SrcFlagshipMap.Games.Select(g => g.Title).OrderBy(t => t).ToList());
     }
 }

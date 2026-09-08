@@ -29,6 +29,9 @@ export interface User {
   /** Public avatar image URL, shown on profiles and live-now cards. */
   avatarUrl?: string | null;
   streamLinks?: StreamLink[];
+  isReserved?: boolean;
+  srcUserId?: string | null;
+  displayName?: string | null;
 }
 
 export type StreamPlatform = "twitch" | "youtube";
@@ -52,9 +55,9 @@ export interface Game {
   /** RAWG does not track storefront pricing, so prices may be absent. */
   normalPrice: number | null;
   salePrice: number | null;
-  /** Curated competitive staple, pinned above the RAWG catalog. */
+  /** In the gauntlet roster. Retired games stay reachable by id but never list. */
   isFeatured: boolean;
-  /** Position in RAWG's most-added ordering; 0 for curated staples. */
+  /** Position in the roster's display order. */
   popularityRank: number;
 }
 
@@ -434,6 +437,9 @@ export interface UserProfile {
   streamLinks?: StreamLink[];
   live?: ProfileLiveRun | null;
   isFollowing?: boolean;
+  isReserved?: boolean;
+  displayName?: string | null;
+  hasSrcAccount?: boolean;
 }
 
 export interface ProfileLiveRun {
@@ -746,6 +752,7 @@ export interface GameRecords {
   thumb: string | null;
   categories: RecordsCategory[];
   moderators: GameModeratorInfo[];
+  srcGameUrl?: string | null;
 }
 
 export interface SubmissionVariableTag {
@@ -760,12 +767,16 @@ export interface RecordRow {
   submissionId: string;
   playerId: string;
   playerName: string;
+  playerUsername?: string;
   primaryTimeMs: number;
   playedOn: string;
   isEmulator: boolean;
   videoUrl: string;
   examinerName: string | null;
   variables: SubmissionVariableTag[];
+  origin?: string;
+  srcRunUrl?: string | null;
+  playerIsReserved?: boolean;
 }
 
 export type SubmissionStatus = "Pending" | "Verified" | "Rejected";
@@ -789,6 +800,8 @@ export interface Submission {
   examinerName: string | null;
   rejectReason: string | null;
   variables: SubmissionVariableTag[];
+  origin?: string;
+  srcRunUrl?: string | null;
 }
 
 export interface ModQueueItem {
@@ -855,6 +868,20 @@ export function getUserSpeedruns(username: string): Promise<Submission[]> {
 /** The caller's pending submissions and rejections (with examiner reasons). */
 export function getMyPendingRuns(): Promise<Submission[]> {
   return request<Submission[]>("/api/users/me/pending-runs");
+}
+
+export interface ClaimSrcResult extends AuthResponse {
+  srcUserId: string;
+  runsImported: number;
+  tookReservedHandle: boolean;
+}
+
+/** Prove a speedrun.com account with its API key (never stored). */
+export function claimSrcAccount(apiKey: string): Promise<ClaimSrcResult> {
+  return request<ClaimSrcResult>("/api/src/claim", {
+    method: "POST",
+    body: JSON.stringify({ apiKey }),
+  });
 }
 
 // ── Notifications (Records Phase 7) ─────────────────────────────────────────

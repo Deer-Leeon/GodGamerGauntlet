@@ -31,6 +31,10 @@ export default function SettingsPage() {
   const [savingUsername, setSavingUsername] = useState(false);
   const [savingEmail, setSavingEmail] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
+  const [srcKey, setSrcKey] = useState("");
+  const [srcError, setSrcError] = useState<string | null>(null);
+  const [srcSaved, setSrcSaved] = useState<string | null>(null);
+  const [savingSrc, setSavingSrc] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) router.replace("/login");
@@ -128,6 +132,29 @@ export default function SettingsPage() {
       );
     } finally {
       setSavingPassword(false);
+    }
+  }
+
+  async function claimSrc(event: React.FormEvent) {
+    event.preventDefault();
+    setSrcError(null);
+    setSrcSaved(null);
+    setSavingSrc(true);
+    try {
+      const result = await api.claimSrcAccount(srcKey.trim());
+      setSrcKey("");
+      applyAuth(result);
+      setSrcSaved(
+        result.tookReservedHandle
+          ? `You're now ${result.user.username}. ${result.runsImported} flagship PBs imported.`
+          : `Linked speedrun.com. ${result.runsImported} flagship PBs imported.`,
+      );
+    } catch (err) {
+      setSrcError(
+        err instanceof Error ? err.message : "Couldn't verify that speedrun.com key.",
+      );
+    } finally {
+      setSavingSrc(false);
     }
   }
 
@@ -232,6 +259,60 @@ export default function SettingsPage() {
           Twitch and YouTube show on your profile and live runs. Edit them here.
         </p>
         <StreamLinkEditor initial={user.streamLinks} />
+      </section>
+
+      <section
+        id="src-claim"
+        className="mt-10 flex flex-col gap-4 border-t border-gold/20 pt-8"
+      >
+        <h2 className="text-sm font-medium text-ink">speedrun.com account</h2>
+        {user.srcUserId ? (
+          <p className="text-sm leading-relaxed text-muted">
+            Linked. Imported boards use this identity; the name is locked to
+            you.
+          </p>
+        ) : (
+          <>
+            <p className="text-sm leading-relaxed text-muted">
+              Reserved record-holder names cannot be registered. Prove you own
+              the speedrun.com account to take that handle. Get a key at{" "}
+              <a
+                href="https://www.speedrun.com/api/auth"
+                target="_blank"
+                rel="noreferrer"
+                className="text-gold hover:underline"
+              >
+                speedrun.com/api/auth
+              </a>
+              . We never store the key.
+            </p>
+            <form onSubmit={claimSrc} className="flex flex-col gap-4">
+              <label className="flex flex-col gap-2 text-sm text-faint">
+                API key
+                <input
+                  type="password"
+                  value={srcKey}
+                  onChange={(e) => setSrcKey(e.target.value)}
+                  required
+                  autoComplete="off"
+                  placeholder="Paste key"
+                  className="panel px-3.5 py-2.5 text-ink outline-none"
+                />
+              </label>
+              {srcError && (
+                <p className="text-sm text-red-400/90">{srcError}</p>
+              )}
+              {srcSaved && <p className="text-sm text-gold">{srcSaved}</p>}
+              <button
+                type="submit"
+                disabled={savingSrc}
+                className="self-start border border-gold/30 px-4 py-2.5 text-sm text-gold transition hover:bg-gold/10 disabled:opacity-50"
+              >
+                {savingSrc ? "Verifying…" : "Claim name"}
+              </button>
+            </form>
+          </>
+        )}
       </section>
 
       <form

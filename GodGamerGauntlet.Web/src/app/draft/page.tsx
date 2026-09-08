@@ -458,7 +458,7 @@ export default function DraftRoomPage() {
               ))}
             {!loading && games.length === 0 && (
               <li className="py-10 text-sm text-faint">
-                Catalog is empty. Games show up here after RAWG sync finishes.
+                Catalog is empty. The gauntlet roster seeds on API startup.
               </li>
             )}
             {!loading && games.length > 0 && pagedGames.length === 0 && (

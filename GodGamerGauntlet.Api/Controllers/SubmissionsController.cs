@@ -1,8 +1,9 @@
 using System.Security.Claims;
-using System.Text.RegularExpressions;
 using GodGamerGauntlet.Api.Contracts;
 using GodGamerGauntlet.Api.Data;
 using GodGamerGauntlet.Api.Models;
+using GodGamerGauntlet.Api.Services;
+using GodGamerGauntlet.Api.Services.Src;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -11,16 +12,10 @@ namespace GodGamerGauntlet.Api.Controllers;
 
 [ApiController]
 [Route("api/submissions")]
-public partial class SubmissionsController(AppDbContext context) : ControllerBase
+public class SubmissionsController(AppDbContext context) : ControllerBase
 {
     private Guid? CurrentUserId =>
         Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : null;
-
-    // Proof must be a Twitch or YouTube link — examiners need a VOD to watch.
-    [GeneratedRegex(
-        @"^https://(www\.|m\.)?(youtube\.com/(watch\?|live/|shorts/)|youtu\.be/|twitch\.tv/(videos/\d+|\w+/(v|video)/\d+|\w+/clip/)|clips\.twitch\.tv/)\S+$",
-        RegexOptions.IgnoreCase)]
-    private static partial Regex VideoUrlRegex();
 
     [HttpPost]
     [Authorize]
@@ -28,7 +23,7 @@ public partial class SubmissionsController(AppDbContext context) : ControllerBas
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Submit(SubmitRunRequest request, CancellationToken cancellationToken)
     {
-        if (!VideoUrlRegex().IsMatch(request.VideoUrl))
+        if (!ProofUrls.IsAccepted(request.VideoUrl))
         {
             return BadRequest("VideoUrl must be a YouTube or Twitch video/clip link (https).");
         }
@@ -208,7 +203,11 @@ public partial class SubmissionsController(AppDbContext context) : ControllerBas
             submission.ReviewedAt,
             submission.Examiner?.Username,
             submission.RejectReason,
-            ToVariableDtos(submission));
+            ToVariableDtos(submission),
+            submission.Origin.ToString(),
+            string.IsNullOrWhiteSpace(submission.SrcRunId)
+                ? null
+                : SrcUsernames.RunWeblink(submission.SrcRunId));
 
     internal static IReadOnlyList<SubmissionVariableDto> ToVariableDtos(Submission submission) =>
         submission.Variables

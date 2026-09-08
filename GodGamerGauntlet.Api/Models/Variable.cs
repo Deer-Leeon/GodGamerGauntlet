@@ -9,11 +9,16 @@ public class Variable
 {
     public const int NameMaxLength = 100;
 
+    public const int SrcIdMaxLength = 16;
+
     public Guid Id { get; set; }
 
     public Guid CategoryId { get; set; }
 
     public required string Name { get; set; }
+
+    /// <summary>speedrun.com variable id when imported. The same SRC variable may be copied onto each local category it applies to.</summary>
+    public string? SrcVariableId { get; set; }
 
     /// <summary>True when each value gets its own leaderboard split.</summary>
     public bool IsSubcategory { get; set; }

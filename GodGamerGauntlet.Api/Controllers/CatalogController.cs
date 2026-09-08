@@ -6,9 +6,9 @@ using Microsoft.EntityFrameworkCore;
 namespace GodGamerGauntlet.Api.Controllers;
 
 /// <summary>
-/// Server-paginated view of the ~20k-game catalog. The Draft Room ships the
-/// whole list to the client for instant search; the records directory can't
-/// afford that, so it pages here instead.
+/// Server-paginated view of the roster catalog behind the records directory.
+/// Pagination predates the closed roster and stays because the roster grows
+/// only when the speedrun.com licence covers more boards.
 /// </summary>
 [ApiController]
 [Route("api/catalog")]
@@ -27,7 +27,7 @@ public class CatalogController(AppDbContext context) : ControllerBase
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, MaxPageSize);
 
-        var query = context.Games.AsNoTracking();
+        var query = context.Games.AsNoTracking().Where(g => g.IsFeatured);
 
         var term = search?.Trim();
         if (!string.IsNullOrEmpty(term))
@@ -41,8 +41,7 @@ public class CatalogController(AppDbContext context) : ControllerBase
         page = Math.Min(page, totalPages);
 
         var items = await query
-            .OrderByDescending(g => g.IsFeatured)
-            .ThenBy(g => g.PopularityRank)
+            .OrderBy(g => g.PopularityRank)
             .ThenBy(g => g.Title)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)

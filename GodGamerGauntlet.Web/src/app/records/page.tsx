@@ -54,8 +54,9 @@ export default function RecordsDirectoryPage() {
       <header className="border-b border-gold/20 pb-6">
         <h1 className="text-2xl font-semibold">Speedrun records</h1>
         <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted">
-          Pick a game to see its verified boards, category rules, and record
-          history — or submit a run of your own.
+          Every game in the gauntlet roster keeps a board here. Pick one to see
+          its verified times, category rules, and record history — or submit a
+          run of your own.
         </p>
       </header>
 
@@ -65,7 +66,7 @@ export default function RecordsDirectoryPage() {
           type="search"
           value={searchText}
           onChange={(event) => setSearchText(event.target.value)}
-          placeholder="Search the catalog…"
+          placeholder="Search the roster…"
           aria-label="Search games"
           className="w-full max-w-md border border-gold/30 bg-transparent px-4 py-2.5 text-sm text-ink placeholder:text-faint focus:border-gold focus:outline-none"
         />
@@ -118,9 +119,6 @@ export default function RecordsDirectoryPage() {
                   </div>
                 )}
                 <p className="truncate px-3 py-2.5 text-sm text-ink transition group-hover:text-gold">
-                  {game.isFeatured && (
-                    <span className="mr-1.5 text-[10px] text-gold">★</span>
-                  )}
                   {game.title}
                 </p>
               </Link>

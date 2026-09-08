@@ -115,7 +115,10 @@ public record UserProfileDto(
     IReadOnlyList<ProfileRunDto> Runs,
     IReadOnlyList<StreamLinkDto> StreamLinks,
     ProfileLiveRunDto? Live,
-    bool IsFollowing);
+    bool IsFollowing,
+    bool IsReserved,
+    string? DisplayName,
+    bool HasSrcAccount);
 
 /// <summary>
 /// One card on the homepage "Live Now" rail: a gauntlet whose timer is

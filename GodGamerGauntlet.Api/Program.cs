@@ -93,6 +93,16 @@ builder.Services.AddHttpClient<RawgClient>(client =>
 builder.Services.AddScoped<IGameSyncService, GameSyncService>();
 builder.Services.AddHostedService<GameSyncBackgroundService>();
 
+builder.Services.AddSingleton<GodGamerGauntlet.Api.Services.Src.SrcRateLimiter>();
+builder.Services.AddHttpClient<GodGamerGauntlet.Api.Services.Src.ISrcClient, GodGamerGauntlet.Api.Services.Src.SrcClient>(client =>
+{
+    client.BaseAddress = new Uri("https://www.speedrun.com/api/v1/");
+    client.Timeout = TimeSpan.FromSeconds(60);
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("GodGamerGauntlet/1.0 (godgamergauntlet.com)");
+});
+builder.Services.AddScoped<GodGamerGauntlet.Api.Services.Src.SrcImportService>();
+builder.Services.AddScoped<GodGamerGauntlet.Api.Services.Src.SrcClaimService>();
+
 // Discord WR broadcast: no-op unless DISCORD_WR_WEBHOOK_URL is configured.
 builder.Services.AddHttpClient(nameof(DiscordWorldRecordAnnouncer), client =>
     client.Timeout = TimeSpan.FromSeconds(10));
