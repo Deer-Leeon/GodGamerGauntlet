@@ -1,6 +1,6 @@
 [package]
 name = "ggg-timer"
-version = "0.1.2"
+version = "0.1.3"
 description = "God Gamer Gauntlet desktop timer. Local clock; website is the ledger."
 authors = ["God Gamer Gauntlet"]
 edition = "2021"

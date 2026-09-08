@@ -12,7 +12,7 @@ const LIST_API = `https://api.github.com/repos/${REPO}/releases?per_page=10`;
 
 // Baked into the page so a private GitHub repo (releases API 404s from Vercel
 // without a token) still ships the current files.
-const CURRENT_TAG = "timer-v0.1.2";
+const CURRENT_TAG = "timer-v0.1.3";
 
 function assetDownloadUrl(tag: string, filename: string): string {
   return `https://github.com/${REPO}/releases/download/${encodeURIComponent(tag)}/${encodeURIComponent(filename)}`;

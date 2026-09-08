@@ -33,6 +33,44 @@ const BIND_LABELS = {
   reset: "Reset (twice)",
 };
 
+const LEGACY_HOTKEY_ALIASES = {
+  LeftBracket: "BracketLeft",
+  RightBracket: "BracketRight",
+  Plus: "NumpadAdd",
+};
+
+const HOTKEY_DISPLAY = {
+  BracketLeft: "[",
+  BracketRight: "]",
+  Quote: "'",
+  Semicolon: ";",
+  Minus: "-",
+  Equal: "=",
+  Backslash: "\\",
+  Comma: ",",
+  Period: ".",
+  Slash: "/",
+  Backquote: "`",
+  NumpadAdd: "Num+",
+  NumpadSubtract: "Num-",
+  NumpadMultiply: "Num*",
+  NumpadDivide: "Num/",
+  NumpadDecimal: "Num.",
+};
+
+function normalizeHotkeyToken(token) {
+  const trimmed = token.trim();
+  return LEGACY_HOTKEY_ALIASES[trimmed] || trimmed;
+}
+
+function normalizeShortcut(shortcut) {
+  return shortcut
+    .split("+")
+    .map(normalizeHotkeyToken)
+    .filter(Boolean)
+    .join("+");
+}
+
 function loadBinds() {
   try {
     const raw = JSON.parse(localStorage.getItem(KEYS.binds) || "null");
@@ -40,7 +78,7 @@ function loadBinds() {
     const next = { ...DEFAULT_BINDS };
     for (const action of BIND_ACTIONS) {
       if (typeof raw[action] === "string" && raw[action].trim()) {
-        next[action] = raw[action].trim();
+        next[action] = normalizeShortcut(raw[action].trim());
       }
     }
     return next;
@@ -73,8 +111,8 @@ function keyFromCode(code) {
   const extras = {
     Minus: "Minus",
     Equal: "Equal",
-    BracketLeft: "LeftBracket",
-    BracketRight: "RightBracket",
+    BracketLeft: "BracketLeft",
+    BracketRight: "BracketRight",
     Backslash: "Backslash",
     Semicolon: "Semicolon",
     Quote: "Quote",
@@ -82,8 +120,8 @@ function keyFromCode(code) {
     Period: "Period",
     Slash: "Slash",
     Backquote: "Backquote",
-    NumpadAdd: "Plus",
-    NumpadSubtract: "Minus",
+    NumpadAdd: "NumpadAdd",
+    NumpadSubtract: "NumpadSubtract",
     NumpadMultiply: "NumpadMultiply",
     NumpadDivide: "NumpadDivide",
     NumpadDecimal: "NumpadDecimal",
@@ -100,7 +138,7 @@ function shortcutFromEvent(event) {
   if (event.altKey) mods.push("Alt");
   if (event.shiftKey) mods.push("Shift");
   if (event.metaKey) mods.push("Command");
-  return [...mods, key].join("+");
+  return normalizeShortcut([...mods, key].join("+"));
 }
 
 function isTypingTarget(target) {
@@ -111,7 +149,11 @@ function isTypingTarget(target) {
 }
 
 function formatBind(shortcut) {
-  return shortcut || "—";
+  if (!shortcut) return "—";
+  return normalizeShortcut(shortcut)
+    .split("+")
+    .map((part) => HOTKEY_DISPLAY[part] || part)
+    .join("+");
 }
 
 function bindForAction(action) {
@@ -119,7 +161,12 @@ function bindForAction(action) {
 }
 
 function actionForShortcut(shortcut) {
-  return BIND_ACTIONS.find((action) => bindForAction(action) === shortcut) || null;
+  const normalized = normalizeShortcut(shortcut);
+  return (
+    BIND_ACTIONS.find(
+      (action) => normalizeShortcut(bindForAction(action)) === normalized,
+    ) || null
+  );
 }
 
 const appEl = document.getElementById("app");
@@ -151,6 +198,8 @@ const session = {
   resetArmed: false,
   tick: 0,
 };
+
+saveBinds();
 
 let resetTimer = null;
 let tickTimer = null;
@@ -487,17 +536,19 @@ function cancelCapture() {
 function applyCapturedShortcut(shortcut) {
   const action = session.capturing;
   if (!action) return;
+  const next = normalizeShortcut(shortcut);
   const taken = BIND_ACTIONS.find(
-    (other) => other !== action && bindForAction(other) === shortcut,
+    (other) =>
+      other !== action && normalizeShortcut(bindForAction(other)) === next,
   );
   if (taken) {
-    session.bindError = `${shortcut} is already ${BIND_LABELS[taken]}.`;
+    session.bindError = `${formatBind(next)} is already ${BIND_LABELS[taken]}.`;
     session.capturing = null;
     void syncHotkeys();
     render();
     return;
   }
-  session.binds = { ...session.binds, [action]: shortcut };
+  session.binds = { ...session.binds, [action]: next };
   session.capturing = null;
   session.bindError = "";
   saveBinds();
@@ -525,8 +576,9 @@ async function setHotkeysEnabled(on) {
 async function syncHotkeys() {
   await unregisterAll().catch(() => {});
   if (!session.hotkeys || !session.runId || session.capturing) return;
+  const errors = [];
   for (const action of BIND_ACTIONS) {
-    const shortcut = bindForAction(action);
+    const shortcut = normalizeShortcut(bindForAction(action));
     try {
       await register(shortcut, (event) => {
         if (event.state !== "Pressed") return;
@@ -535,11 +587,13 @@ async function syncHotkeys() {
         dispatchAction(action);
       });
     } catch (err) {
-      session.bindError =
-        `${shortcut} could not be bound globally (${formatError(err)}). ` +
-        "It still works while this window is focused.";
+      errors.push(
+        `${formatBind(shortcut)} could not be bound globally (${formatError(err)}). ` +
+          "It still works while this window is focused.",
+      );
     }
   }
+  session.bindError = errors.join(" ");
 }
 
 async function setAlwaysOnTop(on) {
