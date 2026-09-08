@@ -32,8 +32,8 @@ Installers land in `src-tauri/target/release/bundle/` (`dmg` here, `nsis` on Win
 2. Tag and push:
 
 ```bash
-git tag timer-v0.1.3
-git push origin timer-v0.1.3
+git tag timer-v0.1.4
+git push origin timer-v0.1.4
 ```
 
 3. GitHub Actions builds a `.dmg` on `macos-14` and an NSIS `.exe` on `windows-latest`, then attaches them to that release.

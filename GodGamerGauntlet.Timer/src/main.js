@@ -10,6 +10,7 @@ const PRODUCTION_API = "https://godgamergauntlet-production.up.railway.app";
 const LOCAL_API = "http://127.0.0.1:5000";
 const STALE_API_HOSTS = ["godgamergauntlet-api.up.railway.app"];
 const RESET_ARM_MS = 1500;
+const DISPATCH_DEDUP_MS = 80;
 
 const KEYS = {
   api: "ggg_timer_api",
@@ -204,7 +205,8 @@ saveBinds();
 let resetTimer = null;
 let tickTimer = null;
 let lastFrameNow = 0;
-let windowFocused = true;
+let lastDispatchAt = 0;
+let lastDispatchAction = "";
 
 function overlayFingerprint(state) {
   if (!state) return "";
@@ -515,6 +517,12 @@ setInterval(() => {
 }, 2000);
 
 function dispatchAction(action) {
+  const now = performance.now();
+  if (action === lastDispatchAction && now - lastDispatchAt < DISPATCH_DEDUP_MS) {
+    return;
+  }
+  lastDispatchAt = now;
+  lastDispatchAction = action;
   if (action === "reset") requestReset();
   else void act(action);
 }
@@ -581,9 +589,11 @@ async function syncHotkeys() {
     const shortcut = normalizeShortcut(bindForAction(action));
     try {
       await register(shortcut, (event) => {
+        // Carbon/Win32 swallow the key once it is a global hotkey, so this
+        // must run even while the timer window is focused. keydown may also
+        // fire; dispatchAction drops the duplicate.
         if (event.state !== "Pressed") return;
         if (session.capturing) return;
-        if (windowFocused) return;
         dispatchAction(action);
       });
     } catch (err) {
@@ -862,11 +872,6 @@ function render(options = {}) {
 
 render();
 void setAlwaysOnTop(true);
-void getCurrentWindow()
-  .onFocusChanged((event) => {
-    windowFocused = Boolean(event.payload);
-  })
-  .catch(() => {});
 
 document.addEventListener(
   "keydown",
