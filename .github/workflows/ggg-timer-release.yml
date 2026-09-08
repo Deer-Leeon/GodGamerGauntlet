@@ -52,7 +52,7 @@ jobs:
           projectPath: GodGamerGauntlet.Timer
           tagName: ${{ github.ref_name }}
           releaseName: "GGG Timer ${{ github.ref_name }}"
-          releaseBody: "Unsigned v1. macOS: right-click the app → Open. Windows: SmartScreen may warn until we code-sign."
+          releaseBody: "Unsigned v1. Mac is ad-hoc signed so Gatekeeper should not call the app damaged. First open: right-click → Open, or Privacy & Security → Open Anyway. If it still says damaged: xattr -cr \"/Applications/GGG Timer.app\". Windows: SmartScreen may warn until we code-sign."
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}

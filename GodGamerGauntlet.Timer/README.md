@@ -32,14 +32,17 @@ Installers land in `src-tauri/target/release/bundle/` (`dmg` here, `nsis` on Win
 2. Tag and push:
 
 ```bash
-git tag timer-v0.1.0
-git push origin timer-v0.1.0
+git tag timer-v0.1.1
+git push origin timer-v0.1.1
 ```
 
 3. GitHub Actions builds a `.dmg` on `macos-14` and an NSIS `.exe` on `windows-latest`, then attaches them to that release.
 4. `/timer` picks up the assets within a couple of minutes.
 
-v1 is unsigned: Mac → right-click Open; Windows → SmartScreen may warn.
+v1 is unsigned. `bundle.macOS.signingIdentity` is `"-"` so the Mac bundle is
+ad-hoc sealed (Gatekeeper should say unidentified developer, not damaged).
+First open: right-click → Open, or Privacy & Security → Open Anyway. Fallback:
+`xattr -cr "/Applications/GGG Timer.app"`. Windows SmartScreen may warn.
 
 ## Sign in
 

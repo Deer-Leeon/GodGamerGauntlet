@@ -14,14 +14,14 @@ const LIST_API = `https://api.github.com/repos/${REPO}/releases?per_page=10`;
 // Direct asset URLs — GitHub starts the download immediately. The API is only
 // used to stay current; if it fails (common from Vercel without a token), these
 // still ship the files instead of dumping people on the releases page.
-const FALLBACK_TAG = "timer-v0.1.0";
+const FALLBACK_TAG = "timer-v0.1.1";
 const FALLBACK_MAC = assetDownloadUrl(
   FALLBACK_TAG,
-  "GGG.Timer_0.1.0_aarch64.dmg",
+  "GGG.Timer_0.1.1_aarch64.dmg",
 );
 const FALLBACK_WINDOWS = assetDownloadUrl(
   FALLBACK_TAG,
-  "GGG.Timer_0.1.0_x64-setup.exe",
+  "GGG.Timer_0.1.1_x64-setup.exe",
 );
 
 function assetDownloadUrl(tag: string, filename: string): string {
@@ -131,9 +131,13 @@ export default async function TimerDownloadPage() {
         </a>
       </div>
       <p className="mt-3 max-w-2xl text-xs leading-relaxed text-faint">
-        Latest build: {downloads.tag}. Unsigned v1. On a Mac, right-click the
-        app → Open the first time. Windows SmartScreen may warn until we
-        code-sign. Intel Macs are not a v1 target.
+        Latest build: {downloads.tag}. Unsigned v1; Mac builds from 0.1.1 on
+        are ad-hoc signed so Gatekeeper should not call the app damaged. First
+        open: right-click the app → Open, or Settings → Privacy & Security →
+        Open Anyway. If it still says damaged, drag it to Applications and run{" "}
+        <code className="text-ink">xattr -cr &quot;/Applications/GGG Timer.app&quot;</code>
+        . Windows SmartScreen may warn until we code-sign. Intel Macs are not a
+        v1 target.
       </p>
 
       <section className="mt-12 max-w-2xl">
