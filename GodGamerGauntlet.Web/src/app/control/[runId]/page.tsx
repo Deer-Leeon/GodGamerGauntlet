@@ -167,6 +167,13 @@ function ObsSetup({
   return (
     <section className="mt-8 border-t border-gold/20 pt-5 text-sm text-muted">
       <h2 className="mb-3 text-sm text-muted">OBS setup</h2>
+      <p className="mb-3">
+        For a 0-lag clock and hotkeys while the game is fullscreen, use{" "}
+        <Link href="/timer" className="text-gold hover:underline">
+          GGG Timer
+        </Link>{" "}
+        and OBS Window Capture. Browser Source is the fallback.
+      </p>
       <ol className="list-decimal space-y-2 pl-5">
         <li>
           On the stream: Sources → Browser. Paste the overlay URL. Width{" "}

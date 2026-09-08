@@ -1,0 +1,58 @@
+name: Release GGG Timer
+
+# Push a tag like timer-v0.1.0. GitHub builds the Mac (Apple Silicon) dmg
+# and the Windows installer, then attaches them to that GitHub Release.
+# godgamergauntlet.com/timer reads the latest release assets.
+on:
+  push:
+    tags:
+      - "timer-v*"
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-14
+            args: --target aarch64-apple-darwin
+          - platform: windows-latest
+            args: ""
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: GodGamerGauntlet.Timer/package-lock.json
+
+      - uses: dtolnay/rust-toolchain@stable
+        if: matrix.platform == 'macos-14'
+        with:
+          targets: aarch64-apple-darwin
+
+      - uses: dtolnay/rust-toolchain@stable
+        if: matrix.platform == 'windows-latest'
+
+      - name: Install frontend dependencies
+        working-directory: GodGamerGauntlet.Timer
+        run: npm ci
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: GodGamerGauntlet.Timer
+          tagName: ${{ github.ref_name }}
+          releaseName: "GGG Timer ${{ github.ref_name }}"
+          releaseBody: "Unsigned v1. macOS: right-click the app → Open. Windows: SmartScreen may warn until we code-sign."
+          releaseDraft: false
+          prerelease: false
+          args: ${{ matrix.args }}

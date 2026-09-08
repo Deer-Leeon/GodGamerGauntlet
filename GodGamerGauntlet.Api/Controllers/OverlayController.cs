@@ -59,7 +59,10 @@ public class OverlayController(AppDbContext context) : ControllerBase
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> TogglePlayPause(
-        Guid id, [FromQuery] string? key, CancellationToken cancellationToken)
+        Guid id,
+        [FromQuery] string? key,
+        [FromQuery] long? elapsedMs,
+        CancellationToken cancellationToken)
     {
         var run = await LoadRunAsync(id, cancellationToken);
         if (run is null) return NotFound();
@@ -69,7 +72,8 @@ public class OverlayController(AppDbContext context) : ControllerBase
         switch (run.TimerStatus)
         {
             case "running":
-                run.TimerElapsedMs = run.CurrentElapsedMs(now);
+                // Prefer the streamer's local freeze so pause cannot jump by RTT.
+                run.TimerElapsedMs = ClientOrServerElapsed(run, now, elapsedMs);
                 run.TimerStatus = "paused";
                 run.TimerUpdatedAt = now;
                 break;
@@ -77,6 +81,10 @@ public class OverlayController(AppDbContext context) : ControllerBase
                 // The gauntlet is over; reset is the only way back.
                 break;
             default: // idle or paused
+                if (elapsedMs is >= 0)
+                {
+                    run.TimerElapsedMs = elapsedMs.Value;
+                }
                 run.TimerStatus = "running";
                 run.TimerUpdatedAt = now;
                 break;
@@ -93,7 +101,10 @@ public class OverlayController(AppDbContext context) : ControllerBase
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Split(
-        Guid id, [FromQuery] string? key, CancellationToken cancellationToken)
+        Guid id,
+        [FromQuery] string? key,
+        [FromQuery] long? elapsedMs,
+        CancellationToken cancellationToken)
     {
         var run = await LoadRunAsync(id, cancellationToken);
         if (run is null) return NotFound();
@@ -112,7 +123,7 @@ public class OverlayController(AppDbContext context) : ControllerBase
         }
 
         var now = DateTime.UtcNow;
-        var elapsed = run.CurrentElapsedMs(now);
+        var elapsed = ClientOrServerElapsed(run, now, elapsedMs);
 
         current.Status = RunSlotStatus.Won;
         current.SplitTimeMs = elapsed;
@@ -199,6 +210,13 @@ public class OverlayController(AppDbContext context) : ControllerBase
         await context.SaveChangesAsync(cancellationToken);
         return Ok(await ToDtoAsync(run, includeKey: run.UserId == CurrentUserId, cancellationToken));
     }
+
+    /// <summary>
+    /// The desktop timer / optimistic overlay freeze is the clock. Server wall
+    /// time is only used when the client did not send a sample.
+    /// </summary>
+    private static long ClientOrServerElapsed(Run run, DateTime now, long? elapsedMs) =>
+        elapsedMs is >= 0 ? elapsedMs.Value : run.CurrentElapsedMs(now);
 
     private bool CanControl(Run run, string? key) =>
         run.UserId == CurrentUserId || OverlayKeys.Matches(run.OverlayKey, key);

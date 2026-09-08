@@ -285,6 +285,13 @@ export default function ControlBoard({
           <summary className="cursor-pointer text-[12px] text-gray-400">
             OBS setup / copy URLs
           </summary>
+          <p className="mt-2">
+            Prefer{" "}
+            <Link href="/timer" className="text-gold hover:underline">
+              GGG Timer
+            </Link>{" "}
+            + Window Capture. Browser Source is the fallback.
+          </p>
           <ol className="mt-2 list-decimal space-y-1.5 pl-4">
             <li>
               Stream overlay: Sources → Browser. Width{" "}

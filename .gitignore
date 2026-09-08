@@ -485,3 +485,7 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# GGG Timer (Tauri)
+GodGamerGauntlet.Timer/src-tauri/target/
+GodGamerGauntlet.Timer/dist/

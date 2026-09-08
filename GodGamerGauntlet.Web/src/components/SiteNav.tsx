@@ -14,6 +14,7 @@ const links = [
   { href: "/records", label: "Roster" },
   { href: "/leaderboard", label: "Leaderboard" },
   { href: "/players", label: "Players" },
+  { href: "/timer", label: "Timer" },
 ];
 
 function isActive(pathname: string | null, href: string): boolean {

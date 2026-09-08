@@ -7,12 +7,24 @@ import {
   type OverlayAction,
   type OverlayState,
 } from "@/lib/api";
+import { displayedElapsed, predictOverlayState } from "@/lib/overlayOptimistic";
 
 const POLL_INTERVAL_MS = 2000;
 
+function overlayShape(state: OverlayState | null): string {
+  if (!state) return "";
+  return JSON.stringify({
+    runStatus: state.runStatus,
+    timerStatus: state.timerStatus,
+    currentSlotIndex: state.currentSlotIndex,
+    attemptCode: state.attemptCode,
+    games: state.games,
+  });
+}
+
 export interface OverlayRun {
   state: OverlayState | null;
-  /** performance.now() when `state` was received; timers extrapolate from here. */
+  /** performance.now() when the local clock origin was set. */
   syncedAt: number;
   loadError: string | null;
   actionError: string | null;
@@ -23,12 +35,9 @@ export interface OverlayRun {
 }
 
 /**
- * Synchronized run state shared by /overlay/[runId] and /control/[runId].
- *
- * The server is the source of truth. Every open tab polls it, and actions
- * broadcast the fresh state over a BroadcastChannel so same-browser views
- * (e.g. control deck docked next to a preview) update instantly instead of
- * waiting out the poll interval.
+ * Overlay/control sync. The acting surface paints immediately (local clock);
+ * the API is the ledger and is written in the background. Polls keep other
+ * browsers in range; same-browser tabs still share BroadcastChannel.
  */
 export function useOverlayRun(
   runId: string,
@@ -39,16 +48,43 @@ export function useOverlayRun(
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const channelRef = useRef<BroadcastChannel | null>(null);
+  const stateRef = useRef<OverlayState | null>(null);
+  const syncedAtRef = useRef(0);
+  const inflightRef = useRef(0);
+  const frameNowRef = useRef(0);
 
-  const applyState = useCallback((next: OverlayState, broadcast: boolean) => {
-    setState(next);
-    setSyncedAt(performance.now());
-    setLoadError(null);
-    if (broadcast) {
-      // The overlay key is caller-specific; never leak it across tabs.
-      channelRef.current?.postMessage({ ...next, overlayKey: null });
-    }
+  useEffect(() => {
+    let frame = 0;
+    const loop = (now: number) => {
+      frameNowRef.current = now;
+      frame = requestAnimationFrame(loop);
+    };
+    frame = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(frame);
   }, []);
+
+  const applyState = useCallback(
+    (next: OverlayState, broadcast: boolean, keepClock = false) => {
+      if (keepClock && stateRef.current) {
+        next = {
+          ...next,
+          elapsedMs: stateRef.current.elapsedMs,
+          timerStatus: stateRef.current.timerStatus,
+        };
+      } else {
+        const now = performance.now();
+        syncedAtRef.current = now;
+        setSyncedAt(now);
+      }
+      stateRef.current = next;
+      setState(next);
+      setLoadError(null);
+      if (broadcast) {
+        channelRef.current?.postMessage({ ...next, overlayKey: null });
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!runId) return;
@@ -57,12 +93,17 @@ export function useOverlayRun(
     channelRef.current = channel;
 
     const onMessage = (event: MessageEvent<OverlayState>) => {
-      // Keep our own overlayKey; the broadcast strips it.
-      setState((prev) => ({
-        ...event.data,
-        overlayKey: prev?.overlayKey ?? null,
-      }));
-      setSyncedAt(performance.now());
+      if (inflightRef.current > 0) return;
+      setState((prev) => {
+        const next = {
+          ...event.data,
+          overlayKey: prev?.overlayKey ?? null,
+          elapsedMs: prev?.elapsedMs ?? event.data.elapsedMs,
+          timerStatus: prev?.timerStatus ?? event.data.timerStatus,
+        };
+        stateRef.current = next;
+        return next;
+      });
     };
     channel.addEventListener("message", onMessage);
 
@@ -78,9 +119,16 @@ export function useOverlayRun(
     let cancelled = false;
 
     const load = async () => {
+      if (inflightRef.current > 0) return;
       try {
         const next = await getOverlayState(runId, overlayKey);
-        if (!cancelled) applyState(next, false);
+        if (cancelled || inflightRef.current > 0) return;
+        if (stateRef.current) {
+          if (overlayShape(next) === overlayShape(stateRef.current)) return;
+          applyState(next, false, true);
+          return;
+        }
+        applyState(next, false);
       } catch (err) {
         if (!cancelled) {
           setLoadError(err instanceof Error ? err.message : "Failed to load run");
@@ -98,27 +146,52 @@ export function useOverlayRun(
 
   const act = useCallback(
     async (action: OverlayAction) => {
+      const snapshot = stateRef.current;
+      const frameNow = frameNowRef.current || performance.now();
+      const predicted =
+        snapshot &&
+        predictOverlayState(snapshot, action, syncedAtRef.current, frameNow);
+      inflightRef.current += 1;
+      if (predicted) {
+        const keepClock =
+          snapshot?.timerStatus === "running" &&
+          predicted.timerStatus === "running";
+        applyState(predicted, true, keepClock);
+      }
       try {
-        const next = await sendOverlayAction(runId, action, overlayKey);
-        applyState(next, true);
+        const next = await sendOverlayAction(
+          runId,
+          action,
+          overlayKey,
+          snapshot
+            ? displayedElapsed(snapshot, syncedAtRef.current, frameNow)
+            : undefined,
+        );
+        applyState(next, true, Boolean(predicted));
         setActionError(null);
       } catch (err) {
-        setActionError(
-          err instanceof Error ? err.message : "Action failed",
-        );
+        if (snapshot) applyState(snapshot, true);
+        setActionError(err instanceof Error ? err.message : "Action failed");
+      } finally {
+        inflightRef.current = Math.max(0, inflightRef.current - 1);
       }
     },
     [runId, overlayKey, applyState],
   );
+
+  const togglePlayPause = useCallback(() => act("toggle"), [act]);
+  const split = useCallback(() => act("split"), [act]);
+  const previousGame = useCallback(() => act("undo"), [act]);
+  const resetGauntlet = useCallback(() => act("reset"), [act]);
 
   return {
     state,
     syncedAt,
     loadError,
     actionError,
-    togglePlayPause: useCallback(() => act("toggle"), [act]),
-    split: useCallback(() => act("split"), [act]),
-    previousGame: useCallback(() => act("undo"), [act]),
-    resetGauntlet: useCallback(() => act("reset"), [act]),
+    togglePlayPause,
+    split,
+    previousGame,
+    resetGauntlet,
   };
 }

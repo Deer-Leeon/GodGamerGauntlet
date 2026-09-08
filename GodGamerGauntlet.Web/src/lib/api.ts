@@ -533,8 +533,14 @@ export interface OverlayState {
 
 export type OverlayAction = "toggle" | "split" | "undo" | "reset";
 
-function overlayQuery(key?: string | null): string {
-  return key ? `?key=${encodeURIComponent(key)}` : "";
+function overlayQuery(key?: string | null, elapsedMs?: number): string {
+  const query = new URLSearchParams();
+  if (key) query.set("key", key);
+  if (elapsedMs != null && Number.isFinite(elapsedMs)) {
+    query.set("elapsedMs", String(Math.max(0, Math.floor(elapsedMs))));
+  }
+  const encoded = query.toString();
+  return encoded ? `?${encoded}` : "";
 }
 
 export function getOverlayState(
@@ -548,9 +554,10 @@ export function sendOverlayAction(
   runId: string,
   action: OverlayAction,
   key?: string | null,
+  elapsedMs?: number,
 ): Promise<OverlayState> {
   return request<OverlayState>(
-    `/api/runs/${runId}/overlay/${action}${overlayQuery(key)}`,
+    `/api/runs/${runId}/overlay/${action}${overlayQuery(key, elapsedMs)}`,
     { method: "POST" },
   );
 }

@@ -3,15 +3,15 @@
 import { useEffect, useState } from "react";
 import type { TimerStatus } from "@/lib/api";
 
-/** H:MM:SS.cc — e.g. 1:02:15.63 */
+/** H:MM:SS.mmm — e.g. 1:02:15.630 */
 export function formatSpeedrunTime(ms: number): string {
   const clamped = Math.max(0, ms);
-  const centis = Math.floor(clamped / 10) % 100;
+  const millis = Math.floor(clamped) % 1000;
   const seconds = Math.floor(clamped / 1000) % 60;
   const minutes = Math.floor(clamped / 60_000) % 60;
   const hours = Math.floor(clamped / 3_600_000);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${hours}:${pad(minutes)}:${pad(seconds)}.${pad(centis)}`;
+  const pad = (n: number, width = 2) => String(n).padStart(width, "0");
+  return `${hours}:${pad(minutes)}:${pad(seconds)}.${pad(millis, 3)}`;
 }
 
 interface SpeedrunTimerProps {
@@ -26,8 +26,8 @@ interface SpeedrunTimerProps {
 }
 
 /**
- * Self-ticking display so only this component re-renders ~30fps.
- * While running, elapsed extrapolates locally from the last server sync.
+ * Self-ticking display. While running, elapsed extrapolates locally from the
+ * last clock origin. Pause freezes that origin; it does not wait on the API.
  */
 export default function SpeedrunTimer({
   elapsedMs,
@@ -42,8 +42,13 @@ export default function SpeedrunTimer({
 
   useEffect(() => {
     if (timerStatus !== "running") return;
-    const timer = setInterval(() => setTickNow(performance.now()), 33);
-    return () => clearInterval(timer);
+    let frame = 0;
+    const loop = (now: number) => {
+      setTickNow(now);
+      frame = requestAnimationFrame(loop);
+    };
+    frame = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(frame);
   }, [timerStatus]);
 
   const displayMs =
@@ -51,7 +56,7 @@ export default function SpeedrunTimer({
       ? elapsedMs + (tickNow - syncedAt)
       : elapsedMs;
 
-  const [mainTime, centis] = formatSpeedrunTime(displayMs).split(".");
+  const [mainTime, frac] = formatSpeedrunTime(displayMs).split(".");
 
   if (tone === "site") {
     return (
@@ -61,7 +66,7 @@ export default function SpeedrunTimer({
         } ${className}`}
       >
         <span>{mainTime}</span>
-        <span className="text-[0.45em] font-normal text-gold/55">.{centis}</span>
+        <span className="text-[0.45em] font-normal text-gold/55">.{frac}</span>
       </div>
     );
   }
@@ -81,7 +86,7 @@ export default function SpeedrunTimer({
       style={{ textShadow: outline }}
     >
       <span>{mainTime}</span>
-      <span className="text-[24px] font-bold">.{centis}</span>
+      <span className="text-[24px] font-bold">.{frac}</span>
     </div>
   );
 }

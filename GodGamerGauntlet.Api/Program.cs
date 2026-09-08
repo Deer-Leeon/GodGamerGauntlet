@@ -61,6 +61,9 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowFrontend", policy =>
         policy.WithOrigins(
                   "http://localhost:3000",
+                  "http://localhost:1420",
+                  "http://tauri.localhost",
+                  "https://tauri.localhost",
                   "https://godgamergauntlet.com",
                   "https://www.godgamergauntlet.com",
                   "https://*.vercel.app")
