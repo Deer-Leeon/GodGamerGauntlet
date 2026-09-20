@@ -12,17 +12,23 @@ export default function HowItWorksPage() {
   return (
     <main className="site-content flex-1 px-5 py-8 sm:px-7">
       <header className="pb-2">
-        <h1>How it works</h1>
-        <p className="mt-3 max-w-xl text-base leading-relaxed text-muted">
+        <p className="font-pixel text-[10px] leading-6 text-banner">
+          STAGE SELECT
+        </p>
+        <h1 className="mt-2">How it works</h1>
+        <div className="mt-3 h-1.5 w-28 bg-banner" />
+        <p className="mt-5 max-w-xl text-base leading-relaxed text-muted">
           A solo speedrun gauntlet. Draft a lineup, run every game start to
           finish, and put the Clear on the boards.
         </p>
       </header>
 
       <ol className="mt-10 max-w-2xl space-y-5">
-        <li className="rounded-xl bg-surface px-5 py-6 shadow-[0_1px_2px_rgb(42_36_28_/_0.08)]">
-          <p className="text-sm font-medium text-banner">1</p>
-          <h2 className="mt-1">Pick a length</h2>
+        <li className="border-2 border-ink/15 bg-white px-5 py-6">
+          <p className="font-pixel text-[10px] leading-5 text-banner">
+            STAGE 01
+          </p>
+          <h2 className="mt-2">Pick a length</h2>
           <p className="mt-2 text-sm leading-relaxed text-muted">
             Sprint, Marathon, or Endurance. Harder lineups rank higher on the
             boards.
@@ -31,7 +37,7 @@ export default function HowItWorksPage() {
             {GAUNTLET_MODES.map((mode) => (
               <li
                 key={mode.id}
-                className={`rounded-xl px-4 py-3 ${mode.chip}`}
+                className={`px-4 py-3 ${mode.chip}`}
               >
                 <span className="font-medium">{mode.label}</span>
                 <span className="opacity-70"> · {mode.games} games — </span>
@@ -41,9 +47,11 @@ export default function HowItWorksPage() {
           </ul>
         </li>
 
-        <li className="rounded-xl bg-surface px-5 py-6 shadow-[0_1px_2px_rgb(42_36_28_/_0.08)]">
-          <p className="text-sm font-medium text-banner">2</p>
-          <h2 className="mt-1">Draft from the 19 games</h2>
+        <li className="border-2 border-ink/15 bg-white px-5 py-6">
+          <p className="font-pixel text-[10px] leading-5 text-banner">
+            STAGE 02
+          </p>
+          <h2 className="mt-2">Draft from the 19 games</h2>
           <p className="mt-2 text-sm leading-relaxed text-muted">
             The catalog is closed. Build a lineup in the Draft Room — no
             account needed until you start the clock.
@@ -64,9 +72,11 @@ export default function HowItWorksPage() {
           </p>
         </li>
 
-        <li className="rounded-xl bg-surface px-5 py-6 shadow-[0_1px_2px_rgb(42_36_28_/_0.08)]">
-          <p className="text-sm font-medium text-banner">3</p>
-          <h2 className="mt-1">Run start to finish</h2>
+        <li className="border-2 border-ink/15 bg-white px-5 py-6">
+          <p className="font-pixel text-[10px] leading-5 text-banner">
+            STAGE 03
+          </p>
+          <h2 className="mt-2">Run start to finish</h2>
           <p className="mt-2 text-sm leading-relaxed text-muted">
             Split when you beat a game. Use the site control deck, or download
             GGG Timer so Space and Enter still work over a fullscreen game. The
@@ -82,9 +92,11 @@ export default function HowItWorksPage() {
           </p>
         </li>
 
-        <li className="rounded-xl bg-surface px-5 py-6 shadow-[0_1px_2px_rgb(42_36_28_/_0.08)]">
-          <p className="text-sm font-medium text-banner">4</p>
-          <h2 className="mt-1">Post the Clear</h2>
+        <li className="border-2 border-ink/15 bg-white px-5 py-6">
+          <p className="font-pixel text-[10px] leading-5 text-banner">
+            STAGE 04
+          </p>
+          <h2 className="mt-2">Post the Clear</h2>
           <p className="mt-2 text-sm leading-relaxed text-muted">
             Finish every game and the run lands on the feed and the boards. A
             DNF still counts for furthest survival.

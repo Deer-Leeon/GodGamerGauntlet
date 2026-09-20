@@ -13,17 +13,29 @@ export default function OpenGraphImage() {
           justifyContent: "center",
           width: "100%",
           height: "100%",
-          background: "#F6F0E4",
-          color: "#2A241C",
+          background: "#FFFFFF",
+          color: "#111111",
           padding: "80px",
         }}
       >
         <div
           style={{
+            fontSize: 22,
+            letterSpacing: "0.16em",
+            color: "#E10600",
+            textTransform: "uppercase",
+          }}
+        >
+          SELECT A GAUNTLET
+        </div>
+        <div
+          style={{
+            marginTop: 20,
             fontSize: 64,
-            fontWeight: 600,
-            letterSpacing: "0",
-            color: "#2A241C",
+            fontWeight: 700,
+            letterSpacing: "0.02em",
+            textTransform: "uppercase",
+            color: "#111111",
           }}
         >
           God Gamer Gauntlet
@@ -34,7 +46,7 @@ export default function OpenGraphImage() {
             display: "flex",
             gap: 16,
             fontSize: 28,
-            color: "#5C5348",
+            color: "#444444",
           }}
         >
           <span>Sprint</span>
@@ -47,10 +59,10 @@ export default function OpenGraphImage() {
           style={{
             marginTop: 20,
             fontSize: 24,
-            color: "#8A7F72",
+            color: "#6B6B6B",
           }}
         >
-          A solo speedrun club. 19 games.
+          19 games. Start to finish.
         </div>
       </div>
     ),

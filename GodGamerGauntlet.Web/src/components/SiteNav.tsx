@@ -32,7 +32,7 @@ export default function SiteNav() {
   if (pathname?.startsWith("/overlay/")) return null;
 
   return (
-    <header className="site-nav sticky top-0 z-40 border-b border-ink/10 bg-surface/95 backdrop-blur-sm">
+    <header className="site-nav sticky top-0 z-40 border-b-2 border-ink/15 bg-white">
       <nav className="site-content flex items-center gap-5 px-5 py-3 sm:px-7">
         <Link href="/" className="brand text-ink">
           <span className="sm:hidden">GGG</span>
@@ -48,8 +48,8 @@ export default function SiteNav() {
                 href={link.href}
                 className={
                   active
-                    ? "rounded-full bg-ink/10 px-3 py-1 text-ink"
-                    : "rounded-full px-3 py-1 text-faint transition hover:text-ink"
+                    ? "border-b-2 border-banner px-3 py-1 text-ink"
+                    : "border-b-2 border-transparent px-3 py-1 text-faint transition hover:text-ink"
                 }
               >
                 {link.label}
@@ -77,7 +77,7 @@ export default function SiteNav() {
           ) : (
             <Link
               href="/login"
-              className="text-muted transition hover:text-ink"
+              className="whitespace-nowrap text-muted transition hover:text-ink"
             >
               Sign in
             </Link>
@@ -177,7 +177,7 @@ function NotificationBell() {
                   setOpen(false);
                   router.push(notification.actionUrl);
                 }}
-                className="border-b border-white/5 last:border-b-0"
+                className="border-b border-black/10 last:border-b-0"
               >
                 <span className="flex items-start gap-2">
                   <span

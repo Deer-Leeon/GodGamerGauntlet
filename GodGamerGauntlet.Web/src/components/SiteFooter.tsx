@@ -18,7 +18,9 @@ export default function SiteFooter() {
   return (
     <footer className="site-footer mt-auto border-t border-ink/10">
       <div className="site-content flex flex-col gap-3 px-5 py-6 sm:px-7">
-        <p className="text-sm text-muted">A solo speedrun club. 19 games.</p>
+        <p className="font-pixel text-[10px] leading-5 text-muted">
+          19 GAMES · START TO FINISH
+        </p>
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-faint">
           <Link href="/how" className="hover:text-ink">
             How it works

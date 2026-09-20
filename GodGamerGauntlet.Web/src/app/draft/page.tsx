@@ -58,7 +58,7 @@ function GameThumb({ game }: { game: Game }) {
     return (
       <span
         aria-hidden
-        className="flex h-12 w-16 shrink-0 items-center justify-center bg-white/5 text-lg font-semibold text-faint"
+        className="flex h-12 w-16 shrink-0 items-center justify-center bg-black/5 text-lg font-semibold text-faint"
       >
         {game.title.charAt(0)}
       </span>
@@ -265,20 +265,20 @@ export default function DraftRoomPage() {
           <h1 className="text-2xl font-semibold">Lineup locked</h1>
           <RunTypeBadge runType={createdRun.runType} />
         </div>
-        <dl className="mt-6 border-t border-gold/20">
-          <div className="flex items-baseline justify-between gap-4 border-b border-gold/20 py-4">
+        <dl className="mt-6 border-t border-ink/10">
+          <div className="flex items-baseline justify-between gap-4 border-b border-ink/10 py-4">
             <dt className="text-sm text-muted">Run ID</dt>
             <dd className="truncate font-mono text-sm text-ink">
               {createdRun.id}
             </dd>
           </div>
-          <div className="flex items-baseline justify-between gap-4 border-b border-gold/20 py-4">
+          <div className="flex items-baseline justify-between gap-4 border-b border-ink/10 py-4">
             <dt className="text-sm text-muted">Lineup</dt>
             <dd className="font-mono text-xl tabular-nums text-gold">
               {formatScore(createdRun.totalDifficultyScore)}
             </dd>
           </div>
-          <div className="flex items-baseline justify-between gap-4 border-b border-gold/20 py-4">
+          <div className="flex items-baseline justify-between gap-4 border-b border-ink/10 py-4">
             <dt className="text-sm text-muted">Status</dt>
             <dd className="text-sm text-ink">
               {createdRun.status} · {createdRun.totalSlots} games
@@ -287,7 +287,7 @@ export default function DraftRoomPage() {
         </dl>
         <Link
           href={`/run/${createdRun.id}`}
-          className="mt-8 self-start bg-gold px-4 py-2.5 text-sm text-dark transition hover:bg-gold/90"
+          className="mt-8 self-start bg-banner px-4 py-2.5 text-sm transition hover:bg-banner/90"
         >
           Open run tracker
         </Link>
@@ -297,9 +297,13 @@ export default function DraftRoomPage() {
 
   return (
     <main className="site-content flex-1 px-5 py-8 sm:px-7">
-      <header className="flex flex-wrap items-end justify-between gap-4 border-b border-gold/20 pb-6">
+      <header className="flex flex-wrap items-end justify-between gap-4 border-b-2 border-ink/15 pb-6">
         <div>
-          <h1 className="text-2xl font-semibold">Draft</h1>
+          <p className="font-pixel text-[10px] leading-6 text-banner">
+            BUILD A LINEUP
+          </p>
+          <h1 className="mt-2 text-2xl font-semibold">Draft</h1>
+          <div className="mt-3 h-1.5 w-20 bg-banner" />
           <p className="mt-2 text-sm leading-relaxed text-muted">
             Build a {slotCount}-game speedrun gauntlet from the 19 games.
             Lineups are free; sign in only to start the clock.
@@ -324,7 +328,7 @@ export default function DraftRoomPage() {
       <div
         role="radiogroup"
         aria-label="Gauntlet mode"
-        className="mt-6 flex gap-6 border-b border-gold/20 text-sm"
+        className="mt-6 flex gap-6 border-b border-ink/10 text-sm"
       >
         {MODES.map((mode) => (
           <button
@@ -334,7 +338,7 @@ export default function DraftRoomPage() {
             onClick={() => changeMode(mode.id)}
             className={`-mb-px border-b-2 pb-3 transition ${
               runType === mode.id
-                ? "border-gold text-gold"
+                ? "border-banner text-banner"
                 : "border-transparent text-faint hover:text-ink"
             }`}
           >
@@ -354,14 +358,14 @@ export default function DraftRoomPage() {
       )}
 
       {!authLoading && !user && (
-        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border border-gold/25 px-5 py-4">
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-2 border-ink/15 px-5 py-4">
           <p className="text-sm leading-relaxed text-muted">
             Building a lineup is free. An account is only needed to start the
             clock — the run is posted under your name.
           </p>
           <Link
             href="/login?next=/draft"
-            className="bg-gold px-4 py-2 text-sm text-dark transition hover:bg-gold/90"
+            className="bg-banner px-4 py-2 text-sm transition hover:bg-banner/90"
           >
             Sign in
           </Link>
@@ -421,7 +425,7 @@ export default function DraftRoomPage() {
               ) : (
                 <kbd
                   title="Press / to search"
-                  className="mr-3 hidden border border-gold/20 px-2 py-1 font-mono text-[11px] text-faint sm:inline-block group-focus-within:!hidden"
+                  className="mr-3 hidden border border-ink/15 px-2 py-1 font-mono text-[11px] text-faint sm:inline-block group-focus-within:!hidden"
                 >
                   /
                 </kbd>
@@ -437,7 +441,7 @@ export default function DraftRoomPage() {
                   setSort(event.target.value as CatalogSort);
                   setPage(1);
                 }}
-                className="border border-gold/20 bg-surface px-3 py-2 text-sm text-ink outline-none"
+                className="border border-ink/15 bg-surface px-3 py-2 text-sm text-ink outline-none"
                 aria-label="Sort roster"
               >
                 <option value="featured">Roster order</option>
@@ -482,7 +486,7 @@ export default function DraftRoomPage() {
                           part.hit ? (
                             <mark
                               key={index}
-                              className="bg-white/10 text-ink"
+                              className="bg-gold/30 text-ink"
                             >
                               {part.text}
                             </mark>
@@ -499,7 +503,7 @@ export default function DraftRoomPage() {
                     type="button"
                     onClick={() => addGame(game)}
                     disabled={drafted || boardFull}
-                    className="shrink-0 border border-gold/30 px-3.5 py-1.5 text-sm text-gold transition enabled:hover:bg-gold/10 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="shrink-0 border border-ink/20 px-3.5 py-1.5 text-sm text-ink transition enabled:hover:border-banner enabled:hover:text-banner disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     {drafted ? "Drafted" : "Add"}
                   </button>
@@ -591,8 +595,8 @@ export default function DraftRoomPage() {
                 href="/login?next=/draft"
                 className={`block w-full py-3 text-center text-sm transition ${
                   boardFull
-                    ? "bg-gold text-dark hover:bg-gold/90"
-                    : "border border-gold/25 text-muted"
+                    ? "bg-banner text-white hover:bg-banner/90"
+                    : "border border-ink/15 text-muted"
                 }`}
               >
                 {boardFull
@@ -606,8 +610,8 @@ export default function DraftRoomPage() {
                 disabled={!boardFull || launching}
                 className={`w-full py-3 text-sm transition disabled:cursor-not-allowed disabled:opacity-40 ${
                   boardFull
-                    ? "bg-gold text-dark hover:bg-gold/90"
-                    : "border border-gold/25 text-muted"
+                    ? "bg-banner text-white hover:bg-banner/90"
+                    : "border border-ink/15 text-muted"
                 }`}
               >
                 {launching
@@ -646,7 +650,7 @@ function CatalogPager({
         type="button"
         onClick={() => onPage(page - 1)}
         disabled={page <= 1}
-        className="border border-gold/25 px-4 py-2 text-sm text-muted transition enabled:hover:text-gold disabled:opacity-30"
+        className="border border-ink/15 px-4 py-2 text-sm text-muted transition enabled:hover:text-ink disabled:opacity-30"
       >
         Prev
       </button>
@@ -663,8 +667,8 @@ function CatalogPager({
             aria-current={item === page ? "page" : undefined}
             className={`min-w-9 px-3 py-2 font-mono text-sm tabular-nums transition ${
               item === page
-                ? "bg-gold text-dark"
-                : "border border-gold/25 text-muted hover:text-gold"
+                ? "bg-banner text-white"
+                : "border border-ink/15 text-muted hover:text-ink"
             }`}
           >
             {item}
@@ -675,7 +679,7 @@ function CatalogPager({
         type="button"
         onClick={() => onPage(page + 1)}
         disabled={page >= pageCount}
-        className="border border-gold/25 px-4 py-2 text-sm text-muted transition enabled:hover:text-gold disabled:opacity-30"
+        className="border border-ink/15 px-4 py-2 text-sm text-muted transition enabled:hover:text-ink disabled:opacity-30"
       >
         Next
       </button>

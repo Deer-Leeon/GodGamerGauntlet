@@ -57,10 +57,14 @@ export default function LoginPage() {
 
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-6 py-16">
-      <h1 className="text-2xl font-semibold">
+      <p className="font-pixel text-[10px] leading-6 text-banner">
+        PLAYER LOGIN
+      </p>
+      <h1 className="mt-2 text-2xl font-semibold">
         {mode === "login" ? "Sign in" : "Create an account"}
       </h1>
-      <p className="mt-2 text-sm leading-relaxed text-muted">
+      <div className="mt-3 h-1.5 w-20 bg-banner" />
+      <p className="mt-5 text-sm leading-relaxed text-muted">
         {mode === "login"
           ? "Sign in with your username or email to start a gauntlet, vote, and comment."
           : "Pick a public username. Your email stays private and is only used to sign in."}

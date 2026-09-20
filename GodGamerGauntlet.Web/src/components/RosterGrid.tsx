@@ -49,9 +49,9 @@ function GameCard({ game }: { game: Game }) {
     <Link
       href={`/records/${game.id}`}
       title={game.title}
-      className="group block rounded-xl bg-surface shadow-[0_1px_2px_rgb(42_36_28_/_0.08),0_8px_20px_rgb(42_36_28_/_0.06)] transition hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgb(42_36_28_/_0.12)]"
+      className="game-card"
     >
-      <span className="relative block aspect-[2/1] overflow-hidden rounded-t-xl bg-[repeating-linear-gradient(-45deg,rgb(42_36_28_/_0.04),rgb(42_36_28_/_0.04)_8px,rgb(42_36_28_/_0.08)_8px,rgb(42_36_28_/_0.08)_16px)]">
+      <span className="relative block aspect-[2/1] overflow-hidden bg-[repeating-conic-gradient(#ececec_0%_25%,#ffffff_0%_50%)] bg-size-[10px_10px]">
         {showArt ? (
           <Image
             src={game.thumb!}
@@ -63,12 +63,12 @@ function GameCard({ game }: { game: Game }) {
             className="object-cover object-center"
           />
         ) : (
-          <span className="flex h-full items-center justify-center px-2 text-center text-xs font-medium text-muted">
+          <span className="flex h-full items-center justify-center px-2 text-center font-pixel text-[9px] leading-4 text-muted">
             {game.title}
           </span>
         )}
       </span>
-      <span className="block truncate px-2.5 py-2 text-[13px] leading-tight text-ink">
+      <span className="block truncate border-t-2 border-ink/15 bg-white px-2.5 py-2 text-[13px] font-medium leading-tight text-ink">
         {game.title}
       </span>
     </Link>

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Script from "next/script";
-import { Fraunces, JetBrains_Mono, Outfit } from "next/font/google";
+import { JetBrains_Mono, Outfit, Press_Start_2P, Russo_One } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { AuthProvider } from "@/lib/auth";
 import SiteNav from "@/components/SiteNav";
@@ -18,8 +18,15 @@ const outfit = Outfit({
   subsets: ["latin"],
 });
 
-const fraunces = Fraunces({
-  variable: "--font-fraunces",
+const russo = Russo_One({
+  weight: "400",
+  variable: "--font-russo",
+  subsets: ["latin"],
+});
+
+const pressStart = Press_Start_2P({
+  weight: "400",
+  variable: "--font-press-start",
   subsets: ["latin"],
 });
 
@@ -55,7 +62,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${outfit.variable} ${fraunces.variable} ${jetbrainsMono.variable} antialiased`}
+      className={`${outfit.variable} ${russo.variable} ${pressStart.variable} ${jetbrainsMono.variable} antialiased`}
     >
       <body className="bg-dark text-muted">
         <Script

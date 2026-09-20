@@ -59,9 +59,12 @@ function HomeHero({
 
   if (live) {
     return (
-      <section className="flex flex-wrap items-center justify-between gap-4 rounded-xl bg-surface px-6 py-5 shadow-[0_1px_2px_rgb(42_36_28_/_0.08)]">
+      <section className="flex flex-wrap items-center justify-between gap-4 border-2 border-ink/15 bg-white px-6 py-5">
         <div className="min-w-0">
-          <p className="text-sm font-medium text-banner">Gauntlet in progress</p>
+          <p className="font-pixel text-[10px] leading-5 text-banner">
+            CONTINUE
+          </p>
+          <p className="mt-2 text-sm font-medium text-ink">Gauntlet in progress</p>
           <p className="mt-1.5 truncate text-sm text-muted">
             {live.slotsCompleted}/{live.totalSlots} beaten
             {live.currentTitle && (
@@ -91,9 +94,12 @@ function HomeHero({
   }
 
   return (
-    <section className="flex flex-wrap items-center justify-between gap-4 rounded-xl bg-surface px-6 py-5 shadow-[0_1px_2px_rgb(42_36_28_/_0.08)]">
+    <section className="flex flex-wrap items-center justify-between gap-4 border-2 border-ink/15 bg-white px-6 py-5">
       <div>
-        <p className="text-sm font-medium text-ink">No gauntlet in flight</p>
+        <p className="font-pixel text-[10px] leading-5 text-banner">
+          PLAYER READY
+        </p>
+        <p className="mt-2 text-sm font-medium text-ink">No gauntlet in flight</p>
         <p className="mt-1.5 text-sm text-muted">
           Draft a lineup and put a run on the board.
         </p>
@@ -146,7 +152,7 @@ function LiveNowRail({
 
   if (cards.length === 0) {
     return (
-      <section className="mt-8 rounded-xl bg-surface px-5 py-4 text-sm leading-relaxed text-muted shadow-[0_1px_2px_rgb(42_36_28_/_0.08)]">
+      <section className="mt-8 border-2 border-ink/15 bg-white px-5 py-4 text-sm leading-relaxed text-muted">
         No one live right now.{" "}
         <Link href="/leaderboard" className="text-banner hover:underline">
           Browse Clears
@@ -162,9 +168,11 @@ function LiveNowRail({
 
   return (
     <section className="mt-8" aria-label="Live now">
-      <h2 className="flex items-center gap-2 text-sm font-medium text-ink">
+      <h2 className="flex items-center gap-2 text-ink">
         <span aria-hidden className="live-run-dot" />
-        <span className="text-red-400">LIVE NOW</span>
+        <span className="font-pixel text-[10px] leading-5 text-banner">
+          LIVE NOW
+        </span>
         <span className="font-normal text-faint">
           {cards.length} gauntlet{cards.length === 1 ? "" : "s"} running
         </span>
@@ -185,7 +193,7 @@ function LiveCard({ card, syncedAt }: { card: LiveRunCard; syncedAt: number }) {
   const body = (
     <>
       {/* Current game cover as the card backdrop. */}
-      <div className="relative h-24 w-full overflow-hidden bg-white/5">
+      <div className="relative h-24 w-full overflow-hidden bg-black/5">
         {card.currentThumb ? (
           <Image
             src={card.currentThumb}
@@ -212,10 +220,10 @@ function LiveCard({ card, syncedAt }: { card: LiveRunCard; syncedAt: number }) {
           <img
             src={card.avatarUrl}
             alt=""
-            className="h-7 w-7 shrink-0 rounded-full border border-gold/25 object-cover"
+            className="h-7 w-7 shrink-0 rounded-full border border-ink/15 object-cover"
           />
         ) : (
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-gold/25 bg-white/5 font-mono text-xs text-faint">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-ink/15 bg-black/5 font-mono text-xs text-faint">
             {card.username.slice(0, 1).toUpperCase()}
           </span>
         )}
@@ -244,7 +252,7 @@ function LiveCard({ card, syncedAt }: { card: LiveRunCard; syncedAt: number }) {
   );
 
   const cardClass =
-    "group w-64 shrink-0 overflow-hidden rounded-xl bg-surface shadow-[0_1px_2px_rgb(42_36_28_/_0.08)] transition hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgb(42_36_28_/_0.12)]";
+    "group w-64 shrink-0 overflow-hidden border-2 border-ink/15 bg-white transition hover:-translate-y-0.5 hover:border-banner hover:shadow-[4px_4px_0_0_#e10600]";
 
   return external ? (
     <a
@@ -420,7 +428,7 @@ export default function FeedPage() {
 
       <section className="mt-8" aria-labelledby="home-roster-heading">
         <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-          <h2 id="home-roster-heading" className="text-sm font-medium text-ink">
+          <h2 id="home-roster-heading" className="text-ink">
             The 19 games
           </h2>
           <Link href="/records" className="text-sm text-faint hover:text-ink">
@@ -514,7 +522,7 @@ export default function FeedPage() {
 
 function EmptyFeedWalkthrough() {
   return (
-    <div className="rounded-xl bg-surface px-5 py-8 shadow-[0_1px_2px_rgb(42_36_28_/_0.08)]">
+    <div className="border-2 border-ink/15 bg-white px-5 py-8">
       <p className="text-sm leading-relaxed text-muted">
         Nobody has posted a Clear yet. A finished Marathon is five games
         beaten, clock frozen, and a spot on the boards — that can be you.
@@ -622,7 +630,7 @@ function PostCard({
                   <li
                     key={i}
                     title={`${i + 1}. ${title} — ${status}`}
-                    className={`relative h-10 w-10 overflow-hidden bg-white/5 ${
+                    className={`relative h-10 w-10 overflow-hidden bg-black/5 ${
                       status === "Pending" ? "opacity-40" : ""
                     } ${status === "Lost" ? "opacity-80" : ""}`}
                   >

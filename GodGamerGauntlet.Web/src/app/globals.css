@@ -1,35 +1,58 @@
 @import "tailwindcss";
 
 /*
- * Site language: a rec-room speedrun club. Warm paper, box art for color,
- * banner red for the next action. Overlay and the control deck keep the
- * night kit so OBS does not go cream.
+ * Site language: a white game storefront. Box art is the color. Scoreboard
+ * headings, pixel labels, arcade-red continue. Overlay and the control
+ * deck keep the night kit so OBS does not go light.
  */
 @theme {
-  --color-dark: #f6f0e4;
-  --color-surface: #fffbf4;
-  --color-ink: #2a241c;
-  --color-muted: #5c5348;
-  --color-faint: #8a7f72;
-  --color-gold: #d4a017;
-  --color-banner: #c23b22;
-  --color-sprint: #3d6b4f;
-  --color-marathon: #c47a1a;
-  --color-endurance: #6b3d6b;
+  --color-dark: #ffffff;
+  --color-surface: #ffffff;
+  --color-ink: #111111;
+  --color-muted: #444444;
+  --color-faint: #6b6b6b;
+  --color-gold: #ffb800;
+  --color-banner: #e10600;
+  --color-sprint: #009b4d;
+  --color-marathon: #ff8a00;
+  --color-endurance: #5b4dff;
 
-  --color-accent-streak: #d4a017;
-  --color-accent-win: #3d6b4f;
-  --color-accent-death: #c23b22;
+  --color-accent-streak: #ffb800;
+  --color-accent-win: #009b4d;
+  --color-accent-death: #e10600;
 
   --font-sans: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
-  --font-heading: var(--font-fraunces), ui-serif, Georgia, serif;
+  --font-heading: var(--font-russo), ui-sans-serif, system-ui, sans-serif;
+  --font-pixel: var(--font-press-start), ui-monospace, monospace;
   --font-mono: var(--font-jetbrains-mono), ui-monospace, monospace;
 }
 
 @utility panel {
   background-color: var(--color-surface);
-  border: 1px solid rgb(42 36 28 / 0.12);
-  border-radius: 0.75rem;
+  border: 1px solid rgb(0 0 0 / 0.1);
+  border-radius: 0.2rem;
+}
+
+.game-card {
+  display: block;
+  overflow: hidden;
+  background: #ffffff;
+  border: 2px solid rgb(0 0 0 / 0.16);
+  border-radius: 0.15rem;
+  transition:
+    transform 0.12s ease,
+    border-color 0.12s ease,
+    box-shadow 0.12s ease;
+}
+
+.game-card:hover {
+  transform: translate(-2px, -2px);
+  border-color: var(--color-banner);
+  box-shadow: 4px 4px 0 0 var(--color-banner);
+}
+
+.font-pixel {
+  font-family: var(--font-pixel);
 }
 
 body {
@@ -64,8 +87,9 @@ body {
 .site-nav .brand {
   font-family: var(--font-heading);
   font-size: 1.05rem;
-  font-weight: 600;
-  letter-spacing: 0;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
   white-space: nowrap;
 }
 
@@ -95,9 +119,9 @@ body {
   z-index: 50;
   min-width: 13rem;
   background: var(--color-surface);
-  border: 1px solid rgb(42 36 28 / 0.12);
-  border-radius: 0.75rem;
-  box-shadow: 0 8px 24px rgb(42 36 28 / 0.08);
+  border: 1px solid rgb(0 0 0 / 0.12);
+  border-radius: 0.2rem;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.08);
 }
 
 .account-menu-panel a,
@@ -111,12 +135,12 @@ body {
 
 .account-menu-panel a:hover,
 .account-menu-panel button:hover {
-  background: rgb(42 36 28 / 0.05);
+  background: rgb(0 0 0 / 0.05);
   color: var(--color-ink);
 }
 
 .account-menu-panel button:last-child {
-  border-top: 1px solid rgb(42 36 28 / 0.1);
+  border-top: 1px solid rgb(0 0 0 / 0.1);
 }
 
 .live-run-banner {
@@ -126,8 +150,8 @@ body {
   gap: 0.85rem 1.15rem;
   margin-top: 2rem;
   padding: 1.05rem 1.2rem;
-  border: 1px solid rgb(42 36 28 / 0.12);
-  border-radius: 0.75rem;
+  border: 1px solid rgb(0 0 0 / 0.12);
+  border-radius: 0.2rem;
   background: var(--color-surface);
   color: inherit;
   text-decoration: none;
@@ -141,9 +165,11 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.16em;
+  font-family: var(--font-pixel);
+  font-size: 0.625rem;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  line-height: 1.6;
   text-transform: uppercase;
   color: var(--color-gold);
 }
@@ -158,7 +184,7 @@ body {
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--color-banner);
-  border: 1px solid rgb(42 36 28 / 0.12);
+  border: 1px solid rgb(0 0 0 / 0.12);
   border-radius: 999px;
 }
 
@@ -167,19 +193,19 @@ body {
   height: 0.5rem;
   border-radius: 999px;
   background: var(--color-gold);
-  box-shadow: 0 0 0 0 rgb(196 180 154 / 0.65);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-gold) 55%, transparent);
   animation: live-pulse 1.6s ease-out infinite;
 }
 
 @keyframes live-pulse {
   0% {
-    box-shadow: 0 0 0 0 rgb(196 180 154 / 0.55);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-gold) 55%, transparent);
   }
   70% {
-    box-shadow: 0 0 0 0.55rem rgb(196 180 154 / 0);
+    box-shadow: 0 0 0 0.55rem color-mix(in srgb, var(--color-gold) 0%, transparent);
   }
   100% {
-    box-shadow: 0 0 0 0 rgb(196 180 154 / 0);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-gold) 0%, transparent);
   }
 }
 
@@ -191,7 +217,7 @@ body {
   flex-shrink: 0;
   overflow: hidden;
   border-radius: 0.5rem;
-  background: rgb(42 36 28 / 0.06);
+  background: rgb(0 0 0 / 0.06);
 }
 
 .live-run-copy {
@@ -205,8 +231,9 @@ body {
 .live-run-title {
   font-family: var(--font-heading);
   font-size: 1.05rem;
-  font-weight: 600;
-  letter-spacing: 0;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
   color: var(--color-ink);
 }
 
@@ -317,19 +344,21 @@ body {
 /* Page titles vs section titles vs recap headlines. */
 .site-shell main h1 {
   font-family: var(--font-heading);
-  font-size: clamp(1.85rem, 1.2rem + 1.6vw, 2.6rem);
-  font-weight: 600;
-  letter-spacing: 0;
-  line-height: 1.15;
+  font-size: clamp(1.85rem, 1.2rem + 1.8vw, 2.85rem);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  line-height: 1.05;
+  text-transform: uppercase;
   color: var(--color-ink);
 }
 
 .site-shell main h2 {
   font-family: var(--font-heading);
-  font-size: 1.25rem;
-  font-weight: 600;
-  letter-spacing: 0;
-  line-height: 1.3;
+  font-size: 1.35rem;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+  text-transform: uppercase;
   color: var(--color-ink);
 }
 
@@ -344,7 +373,7 @@ body {
   max-width: 36rem;
 }
 
-/* Primary and outlined actions share one height so chrome doesn't jump. */
+/* Arcade continue: heading face, tight corners, white on banner red. */
 .site-shell :is(a, button).bg-gold,
 .site-nav :is(a, button).bg-gold,
 .site-shell :is(a, button).bg-banner,
@@ -352,22 +381,25 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 2.35rem;
-  padding: 0.45rem 1.15rem;
-  font-size: 0.8125rem;
-  font-weight: 600;
+  min-height: 2.45rem;
+  padding: 0.5rem 1.2rem;
+  font-family: var(--font-heading);
+  font-size: 0.78rem;
+  font-weight: 400;
+  letter-spacing: 0.06em;
   line-height: 1.2;
-  border-radius: 999px;
+  text-transform: uppercase;
+  border-radius: 0.2rem;
   background-color: var(--color-banner);
-  color: #fffbf4;
+  color: #ffffff;
 }
 
 .site-shell :is(a, button).bg-gold:hover,
 .site-nav :is(a, button).bg-gold:hover,
 .site-shell :is(a, button).bg-banner:hover,
 .site-nav :is(a, button).bg-banner:hover {
-  background-color: color-mix(in srgb, var(--color-banner) 88%, #2a241c);
-  color: #fffbf4;
+  background-color: color-mix(in srgb, var(--color-banner) 88%, #111111);
+  color: #ffffff;
 }
 
 .site-shell :is(a, button).w-full.bg-gold,
@@ -386,8 +418,8 @@ body {
   padding-block: 0.45rem;
   font-size: 0.8125rem;
   line-height: 1.2;
-  border-radius: 999px;
-  border-color: rgb(42 36 28 / 0.14);
+  border-radius: 0.2rem;
+  border-color: rgb(0 0 0 / 0.14);
 }
 
 .slot-actions {
@@ -415,9 +447,9 @@ body {
 
 /* Bordered fields own their focus ring so the input doesn't draw a second box inside. */
 .field {
-  border: 1px solid rgb(42 36 28 / 0.14);
+  border: 1px solid rgb(0 0 0 / 0.14);
   background: var(--color-surface);
-  border-radius: 0.75rem;
+  border-radius: 0.2rem;
 }
 
 .field:focus-within {
@@ -429,13 +461,13 @@ body {
 }
 
 .feed-list {
-  border: 1px solid rgb(42 36 28 / 0.12);
+  border: 1px solid rgb(0 0 0 / 0.12);
   background: var(--color-surface);
-  border-radius: 0.75rem;
+  border-radius: 0.2rem;
 }
 
 .feed-row {
-  border-bottom: 1px solid rgb(42 36 28 / 0.08);
+  border-bottom: 1px solid rgb(0 0 0 / 0.08);
   padding-left: 1.25rem;
   padding-right: 1.25rem;
 }
@@ -458,7 +490,7 @@ body {
 }
 
 .feed-row:hover {
-  background: rgb(42 36 28 / 0.04);
+  background: rgb(0 0 0 / 0.04);
 }
 
 @media (min-width: 640px) {
@@ -472,9 +504,9 @@ body {
 }
 
 /*
- * Night kit for OBS and the live control deck. Public pages are cream;
- * these surfaces keep the old charcoal so a stream overlay never inherits
- * paper. Tokens here also keep Play/gold reading as brass, not banner red.
+ * Night kit for OBS and the live control deck. Public pages are white;
+ * these surfaces stay charcoal so a stream overlay never inherits the
+ * storefront. Play/gold stays brass here, not banner red.
  */
 html:has(.obs-overlay-root),
 html.obs-overlay,
@@ -628,7 +660,7 @@ html:has(.obs-control-root) .site-nav {
     width: 16rem;
     flex-direction: column;
     overflow: hidden;
-    border-right: 1px solid rgb(42 36 28 / 0.12);
+    border-right: 1px solid rgb(0 0 0 / 0.12);
     background: var(--color-surface);
   }
 
@@ -661,7 +693,7 @@ html:has(.obs-control-root) .site-nav {
 
   .browse-rail-toggle:hover {
     color: var(--color-ink);
-    background: rgb(42 36 28 / 0.06);
+    background: rgb(0 0 0 / 0.06);
   }
 }
 
@@ -697,10 +729,10 @@ html:has(.obs-control-root) .site-nav {
   margin: 0 0 0.55rem;
   padding: 0 0.35rem;
   font-family: var(--font-heading);
-  font-size: 0.8rem;
-  font-weight: 600;
-  letter-spacing: 0;
-  text-transform: none;
+  font-size: 0.72rem;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   color: var(--color-faint);
 }
 
@@ -736,7 +768,7 @@ html:has(.obs-control-root) .site-nav {
 }
 
 .browse-rail-row:hover {
-  background: rgb(42 36 28 / 0.05);
+  background: rgb(0 0 0 / 0.05);
 }
 
 .browse-rail-avatar {
@@ -746,9 +778,9 @@ html:has(.obs-control-root) .site-nav {
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgb(42 36 28 / 0.14);
+  border: 1px solid rgb(0 0 0 / 0.14);
   border-radius: 999px;
-  background: rgb(42 36 28 / 0.05);
+  background: rgb(0 0 0 / 0.05);
   font-size: 0.7rem;
   font-weight: 700;
   color: var(--color-ink);

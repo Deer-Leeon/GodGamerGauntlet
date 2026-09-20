@@ -113,14 +113,18 @@ export default function LeaderboardPage() {
 
   return (
     <main className="site-content flex-1 px-5 py-8 sm:px-7">
-      <header className="flex flex-wrap items-end justify-between gap-4 border-b border-gold/20 pb-6">
+      <header className="flex flex-wrap items-end justify-between gap-4 border-b-2 border-ink/15 pb-6">
         <div>
-          <h1 className="text-2xl font-semibold">Boards</h1>
-          <p className="mt-2 text-sm leading-relaxed text-muted">{blurb}</p>
+          <p className="font-pixel text-[10px] leading-6 text-banner">
+            HIGH SCORES
+          </p>
+          <h1 className="mt-2 text-2xl font-semibold">Boards</h1>
+          <div className="mt-3 h-1.5 w-20 bg-banner" />
+          <p className="mt-4 text-sm leading-relaxed text-muted">{blurb}</p>
         </div>
         <Link
           href="/draft"
-          className="bg-gold px-4 py-2 text-sm text-dark transition hover:bg-gold/90"
+          className="bg-banner px-4 py-2 text-sm transition hover:bg-banner/90"
         >
           Draft a run
         </Link>
@@ -129,7 +133,7 @@ export default function LeaderboardPage() {
       <div
         role="tablist"
         aria-label="Board"
-        className="mt-8 flex flex-wrap gap-6 border-b border-gold/20 text-sm"
+        className="mt-8 flex flex-wrap gap-6 border-b border-ink/10 text-sm"
       >
         {VIEWS.map((item) => (
           <button
@@ -139,8 +143,8 @@ export default function LeaderboardPage() {
             onClick={() => setView(item.id)}
             className={`-mb-px border-b-2 pb-3 transition ${
               view === item.id
-                ? "border-gold text-gold"
-                : "border-transparent text-faint hover:text-ink"
+                    ? "border-banner text-banner"
+                    : "border-transparent text-faint hover:text-ink"
             }`}
           >
             {item.label}
@@ -152,7 +156,7 @@ export default function LeaderboardPage() {
         <div
           role="tablist"
           aria-label="Gauntlet mode"
-          className="mt-6 flex gap-6 border-b border-gold/20 text-sm"
+          className="mt-6 flex gap-6 border-b border-ink/10 text-sm"
         >
           {MODES.map((board) => (
             <button
@@ -162,8 +166,8 @@ export default function LeaderboardPage() {
               onClick={() => setRunType(board.id)}
               className={`-mb-px border-b-2 pb-3 transition ${
                 runType === board.id
-                  ? "border-gold text-gold"
-                  : "border-transparent text-faint hover:text-ink"
+                    ? "border-banner text-banner"
+                    : "border-transparent text-faint hover:text-ink"
               }`}
             >
               {board.label}

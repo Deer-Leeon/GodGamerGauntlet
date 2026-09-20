@@ -51,8 +51,10 @@ export default function RecordsDirectoryPage() {
 
   return (
     <main className="site-content flex-1 px-5 py-8 sm:px-7">
-      <header className="border-b border-ink/10 pb-6">
-        <h1 className="text-2xl font-semibold">Games</h1>
+      <header className="border-b-2 border-ink/15 pb-6">
+        <p className="font-pixel text-[10px] leading-6 text-banner">ROSTER</p>
+        <h1 className="mt-2 text-2xl font-semibold">Games</h1>
+        <div className="mt-3 h-1.5 w-20 bg-banner" />
         <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted">
           These 19 games are the whole catalog — what you draft, and the only
           boards we would import from speedrun.com. Times here are
@@ -70,7 +72,7 @@ export default function RecordsDirectoryPage() {
           onChange={(event) => setSearchText(event.target.value)}
           placeholder="Search games…"
           aria-label="Search games"
-          className="w-full max-w-md rounded-full border border-ink/15 bg-surface px-4 py-2.5 text-sm text-ink placeholder:text-faint focus:border-banner focus:outline-none"
+          className="w-full max-w-md border-2 border-ink/15 bg-white px-4 py-2.5 text-sm text-ink placeholder:text-faint focus:border-banner focus:outline-none"
         />
         {result && !loading && (
           <p className="text-sm text-faint">
