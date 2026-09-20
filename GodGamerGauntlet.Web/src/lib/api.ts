@@ -858,6 +858,84 @@ export function getGameRecords(gameId: string): Promise<GameRecords> {
   return request<GameRecords>(`/api/games/${gameId}/records`);
 }
 
+export type GameTechKind =
+  | "Skip"
+  | "Movement"
+  | "Boss"
+  | "Glitch"
+  | "OutOfBounds"
+  | "Route";
+
+export type GameTechDifficulty = "Easy" | "Medium" | "Hard" | "FrameTight";
+
+export type GameTechPatchScope = "All" | "VersionLocked" | "Patched";
+
+export type GameTechStatus = "Published" | "Patched" | "Disputed";
+
+export type GameTechClipProvider = "YouTube" | "TwitchClip";
+
+export type GameTechReportKind = "Patched" | "Broken" | "Unsafe";
+
+export interface GameTechClip {
+  provider: GameTechClipProvider;
+  url: string;
+  startSeconds: number | null;
+}
+
+export interface GameTechCard {
+  id: string;
+  slug: string;
+  title: string;
+  kind: GameTechKind;
+  difficulty: GameTechDifficulty;
+  patchScope: GameTechPatchScope;
+  versionNote: string | null;
+  summary: string;
+  bodyMarkdown: string | null;
+  prerequisites: string | null;
+  loadout: string | null;
+  status: GameTechStatus;
+  score: number;
+  myVote: number;
+  clips: GameTechClip[];
+}
+
+export function getGameTech(gameId: string): Promise<GameTechCard[]> {
+  return request<GameTechCard[]>(`/api/games/${gameId}/tech`);
+}
+
+export function voteOnGameTech(
+  gameId: string,
+  techId: string,
+  value: -1 | 0 | 1,
+): Promise<VoteResult> {
+  return request<VoteResult>(`/api/games/${gameId}/tech/${techId}/vote`, {
+    method: "PUT",
+    body: JSON.stringify({ value }),
+  });
+}
+
+export interface GameTechReportResult {
+  id: string;
+  kind: GameTechReportKind;
+  status: string;
+}
+
+export function reportGameTech(
+  gameId: string,
+  techId: string,
+  kind: GameTechReportKind,
+  note?: string,
+): Promise<GameTechReportResult> {
+  return request<GameTechReportResult>(
+    `/api/games/${gameId}/tech/${techId}/reports`,
+    {
+      method: "POST",
+      body: JSON.stringify({ kind, note: note ?? null }),
+    },
+  );
+}
+
 export function getRecordsBoard(
   gameId: string,
   categoryId: string,

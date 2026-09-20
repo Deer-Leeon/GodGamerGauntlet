@@ -6,7 +6,10 @@ import { useEffect } from "react";
  * Turns a YouTube/Twitch proof link into an embeddable player URL.
  * Returns null when the link has no iframe form (we link out instead).
  */
-export function toEmbedUrl(videoUrl: string): string | null {
+export function toEmbedUrl(
+  videoUrl: string,
+  startSeconds?: number | null,
+): string | null {
   let url: URL;
   try {
     url = new URL(videoUrl);
@@ -16,37 +19,69 @@ export function toEmbedUrl(videoUrl: string): string | null {
   const host = url.hostname.replace(/^(www|m)\./, "");
   const parent =
     typeof window === "undefined" ? "localhost" : window.location.hostname;
+  const start =
+    startSeconds && startSeconds > 0
+      ? startSeconds
+      : Number.parseInt(url.searchParams.get("t") ?? "", 10) || null;
+
+  function withStart(embed: string, youtube: boolean): string {
+    if (!start) return embed;
+    const join = embed.includes("?") ? "&" : "?";
+    return youtube ? `${embed}${join}start=${start}` : `${embed}${join}t=${start}`;
+  }
 
   if (host === "youtu.be") {
-    return `https://www.youtube.com/embed/${url.pathname.slice(1)}`;
+    return withStart(
+      `https://www.youtube.com/embed/${url.pathname.slice(1)}`,
+      true,
+    );
   }
   if (host === "youtube.com") {
     const watchId = url.searchParams.get("v");
-    if (watchId) return `https://www.youtube.com/embed/${watchId}`;
+    if (watchId) {
+      return withStart(`https://www.youtube.com/embed/${watchId}`, true);
+    }
     const path = /^\/(live|shorts)\/([\w-]+)/.exec(url.pathname);
-    if (path) return `https://www.youtube.com/embed/${path[2]}`;
+    if (path) {
+      return withStart(`https://www.youtube.com/embed/${path[2]}`, true);
+    }
     return null;
   }
   if (host === "clips.twitch.tv") {
     const slug = url.pathname.slice(1).split("/")[0];
-    return `https://clips.twitch.tv/embed?clip=${slug}&parent=${parent}&autoplay=false`;
+    return withStart(
+      `https://clips.twitch.tv/embed?clip=${slug}&parent=${parent}&autoplay=false`,
+      false,
+    );
   }
   if (host === "twitch.tv") {
     const video = /^\/(?:videos|\w+\/(?:v|video))\/(\d+)/.exec(url.pathname);
     if (video) {
-      return `https://player.twitch.tv/?video=${video[1]}&parent=${parent}&autoplay=false`;
+      return withStart(
+        `https://player.twitch.tv/?video=${video[1]}&parent=${parent}&autoplay=false`,
+        false,
+      );
     }
     const clip = /^\/\w+\/clip\/([\w-]+)/.exec(url.pathname);
     if (clip) {
-      return `https://clips.twitch.tv/embed?clip=${clip[1]}&parent=${parent}&autoplay=false`;
+      return withStart(
+        `https://clips.twitch.tv/embed?clip=${clip[1]}&parent=${parent}&autoplay=false`,
+        false,
+      );
     }
   }
   return null;
 }
 
 /** Inline iframe player with a link-out fallback for unembeddable URLs. */
-export function ProofPlayer({ videoUrl }: { videoUrl: string }) {
-  const embed = toEmbedUrl(videoUrl);
+export function ProofPlayer({
+  videoUrl,
+  startSeconds,
+}: {
+  videoUrl: string;
+  startSeconds?: number | null;
+}) {
+  const embed = toEmbedUrl(videoUrl, startSeconds);
   if (!embed) {
     return (
       <div className="flex aspect-video items-center justify-center border border-gold/20 bg-black/40">

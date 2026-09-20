@@ -24,6 +24,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<GameSrcLink> GameSrcLinks => Set<GameSrcLink>();
     public DbSet<UsernameReservation> UsernameReservations => Set<UsernameReservation>();
+    public DbSet<GameTech> GameTeches => Set<GameTech>();
+    public DbSet<GameTechClip> GameTechClips => Set<GameTechClip>();
+    public DbSet<GameTechVote> GameTechVotes => Set<GameTechVote>();
+    public DbSet<GameTechReport> GameTechReports => Set<GameTechReport>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -384,6 +388,93 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.Property(r => r.GuestName).HasMaxLength(UsernameReservation.GuestNameMaxLength);
             entity.Property(r => r.ClaimMethod).HasMaxLength(UsernameReservation.ClaimMethodMaxLength);
             entity.HasIndex(r => r.UserId);
+
+            entity.HasOne(r => r.User)
+                .WithMany()
+                .HasForeignKey(r => r.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<GameTech>(entity =>
+        {
+            entity.ToTable("GameTeches");
+            entity.Property(t => t.Slug)
+                .HasMaxLength(GameTech.SlugMaxLength)
+                .IsRequired();
+            entity.Property(t => t.Title)
+                .HasMaxLength(GameTech.TitleMaxLength)
+                .IsRequired();
+            entity.Property(t => t.Summary)
+                .HasMaxLength(GameTech.SummaryMaxLength)
+                .IsRequired();
+            entity.Property(t => t.VersionNote).HasMaxLength(GameTech.VersionNoteMaxLength);
+            entity.Property(t => t.Prerequisites).HasMaxLength(GameTech.PrerequisitesMaxLength);
+            entity.Property(t => t.Loadout).HasMaxLength(GameTech.LoadoutMaxLength);
+            entity.Property(t => t.Kind).HasConversion<string>().HasMaxLength(20);
+            entity.Property(t => t.Difficulty).HasConversion<string>().HasMaxLength(20);
+            entity.Property(t => t.PatchScope).HasConversion<string>().HasMaxLength(20);
+            entity.Property(t => t.Status)
+                .HasConversion<string>()
+                .HasMaxLength(20)
+                .HasDefaultValue(GameTechStatus.Published);
+            entity.HasIndex(t => new { t.GameId, t.Slug }).IsUnique();
+            entity.HasIndex(t => new { t.GameId, t.Status, t.Kind });
+
+            entity.HasOne(t => t.Game)
+                .WithMany()
+                .HasForeignKey(t => t.GameId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(t => t.Author)
+                .WithMany()
+                .HasForeignKey(t => t.AuthorUserId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasMany(t => t.Clips)
+                .WithOne(c => c.Tech)
+                .HasForeignKey(c => c.TechId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasMany(t => t.Votes)
+                .WithOne(v => v.Tech)
+                .HasForeignKey(v => v.TechId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasMany(t => t.Reports)
+                .WithOne(r => r.Tech)
+                .HasForeignKey(r => r.TechId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<GameTechClip>(entity =>
+        {
+            entity.Property(c => c.Url)
+                .HasMaxLength(Submission.VideoUrlMaxLength)
+                .IsRequired();
+            entity.Property(c => c.Provider).HasConversion<string>().HasMaxLength(20);
+            entity.HasIndex(c => new { c.TechId, c.SortOrder });
+        });
+
+        modelBuilder.Entity<GameTechVote>(entity =>
+        {
+            entity.HasIndex(v => new { v.TechId, v.UserId }).IsUnique();
+            entity.ToTable(t => t.HasCheckConstraint(
+                "CK_GameTechVotes_Value", "\"Value\" IN (-1, 1)"));
+
+            entity.HasOne(v => v.User)
+                .WithMany()
+                .HasForeignKey(v => v.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<GameTechReport>(entity =>
+        {
+            entity.Property(r => r.Note).HasMaxLength(GameTechReport.NoteMaxLength);
+            entity.Property(r => r.Kind).HasConversion<string>().HasMaxLength(20);
+            entity.Property(r => r.Status)
+                .HasConversion<string>()
+                .HasMaxLength(20)
+                .HasDefaultValue(GameTechReportStatus.Pending);
 
             entity.HasOne(r => r.User)
                 .WithMany()

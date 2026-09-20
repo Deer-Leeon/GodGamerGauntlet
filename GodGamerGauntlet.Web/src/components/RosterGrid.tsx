@@ -47,8 +47,8 @@ function GameCard({ game }: { game: Game }) {
 
   return (
     <Link
-      href={`/records/${game.id}`}
-      title={game.title}
+      href={`/records/${game.id}#tech`}
+      title={`Learn skips — ${game.title}`}
       className="game-card"
     >
       <span className="relative block aspect-[2/1] overflow-hidden bg-[repeating-conic-gradient(#ececec_0%_25%,#ffffff_0%_50%)] bg-size-[10px_10px]">

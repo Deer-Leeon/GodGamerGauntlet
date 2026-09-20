@@ -171,6 +171,191 @@ namespace GodGamerGauntlet.Api.Migrations
                     b.ToTable("GameSrcLinks");
                 });
 
+            modelBuilder.Entity("GodGamerGauntlet.Api.Models.GameTech", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("AuthorUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("BodyMarkdown")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Difficulty")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<Guid>("GameId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Loadout")
+                        .HasMaxLength(240)
+                        .HasColumnType("character varying(240)");
+
+                    b.Property<string>("PatchScope")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Prerequisites")
+                        .HasMaxLength(240)
+                        .HasColumnType("character varying(240)");
+
+                    b.Property<string>("Slug")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("Published");
+
+                    b.Property<string>("Summary")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("VersionNote")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AuthorUserId");
+
+                    b.HasIndex("GameId", "Slug")
+                        .IsUnique();
+
+                    b.HasIndex("GameId", "Status", "Kind");
+
+                    b.ToTable("GameTeches");
+                });
+
+            modelBuilder.Entity("GodGamerGauntlet.Api.Models.GameTechClip", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("StartSeconds")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("TechId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Url")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TechId", "SortOrder");
+
+                    b.ToTable("GameTechClips");
+                });
+
+            modelBuilder.Entity("GodGamerGauntlet.Api.Models.GameTechReport", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("Pending");
+
+                    b.Property<Guid>("TechId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TechId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("GameTechReports");
+                });
+
+            modelBuilder.Entity("GodGamerGauntlet.Api.Models.GameTechVote", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("TechId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Value")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("TechId", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("GameTechVotes", t =>
+                        {
+                            t.HasCheckConstraint("CK_GameTechVotes_Value", "\"Value\" IN (-1, 1)");
+                        });
+                });
+
             modelBuilder.Entity("GodGamerGauntlet.Api.Models.Notification", b =>
                 {
                     b.Property<Guid>("Id")
@@ -757,6 +942,73 @@ namespace GodGamerGauntlet.Api.Migrations
                     b.Navigation("Game");
                 });
 
+            modelBuilder.Entity("GodGamerGauntlet.Api.Models.GameTech", b =>
+                {
+                    b.HasOne("GodGamerGauntlet.Api.Models.User", "Author")
+                        .WithMany()
+                        .HasForeignKey("AuthorUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("GodGamerGauntlet.Api.Models.Game", "Game")
+                        .WithMany()
+                        .HasForeignKey("GameId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Author");
+
+                    b.Navigation("Game");
+                });
+
+            modelBuilder.Entity("GodGamerGauntlet.Api.Models.GameTechClip", b =>
+                {
+                    b.HasOne("GodGamerGauntlet.Api.Models.GameTech", "Tech")
+                        .WithMany("Clips")
+                        .HasForeignKey("TechId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Tech");
+                });
+
+            modelBuilder.Entity("GodGamerGauntlet.Api.Models.GameTechReport", b =>
+                {
+                    b.HasOne("GodGamerGauntlet.Api.Models.GameTech", "Tech")
+                        .WithMany("Reports")
+                        .HasForeignKey("TechId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("GodGamerGauntlet.Api.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Tech");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("GodGamerGauntlet.Api.Models.GameTechVote", b =>
+                {
+                    b.HasOne("GodGamerGauntlet.Api.Models.GameTech", "Tech")
+                        .WithMany("Votes")
+                        .HasForeignKey("TechId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("GodGamerGauntlet.Api.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Tech");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("GodGamerGauntlet.Api.Models.Notification", b =>
                 {
                     b.HasOne("GodGamerGauntlet.Api.Models.User", "User")
@@ -976,6 +1228,15 @@ namespace GodGamerGauntlet.Api.Migrations
                     b.Navigation("Submissions");
 
                     b.Navigation("Variables");
+                });
+
+            modelBuilder.Entity("GodGamerGauntlet.Api.Models.GameTech", b =>
+                {
+                    b.Navigation("Clips");
+
+                    b.Navigation("Reports");
+
+                    b.Navigation("Votes");
                 });
 
             modelBuilder.Entity("GodGamerGauntlet.Api.Models.Run", b =>

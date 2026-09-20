@@ -14,6 +14,7 @@ import {
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { ProofModal } from "@/components/ProofPlayer";
+import { GameTechPanel } from "@/components/GameTechPanel";
 import { RosterDisclaimer } from "@/components/RosterDisclaimer";
 
 function originLabel(origin: string | undefined): string {
@@ -42,6 +43,28 @@ export default function RecordsPage() {
   const [boardLoading, setBoardLoading] = useState(true);
   const [rulesOpen, setRulesOpen] = useState(false);
   const [proof, setProof] = useState<RecordRow | null>(null);
+  const [section, setSection] = useState<"boards" | "tech">("boards");
+
+  useEffect(() => {
+    function syncHash() {
+      setSection(window.location.hash === "#tech" ? "tech" : "boards");
+    }
+    syncHash();
+    window.addEventListener("hashchange", syncHash);
+    return () => window.removeEventListener("hashchange", syncHash);
+  }, []);
+
+  function selectSection(next: "boards" | "tech") {
+    setSection(next);
+    const path = `${window.location.pathname}${window.location.search}`;
+    if (next === "tech") {
+      if (window.location.hash !== "#tech") {
+        history.replaceState(null, "", `${path}#tech`);
+      }
+    } else if (window.location.hash === "#tech") {
+      history.replaceState(null, "", path);
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -194,7 +217,42 @@ export default function RecordsPage() {
         </div>
       </header>
 
-      {records.categories.length === 0 ? (
+      <div
+        role="tablist"
+        aria-label="Game section"
+        className="mt-8 flex flex-wrap gap-6 border-b border-gold/20 text-sm"
+      >
+        <button
+          type="button"
+          role="tab"
+          aria-selected={section === "boards"}
+          onClick={() => selectSection("boards")}
+          className={`-mb-px border-b-2 pb-3 transition ${
+            section === "boards"
+              ? "border-gold text-gold"
+              : "border-transparent text-faint hover:text-ink"
+          }`}
+        >
+          Boards
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={section === "tech"}
+          onClick={() => selectSection("tech")}
+          className={`-mb-px border-b-2 pb-3 transition ${
+            section === "tech"
+              ? "border-gold text-gold"
+              : "border-transparent text-faint hover:text-ink"
+          }`}
+        >
+          Tech
+        </button>
+      </div>
+
+      {section === "tech" ? (
+        <GameTechPanel gameId={gameId} />
+      ) : records.categories.length === 0 ? (
         <p className="py-14 text-sm text-faint">
           No categories exist for this game yet.
         </p>

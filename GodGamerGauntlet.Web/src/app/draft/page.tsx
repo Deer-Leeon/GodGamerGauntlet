@@ -478,7 +478,13 @@ export default function DraftRoomPage() {
               const drafted = draftedIds.has(game.id);
               return (
                 <li key={game.id} className="feed-row flex items-center gap-4 py-4">
-                  <GameThumb game={game} />
+                  <Link
+                    href={`/records/${game.id}#tech`}
+                    title={`Learn skips — ${game.title}`}
+                    className="shrink-0"
+                  >
+                    <GameThumb game={game} />
+                  </Link>
                   <div className="min-w-0 flex-1">
                     <span className="block truncate text-sm text-ink">
                       {highlightTitle(game.title, highlightTokens).map(
@@ -495,6 +501,12 @@ export default function DraftRoomPage() {
                           ),
                       )}
                     </span>
+                    <Link
+                      href={`/records/${game.id}#tech`}
+                      className="mt-0.5 inline-block text-xs text-faint hover:text-banner"
+                    >
+                      Learn skips
+                    </Link>
                   </div>
                   <span className="shrink-0 font-mono text-sm tabular-nums text-gold">
                     {game.baseDifficulty}
@@ -544,9 +556,21 @@ export default function DraftRoomPage() {
                   {game ? (
                     <>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm text-ink">{game.title}</p>
+                        <Link
+                          href={`/records/${game.id}#tech`}
+                          className="block truncate text-sm text-ink hover:text-banner"
+                        >
+                          {game.title}
+                        </Link>
                         <p className="mt-0.5 font-mono text-xs tabular-nums text-faint">
                           {game.baseDifficulty}
+                          {" · "}
+                          <Link
+                            href={`/records/${game.id}#tech`}
+                            className="hover:text-banner"
+                          >
+                            Learn skips
+                          </Link>
                         </p>
                       </div>
                       <div className="flex items-center gap-1">
