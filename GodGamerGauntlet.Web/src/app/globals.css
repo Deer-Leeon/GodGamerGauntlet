@@ -57,9 +57,10 @@ body {
 
 .site-nav .brand {
   font-family: var(--font-heading);
-  font-size: 1.05rem;
+  font-size: 0.95rem;
   font-weight: 700;
   letter-spacing: -0.04em;
+  white-space: nowrap;
 }
 
 .account-menu {
@@ -466,6 +467,11 @@ html.obs-overlay body {
 html:has(.obs-overlay-root) .site-shell {
   display: contents;
   min-height: 0;
+}
+
+html:has(.obs-overlay-root) .site-footer,
+html:has(.obs-control-root) .site-footer {
+  display: none !important;
 }
 
 .obs-overlay-root {

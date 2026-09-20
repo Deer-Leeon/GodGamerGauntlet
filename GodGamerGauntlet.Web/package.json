@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --experimental-strip-types --experimental-default-type=module --test src/lib/overlayOptimistic.test.ts"
+    "test": "node --experimental-strip-types --experimental-default-type=module --test src/lib/*.test.ts"
   },
   "dependencies": {
     "@vercel/analytics": "^2.0.1",

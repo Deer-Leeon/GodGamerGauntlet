@@ -52,7 +52,7 @@ export default function RecordsDirectoryPage() {
   return (
     <main className="site-content flex-1 px-5 py-8 sm:px-7">
       <header className="border-b border-gold/20 pb-6">
-        <h1 className="text-2xl font-semibold">Gauntlet roster</h1>
+        <h1 className="text-2xl font-semibold">Games</h1>
         <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted">
           These 19 games are the whole catalog — what you draft, and the only
           boards we would import from speedrun.com. Times here are
@@ -68,7 +68,7 @@ export default function RecordsDirectoryPage() {
           type="search"
           value={searchText}
           onChange={(event) => setSearchText(event.target.value)}
-          placeholder="Search the roster…"
+          placeholder="Search games…"
           aria-label="Search games"
           className="w-full max-w-md border border-gold/30 bg-transparent px-4 py-2.5 text-sm text-ink placeholder:text-faint focus:border-gold focus:outline-none"
         />

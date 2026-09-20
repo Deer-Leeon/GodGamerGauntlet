@@ -26,8 +26,10 @@ import {
   type User,
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import HomeWelcome from "@/components/HomeWelcome";
 import MomentChips from "@/components/MomentChips";
 import { RunTypeBadge } from "@/components/RunTypeBadge";
+import { GAUNTLET_MODES } from "@/lib/site";
 
 const SORTS: { id: FeedSort; label: string }[] = [
   { id: "hot", label: "Hot" },
@@ -66,38 +68,7 @@ function HomeHero({ user }: { user: User | null }) {
   }, [user]);
 
   if (!user) {
-    return (
-      <section className="border border-gold/25 bg-gold/5 px-6 py-8">
-        <h1 className="text-3xl font-semibold text-ink">
-          Draft the games. Survive the gauntlet.
-        </h1>
-        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted">
-          God Gamer Gauntlet is a marathon format: draft 3, 5, or 7 games from
-          a closed 19-game roster, speedrun them start to finish on stream, and
-          post your clear to the arena.
-        </p>
-        <div className="mt-6 flex flex-wrap gap-3 text-sm">
-          <Link
-            href="/login"
-            className="bg-gold px-5 py-2.5 text-dark transition hover:bg-gold/90"
-          >
-            Sign in & draft a gauntlet
-          </Link>
-          <Link
-            href="/leaderboard"
-            className="border border-gold/30 px-5 py-2.5 text-muted transition hover:border-gold hover:text-ink"
-          >
-            Gauntlet leaderboard
-          </Link>
-          <Link
-            href="/records"
-            className="border border-gold/30 px-5 py-2.5 text-muted transition hover:border-gold hover:text-ink"
-          >
-            Roster baselines
-          </Link>
-        </div>
-      </section>
-    );
+    return <HomeWelcome />;
   }
 
   if (!checked) return null;
@@ -165,6 +136,7 @@ const LIVE_POLL_MS = 60_000;
  */
 function LiveNowRail() {
   const [cards, setCards] = useState<LiveRunCard[]>([]);
+  const [ready, setReady] = useState(false);
   // performance.now() at fetch time; SpeedrunTimer extrapolates from here.
   const [syncedAt, setSyncedAt] = useState(0);
 
@@ -179,6 +151,9 @@ function LiveNowRail() {
         })
         .catch(() => {
           // The rail is decoration; a failed poll just keeps the last state.
+        })
+        .finally(() => {
+          if (!cancelled) setReady(true);
         });
     load();
     const timer = window.setInterval(load, LIVE_POLL_MS);
@@ -188,7 +163,23 @@ function LiveNowRail() {
     };
   }, []);
 
-  if (cards.length === 0) return null;
+  if (!ready) return null;
+
+  if (cards.length === 0) {
+    return (
+      <section className="mt-8 border border-gold/20 px-5 py-4 text-sm leading-relaxed text-muted">
+        No one live right now.{" "}
+        <Link href="/leaderboard" className="text-gold hover:underline">
+          Browse Clears
+        </Link>
+        {" or "}
+        <Link href="/draft" className="text-gold hover:underline">
+          draft a Sprint
+        </Link>
+        .
+      </section>
+    );
+  }
 
   return (
     <section className="mt-8" aria-label="Live now">
@@ -367,7 +358,11 @@ export default function FeedPage() {
 
       <header className="mt-8 flex flex-wrap items-end justify-between gap-4 border-b border-gold/20 pb-6">
         <div>
-          <h1 className="text-2xl font-semibold text-ink">Feed</h1>
+          {user ? (
+            <h1 className="text-2xl font-semibold text-ink">Feed</h1>
+          ) : (
+            <h2 className="text-2xl font-semibold text-ink">Feed</h2>
+          )}
           <p className="mt-2 max-w-md text-sm leading-relaxed text-muted">
             Live gauntlets and finished runs from the community.
           </p>
@@ -414,13 +409,7 @@ export default function FeedPage() {
         )}
 
         {!loading && !error && posts.length === 0 && (
-          <p className="py-14 text-sm text-faint">
-            No finished runs yet.{" "}
-            <Link href="/draft" className="text-gold underline underline-offset-2">
-              Draft a gauntlet
-            </Link>
-            .
-          </p>
+          <EmptyFeedWalkthrough />
         )}
 
         {posts.map((post) => (
@@ -443,6 +432,39 @@ export default function FeedPage() {
         </button>
       )}
     </main>
+  );
+}
+
+function EmptyFeedWalkthrough() {
+  return (
+    <div className="border border-gold/20 px-5 py-8">
+      <p className="text-xs uppercase tracking-[0.18em] text-gold">
+        Example Clear
+      </p>
+      <p className="mt-3 text-sm leading-relaxed text-muted">
+        A finished Marathon looks like this: five games beaten, clock frozen,
+        posted to the feed and the boards. Nobody has posted one yet — that
+        can be you.
+      </p>
+      <ol className="mt-5 flex flex-wrap gap-0.5" aria-hidden>
+        {["1", "2", "3", "4", "5"].map((n) => (
+          <li
+            key={n}
+            className="flex h-10 w-10 items-center justify-center bg-gold/15 font-mono text-[11px] text-gold"
+          >
+            {n}
+          </li>
+        ))}
+      </ol>
+      <p className="mt-5 flex flex-wrap gap-4 text-sm">
+        <Link href="/how" className="text-gold hover:underline">
+          How it works
+        </Link>
+        <Link href="/draft" className="text-gold hover:underline">
+          Draft a Sprint
+        </Link>
+      </p>
+    </div>
   );
 }
 
@@ -695,8 +717,6 @@ function TopBoards() {
   }, []);
 
   if (sprint === null || marathon === null || endurance === null) return null;
-  if (sprint.length === 0 && marathon.length === 0 && endurance.length === 0)
-    return null;
 
   return (
     <section className="mt-8 grid gap-8 sm:grid-cols-3">
@@ -719,7 +739,7 @@ function TopColumn({
   return (
     <div>
       <div className="mb-3 flex items-baseline justify-between gap-3">
-        <h2 className="text-sm font-medium text-ink">{title}</h2>
+        <h3 className="text-sm font-medium text-ink">{title}</h3>
         <Link
           href="/leaderboard"
           className="text-sm text-faint hover:text-gold"
@@ -728,7 +748,14 @@ function TopColumn({
         </Link>
       </div>
       {entries.length === 0 ? (
-        <p className="text-sm text-faint">No Clears yet.</p>
+        <p className="text-sm leading-relaxed text-faint">
+          No Clears yet.{" "}
+          {GAUNTLET_MODES.find((mode) => mode.id === runType)?.games ?? 5}{" "}
+          games.{" "}
+          <Link href="/how" className="text-gold hover:underline">
+            How it works
+          </Link>
+        </p>
       ) : (
         <ol className="feed-list">
           {entries.map((entry) => (

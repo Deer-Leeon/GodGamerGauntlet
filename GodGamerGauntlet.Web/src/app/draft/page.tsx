@@ -21,6 +21,12 @@ import {
   searchGames,
   type CatalogSort,
 } from "@/lib/catalogSearch";
+import {
+  clearDraftLineup,
+  loadDraftLineup,
+  restoreDraftSlots,
+  saveDraftLineup,
+} from "@/lib/draftLineup";
 
 const MODES: { id: RunType; label: string; blurb: string }[] = [
   {
@@ -88,6 +94,7 @@ export default function DraftRoomPage() {
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<CatalogSort>("featured");
   const [page, setPage] = useState(1);
+  const [lineupReady, setLineupReady] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const catalogRef = useRef<HTMLElement>(null);
 
@@ -98,6 +105,12 @@ export default function DraftRoomPage() {
       .then((fetchedGames) => {
         if (cancelled) return;
         setGames(fetchedGames);
+        const saved = loadDraftLineup();
+        if (saved) {
+          setRunType(saved.runType);
+          setSlots(restoreDraftSlots(fetchedGames, saved));
+        }
+        setLineupReady(true);
       })
       .catch((error: unknown) => {
         if (cancelled) return;
@@ -113,6 +126,11 @@ export default function DraftRoomPage() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!lineupReady) return;
+    saveDraftLineup(runType, slots);
+  }, [lineupReady, runType, slots]);
 
   const draftedIds = useMemo(
     () => new Set(slots.filter((g): g is Game => g !== null).map((g) => g.id)),
@@ -228,6 +246,7 @@ export default function DraftRoomPage() {
     try {
       const gameIds = slots.map((game) => game!.id);
       const run = await initializeRun(gameIds, runType);
+      clearDraftLineup();
       setCreatedRun(run);
     } catch (error: unknown) {
       setLaunchError(
@@ -280,9 +299,10 @@ export default function DraftRoomPage() {
     <main className="site-content flex-1 px-5 py-8 sm:px-7">
       <header className="flex flex-wrap items-end justify-between gap-4 border-b border-gold/20 pb-6">
         <div>
-          <h1 className="text-2xl font-semibold">Draft Room</h1>
+          <h1 className="text-2xl font-semibold">Draft</h1>
           <p className="mt-2 text-sm leading-relaxed text-muted">
-            Build a {slotCount}-game speedrun gauntlet from the 19-game roster.
+            Build a {slotCount}-game speedrun gauntlet from the 19 games.
+            Lineups are free; sign in only to start the clock.
           </p>
         </div>
         <div className="text-right">
@@ -336,10 +356,11 @@ export default function DraftRoomPage() {
       {!authLoading && !user && (
         <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border border-gold/25 px-5 py-4">
           <p className="text-sm leading-relaxed text-muted">
-            Sign in to launch a gauntlet — the run is posted under your name.
+            Building a lineup is free. An account is only needed to start the
+            clock — the run is posted under your name.
           </p>
           <Link
-            href="/login"
+            href="/login?next=/draft"
             className="bg-gold px-4 py-2 text-sm text-dark transition hover:bg-gold/90"
           >
             Sign in
@@ -356,7 +377,7 @@ export default function DraftRoomPage() {
         <section ref={catalogRef}>
           <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
             <div>
-              <h2 className="text-sm font-medium text-ink">Roster</h2>
+              <h2 className="text-sm font-medium text-ink">Games</h2>
               <p className="mt-1.5 text-sm text-faint" aria-live="polite">
                 {loading
                   ? "Loading roster…"
@@ -565,24 +586,37 @@ export default function DraftRoomPage() {
             {launchError && (
               <p className="text-sm text-red-400/90">{launchError}</p>
             )}
-            <button
-              type="button"
-              onClick={launchGauntlet}
-              disabled={!boardFull || !user || launching}
-              className={`w-full py-3 text-sm transition disabled:cursor-not-allowed disabled:opacity-40 ${
-                boardFull && user
-                  ? "bg-gold text-dark hover:bg-gold/90"
-                  : "border border-gold/25 text-muted"
-              }`}
-            >
-              {launching
-                ? "Starting…"
-                : !user
+            {!user ? (
+              <Link
+                href="/login?next=/draft"
+                className={`block w-full py-3 text-center text-sm transition ${
+                  boardFull
+                    ? "bg-gold text-dark hover:bg-gold/90"
+                    : "border border-gold/25 text-muted"
+                }`}
+              >
+                {boardFull
                   ? "Sign in to launch"
+                  : `Fill all ${slotCount} slots (${filledCount}/${slotCount})`}
+              </Link>
+            ) : (
+              <button
+                type="button"
+                onClick={launchGauntlet}
+                disabled={!boardFull || launching}
+                className={`w-full py-3 text-sm transition disabled:cursor-not-allowed disabled:opacity-40 ${
+                  boardFull
+                    ? "bg-gold text-dark hover:bg-gold/90"
+                    : "border border-gold/25 text-muted"
+                }`}
+              >
+                {launching
+                  ? "Starting…"
                   : boardFull
                     ? `Launch ${runType}`
                     : `Fill all ${slotCount} slots (${filledCount}/${slotCount})`}
-            </button>
+              </button>
+            )}
           </div>
         </section>
       </div>

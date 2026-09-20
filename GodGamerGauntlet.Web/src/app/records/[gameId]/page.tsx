@@ -142,7 +142,7 @@ export default function RecordsPage() {
           <div>
             <h1 className="text-2xl font-semibold">{records.title}</h1>
             <p className="mt-1 text-sm text-muted">
-              Roster baseline
+              Baseline
               {records.srcGameUrl && (
                 <span className="text-faint">
                   {" · "}

@@ -1,13 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth";
+import { safeNextPath } from "@/lib/safeNextPath";
 
 type Mode = "login" | "register";
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const nextPath = safeNextPath(searchParams.get("next"));
   const { user, loading, login, register } = useAuth();
 
   const [mode, setMode] = useState<Mode>("login");
@@ -19,9 +22,11 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (!loading && user) {
-      router.replace(user.needsUsername ? "/settings" : "/");
+      router.replace(
+        user.needsUsername ? "/settings" : (nextPath ?? "/"),
+      );
     }
-  }, [loading, user, router]);
+  }, [loading, user, router, nextPath]);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -36,10 +41,12 @@ export default function LoginPage() {
     try {
       if (mode === "login") {
         const signedIn = await login(username, password);
-        router.push(signedIn.needsUsername ? "/settings" : "/");
+        router.push(
+          signedIn.needsUsername ? "/settings" : (nextPath ?? "/"),
+        );
       } else {
         await register(username, email, password);
-        router.push("/");
+        router.push(nextPath ?? "/");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
@@ -55,7 +62,7 @@ export default function LoginPage() {
       </h1>
       <p className="mt-2 text-sm leading-relaxed text-muted">
         {mode === "login"
-          ? "Sign in with your username or email to draft runs, vote, and comment."
+          ? "Sign in with your username or email to start a gauntlet, vote, and comment."
           : "Pick a public username. Your email stays private and is only used to sign in."}
       </p>
 
@@ -98,7 +105,7 @@ export default function LoginPage() {
               className="panel px-3.5 py-2.5 text-ink outline-none"
             />
             <span className="text-sm text-faint">
-              3–24 characters. This is what the feed and leaderboard show.
+              3–24 characters. This is what the feed and boards show.
             </span>
           </label>
         )}

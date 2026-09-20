@@ -115,7 +115,7 @@ export default function LeaderboardPage() {
     <main className="site-content flex-1 px-5 py-8 sm:px-7">
       <header className="flex flex-wrap items-end justify-between gap-4 border-b border-gold/20 pb-6">
         <div>
-          <h1 className="text-2xl font-semibold">God Gamer Arena</h1>
+          <h1 className="text-2xl font-semibold">Boards</h1>
           <p className="mt-2 text-sm leading-relaxed text-muted">{blurb}</p>
         </div>
         <Link

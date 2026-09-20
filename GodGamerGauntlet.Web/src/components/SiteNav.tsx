@@ -10,11 +10,11 @@ import { timeAgo } from "@/components/RunSocial";
 
 const links = [
   { href: "/", label: "Feed" },
-  { href: "/draft", label: "Draft Room" },
-  { href: "/records", label: "Roster" },
-  { href: "/leaderboard", label: "Leaderboard" },
+  { href: "/how", label: "How it works" },
+  { href: "/records", label: "Games" },
+  { href: "/leaderboard", label: "Boards" },
   { href: "/players", label: "Players" },
-  { href: "/timer", label: "Timer" },
+  { href: "/draft", label: "Draft" },
 ];
 
 function isActive(pathname: string | null, href: string): boolean {
@@ -35,7 +35,8 @@ export default function SiteNav() {
     <header className="site-nav sticky top-0 z-40 border-b border-gold/25 bg-surface/95">
       <nav className="site-content flex items-center gap-5 px-5 py-3 sm:px-7">
         <Link href="/" className="brand text-gold">
-          GGG
+          <span className="sm:hidden">GGG</span>
+          <span className="hidden sm:inline">God Gamer Gauntlet</span>
         </Link>
 
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">

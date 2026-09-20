@@ -34,8 +34,13 @@ export default function BrowseRail() {
   const [sidebar, setSidebar] = useState<Sidebar | null>(null);
 
   useEffect(() => {
-    setCollapsed(window.localStorage.getItem(COLLAPSED_KEY) === "1");
-  }, []);
+    const stored = window.localStorage.getItem(COLLAPSED_KEY);
+    if (stored === "1" || stored === "0") {
+      setCollapsed(stored === "1");
+      return;
+    }
+    if (!user) setCollapsed(true);
+  }, [user]);
 
   function toggleCollapsed() {
     setCollapsed((current) => {
@@ -101,16 +106,10 @@ export default function BrowseRail() {
         <RailChevron direction={collapsed ? "right" : "left"} />
       </button>
       <div className="browse-rail-inner">
+        {user ? (
         <section>
           <h2>Followed</h2>
-          {!user ? (
-            <p className="browse-rail-empty">
-              <Link href="/login" className="text-gold hover:text-ink">
-                Sign in
-              </Link>{" "}
-              to follow players.
-            </p>
-          ) : followed.length === 0 ? (
+          {followed.length === 0 ? (
             <p className="browse-rail-empty">
               Follow someone from their profile.
             </p>
@@ -122,11 +121,17 @@ export default function BrowseRail() {
             </ul>
           )}
         </section>
+        ) : null}
 
         <section>
           <h2>Live</h2>
           {live.length === 0 ? (
-            <p className="browse-rail-empty">No other live gauntlets.</p>
+            <p className="browse-rail-empty">
+              No live gauntlets.{" "}
+              <Link href="/how" className="text-gold hover:text-ink">
+                How it works
+              </Link>
+            </p>
           ) : (
             <ul>
               {live.map((row) => (
@@ -138,9 +143,17 @@ export default function BrowseRail() {
 
         <section>
           <h2>Best runs</h2>
-          <p className="browse-rail-blurb">Almost at a Clear — last stretch of a Sprint, Marathon, or Endurance.</p>
+          <p className="browse-rail-blurb">
+            Almost at a Clear — last stretch of a Sprint, Marathon, or
+            Endurance.
+          </p>
           {bestRuns.length === 0 ? (
-            <p className="browse-rail-empty">Nobody that far along yet.</p>
+            <p className="browse-rail-empty">
+              Nobody that far along yet.{" "}
+              <Link href="/records" className="text-gold hover:text-ink">
+                See the games
+              </Link>
+            </p>
           ) : (
             <ul>
               {bestRuns.map((row) => (
