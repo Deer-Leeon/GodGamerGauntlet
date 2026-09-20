@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect } from "react";
+import { useLayoutEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import { applyChromeClasses } from "@/lib/chromeBoot";
 import ControlBoard from "@/components/ControlBoard";
 import {
   unpinControlRun,
@@ -16,24 +17,19 @@ import {
 export default function ControlRail() {
   const pathname = usePathname();
   const runId = usePinnedControlRunId();
+  const [mounted, setMounted] = useState(false);
+
+  useLayoutEffect(() => {
+    applyChromeClasses();
+    setMounted(true);
+  }, [pathname, runId]);
 
   const hidden =
     !runId ||
     pathname?.startsWith("/overlay/") ||
     pathname?.startsWith("/control/");
 
-  useEffect(() => {
-    if (hidden) {
-      document.documentElement.classList.remove("ggg-has-control-rail");
-      return;
-    }
-    document.documentElement.classList.add("ggg-has-control-rail");
-    return () => {
-      document.documentElement.classList.remove("ggg-has-control-rail");
-    };
-  }, [hidden]);
-
-  if (hidden || !runId) return null;
+  if (!mounted || hidden || !runId) return null;
 
   return (
     <aside className="fixed top-0 right-0 z-30 hidden h-dvh w-80 flex-col border-l border-gold/25 bg-surface pt-14 lg:flex">

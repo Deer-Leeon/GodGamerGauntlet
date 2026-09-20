@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   CommentThread,
   ReactionBar,
@@ -14,11 +14,13 @@ import SpeedrunTimer, {
 } from "@/components/SpeedrunTimer";
 import {
   getFeed,
+  getGames,
   getLeaderboard,
   getLiveRuns,
   getProfile,
   type FeedPost,
   type FeedSort,
+  type Game,
   type LeaderboardEntry,
   type LiveRunCard,
   type ProfileLiveRun,
@@ -27,6 +29,7 @@ import {
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import HomeWelcome from "@/components/HomeWelcome";
+import RosterGrid from "@/components/RosterGrid";
 import MomentChips from "@/components/MomentChips";
 import { RunTypeBadge } from "@/components/RunTypeBadge";
 import { GAUNTLET_MODES } from "@/lib/site";
@@ -40,38 +43,19 @@ const SORTS: { id: FeedSort; label: string }[] = [
 /**
  * Auth-aware landing banner above the feed: signed-out visitors get the
  * pitch, signed-in players get their gauntlet status (resume or start).
+ * Parent waits for auth before mounting this so the pitch cannot flash
+ * and then vanish for a signed-in player.
  */
-function HomeHero({ user }: { user: User | null }) {
-  const [live, setLive] = useState<ProfileLiveRun | null>(null);
-  const [checked, setChecked] = useState(false);
-
-  useEffect(() => {
-    if (!user) {
-      setLive(null);
-      setChecked(false);
-      return;
-    }
-    let cancelled = false;
-    getProfile(user.username)
-      .then((profile) => {
-        if (cancelled) return;
-        setLive(profile.live ?? null);
-        setChecked(true);
-      })
-      .catch(() => {
-        // No card is better than a broken one; the feed below still works.
-        if (!cancelled) setChecked(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [user]);
-
+function HomeHero({
+  user,
+  live,
+}: {
+  user: User | null;
+  live: ProfileLiveRun | null;
+}) {
   if (!user) {
     return <HomeWelcome />;
   }
-
-  if (!checked) return null;
 
   if (live) {
     return (
@@ -134,11 +118,16 @@ const LIVE_POLL_MS = 60_000;
  * Horizontal rail of gauntlets whose timer is running right now. Each card
  * sends viewers to the runner's stream (or profile when no stream is set).
  */
-function LiveNowRail() {
-  const [cards, setCards] = useState<LiveRunCard[]>([]);
-  const [ready, setReady] = useState(false);
+function LiveNowRail({
+  initial,
+  initialSyncedAt,
+}: {
+  initial: LiveRunCard[];
+  initialSyncedAt: number;
+}) {
+  const [cards, setCards] = useState(initial);
   // performance.now() at fetch time; SpeedrunTimer extrapolates from here.
-  const [syncedAt, setSyncedAt] = useState(0);
+  const [syncedAt, setSyncedAt] = useState(initialSyncedAt);
 
   useEffect(() => {
     let cancelled = false;
@@ -151,19 +140,13 @@ function LiveNowRail() {
         })
         .catch(() => {
           // The rail is decoration; a failed poll just keeps the last state.
-        })
-        .finally(() => {
-          if (!cancelled) setReady(true);
         });
-    load();
     const timer = window.setInterval(load, LIVE_POLL_MS);
     return () => {
       cancelled = true;
       window.clearInterval(timer);
     };
   }, []);
-
-  if (!ready) return null;
 
   if (cards.length === 0) {
     return (
@@ -288,46 +271,118 @@ function LiveCard({ card, syncedAt }: { card: LiveRunCard; syncedAt: number }) {
   );
 }
 
-export default function FeedPage() {
-  const { user } = useAuth();
+type HomeBundle = {
+  games: Game[];
+  liveCards: LiveRunCard[];
+  liveSyncedAt: number;
+  posts: FeedPost[];
+  hasMore: boolean;
+  sprint: LeaderboardEntry[];
+  marathon: LeaderboardEntry[];
+  endurance: LeaderboardEntry[];
+};
 
+const FEED_ERROR =
+  "Couldn't load the feed. The API may be waking up — try again in a few seconds.";
+
+export default function FeedPage() {
+  const { user, loading: authLoading } = useAuth();
+
+  const [bundle, setBundle] = useState<HomeBundle | null>(null);
+  const [liveRun, setLiveRun] = useState<ProfileLiveRun | null | undefined>(
+    undefined,
+  );
   const [sort, setSort] = useState<FeedSort>("hot");
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([
+      getGames().catch(() => [] as Game[]),
+      getLiveRuns().catch(() => [] as LiveRunCard[]),
+      getFeed("hot", 1).then(
+        (result) => ({ result, error: null as string | null }),
+        () => ({ result: null, error: FEED_ERROR }),
+      ),
+      getLeaderboard("Sprint", 5).catch(() => [] as LeaderboardEntry[]),
+      getLeaderboard("Marathon", 5).catch(() => [] as LeaderboardEntry[]),
+      getLeaderboard("Endurance", 5).catch(() => [] as LeaderboardEntry[]),
+    ]).then(([games, liveCards, feed, sprint, marathon, endurance]) => {
+      if (cancelled) return;
+      const posts = feed.result?.posts ?? [];
+      setBundle({
+        games,
+        liveCards,
+        liveSyncedAt: performance.now(),
+        posts,
+        hasMore: feed.result?.hasMore ?? false,
+        sprint,
+        marathon,
+        endurance,
+      });
+      setPosts(posts);
+      setPage(1);
+      setHasMore(feed.result?.hasMore ?? false);
+      setError(feed.error);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user) {
+      setLiveRun(null);
+      return;
+    }
+    let cancelled = false;
+    getProfile(user.username)
+      .then((profile) => {
+        if (!cancelled) setLiveRun(profile.live ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setLiveRun(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, user]);
+
+  const appliedSort = useRef<FeedSort | null>(null);
 
   const changeSort = useCallback((nextSort: FeedSort) => {
     setSort(nextSort);
-    setLoading(true);
   }, []);
 
-  // Reload when the sort changes and when auth state settles (to pick up myVote).
   useEffect(() => {
+    if (!bundle) return;
+    if (appliedSort.current === sort) return;
+    if (appliedSort.current === null && sort === "hot") {
+      appliedSort.current = "hot";
+      return;
+    }
     let cancelled = false;
     getFeed(sort, 1)
       .then((result) => {
         if (cancelled) return;
+        appliedSort.current = sort;
         setPosts(result.posts);
         setPage(1);
         setHasMore(result.hasMore);
         setError(null);
       })
       .catch(() => {
-        if (cancelled) return;
-        setError(
-          "Couldn't load the feed. The API may be waking up — try again in a few seconds.",
-        );
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) setError(FEED_ERROR);
       });
     return () => {
       cancelled = true;
     };
-  }, [sort, user]);
+  }, [sort, bundle]);
 
   async function loadMore() {
     setLoadingMore(true);
@@ -350,11 +405,39 @@ export default function FeedPage() {
     );
   }
 
+  const ready = Boolean(bundle) && !authLoading && liveRun !== undefined;
+
+  if (!ready || !bundle) {
+    return (
+      <main
+        className="feed-page site-content min-h-[70vh] flex-1 px-5 py-8 sm:px-7"
+        aria-busy="true"
+      >
+        <span className="sr-only">Loading the homepage</span>
+      </main>
+    );
+  }
+
   return (
     <main className="feed-page site-content flex-1 px-5 py-8 sm:px-7">
-      <HomeHero user={user} />
+      <HomeHero user={user} live={liveRun ?? null} />
 
-      <LiveNowRail />
+      <section className="mt-8" aria-labelledby="home-roster-heading">
+        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+          <h2 id="home-roster-heading" className="text-sm font-medium text-ink">
+            The 19 games
+          </h2>
+          <Link href="/records" className="text-sm text-faint hover:text-gold">
+            Game boards
+          </Link>
+        </div>
+        <RosterGrid games={bundle.games} />
+      </section>
+
+      <LiveNowRail
+        initial={bundle.liveCards}
+        initialSyncedAt={bundle.liveSyncedAt}
+      />
 
       <header className="mt-8 flex flex-wrap items-end justify-between gap-4 border-b border-gold/20 pb-6">
         <div>
@@ -375,7 +458,11 @@ export default function FeedPage() {
         </Link>
       </header>
 
-      <TopBoards />
+      <TopBoards
+        sprint={bundle.sprint}
+        marathon={bundle.marathon}
+        endurance={bundle.endurance}
+      />
 
       <div
         role="tablist"
@@ -400,17 +487,11 @@ export default function FeedPage() {
       </div>
 
       <div className="feed-list mt-5">
-        {loading && (
-          <p className="py-14 text-sm text-faint">Loading the feed…</p>
-        )}
-
-        {!loading && error && (
+        {error && (
           <p className="py-12 text-sm text-red-400/90">{error}</p>
         )}
 
-        {!loading && !error && posts.length === 0 && (
-          <EmptyFeedWalkthrough />
-        )}
+        {!error && posts.length === 0 && <EmptyFeedWalkthrough />}
 
         {posts.map((post) => (
           <PostCard
@@ -422,7 +503,7 @@ export default function FeedPage() {
         ))}
       </div>
 
-      {!loading && hasMore && (
+      {hasMore && (
         <button
           onClick={loadMore}
           disabled={loadingMore}
@@ -689,35 +770,15 @@ function FooterBar({
   );
 }
 
-function TopBoards() {
-  const [sprint, setSprint] = useState<LeaderboardEntry[] | null>(null);
-  const [marathon, setMarathon] = useState<LeaderboardEntry[] | null>(null);
-  const [endurance, setEndurance] = useState<LeaderboardEntry[] | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    Promise.all([
-      getLeaderboard("Sprint", 5),
-      getLeaderboard("Marathon", 5),
-      getLeaderboard("Endurance", 5),
-    ]).then(([s, m, e]) => {
-      if (cancelled) return;
-      setSprint(s);
-      setMarathon(m);
-      setEndurance(e);
-    }).catch(() => {
-      if (cancelled) return;
-      setSprint([]);
-      setMarathon([]);
-      setEndurance([]);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  if (sprint === null || marathon === null || endurance === null) return null;
-
+function TopBoards({
+  sprint,
+  marathon,
+  endurance,
+}: {
+  sprint: LeaderboardEntry[];
+  marathon: LeaderboardEntry[];
+  endurance: LeaderboardEntry[];
+}) {
   return (
     <section className="mt-8 grid gap-8 sm:grid-cols-3">
       <TopColumn title="Top Sprint" runType="Sprint" entries={sprint} />

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 
 const STORAGE_KEY = "ggg-control-run-id";
 const EVENT = "ggg-control-run";
@@ -22,20 +22,20 @@ export function unpinControlRun() {
   window.dispatchEvent(new Event(EVENT));
 }
 
+function subscribe(onStoreChange: () => void) {
+  window.addEventListener(EVENT, onStoreChange);
+  window.addEventListener("storage", onStoreChange);
+  return () => {
+    window.removeEventListener(EVENT, onStoreChange);
+    window.removeEventListener("storage", onStoreChange);
+  };
+}
+
+function getSnapshot(): string | null {
+  return localStorage.getItem(STORAGE_KEY);
+}
+
 /** The run currently pinned to the site-wide live-controls sidebar. */
 export function usePinnedControlRunId(): string | null {
-  const [runId, setRunId] = useState<string | null>(null);
-
-  useEffect(() => {
-    const sync = () => setRunId(localStorage.getItem(STORAGE_KEY));
-    sync();
-    window.addEventListener(EVENT, sync);
-    window.addEventListener("storage", sync);
-    return () => {
-      window.removeEventListener(EVENT, sync);
-      window.removeEventListener("storage", sync);
-    };
-  }, []);
-
-  return runId;
+  return useSyncExternalStore(subscribe, getSnapshot, () => null);
 }

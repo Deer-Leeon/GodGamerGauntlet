@@ -521,7 +521,6 @@ html:has(.obs-control-root) .site-nav {
   html.ggg-has-browse-rail .site-shell {
     --browse-rail-width: 16rem;
     padding-left: var(--browse-rail-width);
-    transition: padding-left 0.32s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   html.ggg-has-browse-rail.ggg-browse-rail-collapsed .site-shell {
@@ -534,6 +533,13 @@ html:has(.obs-control-root) .site-nav {
     margin-left: calc(-1 * var(--browse-rail-width));
     width: calc(100% + var(--browse-rail-width));
     padding-left: var(--browse-rail-width);
+  }
+
+  html.ggg-chrome-ready .site-shell {
+    transition: padding-left 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  html.ggg-chrome-ready.ggg-has-browse-rail .site-nav {
     transition:
       margin-left 0.32s cubic-bezier(0.22, 1, 0.36, 1),
       padding-left 0.32s cubic-bezier(0.22, 1, 0.36, 1),
@@ -558,6 +564,9 @@ html:has(.obs-control-root) .site-nav {
     overflow: hidden;
     border-right: 1px solid rgb(196 180 154 / 0.25);
     background: var(--color-surface);
+  }
+
+  html.ggg-chrome-ready .browse-rail {
     transition: width 0.32s cubic-bezier(0.22, 1, 0.36, 1);
   }
 

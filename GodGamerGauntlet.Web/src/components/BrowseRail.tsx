@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import {
   getSidebar,
@@ -11,9 +11,9 @@ import {
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { FOLLOWS_CHANGED } from "@/components/FollowButton";
+import { BROWSE_COLLAPSED_KEY, TOKEN_KEY } from "@/lib/chromeBoot";
 
 const POLL_MS = 20_000;
-const COLLAPSED_KEY = "ggg-browse-rail-collapsed";
 
 function hideOn(pathname: string | null): boolean {
   if (!pathname) return true;
@@ -30,27 +30,35 @@ export default function BrowseRail() {
   const pathname = usePathname();
   const { user } = useAuth();
   const allowed = !hideOn(pathname);
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
+  const [chromeReady, setChromeReady] = useState(false);
   const [sidebar, setSidebar] = useState<Sidebar | null>(null);
 
-  useEffect(() => {
-    const stored = window.localStorage.getItem(COLLAPSED_KEY);
-    if (stored === "1" || stored === "0") {
-      setCollapsed(stored === "1");
-      return;
+  useLayoutEffect(() => {
+    const stored = window.localStorage.getItem(BROWSE_COLLAPSED_KEY);
+    const next =
+      stored === "1" || stored === "0"
+        ? stored === "1"
+        : !window.localStorage.getItem(TOKEN_KEY);
+    setCollapsed(next);
+    if (allowed) {
+      const root = document.documentElement;
+      root.classList.add("ggg-has-browse-rail");
+      root.classList.toggle("ggg-browse-rail-collapsed", next);
     }
-    if (!user) setCollapsed(true);
-  }, [user]);
+    setChromeReady(true);
+  }, [allowed]);
 
   function toggleCollapsed() {
     setCollapsed((current) => {
       const next = !current;
-      window.localStorage.setItem(COLLAPSED_KEY, next ? "1" : "0");
+      window.localStorage.setItem(BROWSE_COLLAPSED_KEY, next ? "1" : "0");
       return next;
     });
   }
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    if (!chromeReady) return;
     const root = document.documentElement;
     if (!allowed) {
       root.classList.remove("ggg-has-browse-rail", "ggg-browse-rail-collapsed");
@@ -58,10 +66,7 @@ export default function BrowseRail() {
     }
     root.classList.add("ggg-has-browse-rail");
     root.classList.toggle("ggg-browse-rail-collapsed", collapsed);
-    return () => {
-      root.classList.remove("ggg-has-browse-rail", "ggg-browse-rail-collapsed");
-    };
-  }, [allowed, collapsed]);
+  }, [allowed, collapsed, chromeReady]);
 
   useEffect(() => {
     if (!allowed) return;
