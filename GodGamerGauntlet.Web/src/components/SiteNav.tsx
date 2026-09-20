@@ -32,14 +32,14 @@ export default function SiteNav() {
   if (pathname?.startsWith("/overlay/")) return null;
 
   return (
-    <header className="site-nav sticky top-0 z-40 border-b border-gold/25 bg-surface/95">
+    <header className="site-nav sticky top-0 z-40 border-b border-ink/10 bg-surface/95 backdrop-blur-sm">
       <nav className="site-content flex items-center gap-5 px-5 py-3 sm:px-7">
-        <Link href="/" className="brand text-gold">
+        <Link href="/" className="brand text-ink">
           <span className="sm:hidden">GGG</span>
           <span className="hidden sm:inline">God Gamer Gauntlet</span>
         </Link>
 
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+        <div className="flex flex-wrap items-center gap-x-1 gap-y-2 text-sm">
           {links.map((link) => {
             const active = isActive(pathname, link.href);
             return (
@@ -48,8 +48,8 @@ export default function SiteNav() {
                 href={link.href}
                 className={
                   active
-                    ? "-mb-px border-b-2 border-gold pb-1 text-gold"
-                    : "text-faint transition hover:text-ink"
+                    ? "rounded-full bg-ink/10 px-3 py-1 text-ink"
+                    : "rounded-full px-3 py-1 text-faint transition hover:text-ink"
                 }
               >
                 {link.label}
@@ -64,7 +64,7 @@ export default function SiteNav() {
               <NotificationBell />
               <Link
                 href={`/u/${encodeURIComponent(user.username)}`}
-                className="text-muted hover:text-gold"
+                className="text-muted hover:text-ink"
               >
                 {user.username}
               </Link>
@@ -77,7 +77,7 @@ export default function SiteNav() {
           ) : (
             <Link
               href="/login"
-              className="bg-gold px-4 py-2 text-dark transition hover:bg-gold/90"
+              className="text-muted transition hover:text-ink"
             >
               Sign in
             </Link>

@@ -59,11 +59,9 @@ function HomeHero({
 
   if (live) {
     return (
-      <section className="flex flex-wrap items-center justify-between gap-4 border border-gold/25 bg-gold/5 px-6 py-5">
+      <section className="flex flex-wrap items-center justify-between gap-4 rounded-xl bg-surface px-6 py-5 shadow-[0_1px_2px_rgb(42_36_28_/_0.08)]">
         <div className="min-w-0">
-          <p className="text-xs uppercase tracking-[0.18em] text-gold">
-            Gauntlet in progress
-          </p>
+          <p className="text-sm font-medium text-banner">Gauntlet in progress</p>
           <p className="mt-1.5 truncate text-sm text-muted">
             {live.slotsCompleted}/{live.totalSlots} beaten
             {live.currentTitle && (
@@ -77,13 +75,13 @@ function HomeHero({
         <div className="flex shrink-0 gap-3 text-sm">
           <Link
             href={`/run/${live.runId}`}
-            className="bg-gold px-5 py-2.5 text-dark transition hover:bg-gold/90"
+            className="bg-banner px-5 py-2.5 transition hover:bg-banner/90"
           >
             Resume gauntlet
           </Link>
           <Link
             href={`/control/${live.runId}`}
-            className="border border-gold/30 px-5 py-2.5 text-muted transition hover:border-gold hover:text-ink"
+            className="border border-ink/15 px-5 py-2.5 text-muted transition hover:border-ink/30 hover:text-ink"
           >
             Open control deck
           </Link>
@@ -93,18 +91,16 @@ function HomeHero({
   }
 
   return (
-    <section className="flex flex-wrap items-center justify-between gap-4 border border-gold/25 bg-gold/5 px-6 py-5">
+    <section className="flex flex-wrap items-center justify-between gap-4 rounded-xl bg-surface px-6 py-5 shadow-[0_1px_2px_rgb(42_36_28_/_0.08)]">
       <div>
-        <p className="text-xs uppercase tracking-[0.18em] text-gold">
-          No gauntlet in flight
-        </p>
+        <p className="text-sm font-medium text-ink">No gauntlet in flight</p>
         <p className="mt-1.5 text-sm text-muted">
           Draft a lineup and put a run on the board.
         </p>
       </div>
       <Link
         href="/draft"
-        className="shrink-0 bg-gold px-6 py-3 text-sm font-medium text-dark transition hover:bg-gold/90"
+        className="shrink-0 bg-banner px-6 py-3 text-sm font-medium transition hover:bg-banner/90"
       >
         Start a new gauntlet
       </Link>
@@ -150,13 +146,13 @@ function LiveNowRail({
 
   if (cards.length === 0) {
     return (
-      <section className="mt-8 border border-gold/20 px-5 py-4 text-sm leading-relaxed text-muted">
+      <section className="mt-8 rounded-xl bg-surface px-5 py-4 text-sm leading-relaxed text-muted shadow-[0_1px_2px_rgb(42_36_28_/_0.08)]">
         No one live right now.{" "}
-        <Link href="/leaderboard" className="text-gold hover:underline">
+        <Link href="/leaderboard" className="text-banner hover:underline">
           Browse Clears
         </Link>
         {" or "}
-        <Link href="/draft" className="text-gold hover:underline">
+        <Link href="/draft" className="text-banner hover:underline">
           draft a Sprint
         </Link>
         .
@@ -248,7 +244,7 @@ function LiveCard({ card, syncedAt }: { card: LiveRunCard; syncedAt: number }) {
   );
 
   const cardClass =
-    "group w-64 shrink-0 border border-gold/20 bg-surface transition hover:border-gold/45";
+    "group w-64 shrink-0 overflow-hidden rounded-xl bg-surface shadow-[0_1px_2px_rgb(42_36_28_/_0.08)] transition hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgb(42_36_28_/_0.12)]";
 
   return external ? (
     <a
@@ -427,7 +423,7 @@ export default function FeedPage() {
           <h2 id="home-roster-heading" className="text-sm font-medium text-ink">
             The 19 games
           </h2>
-          <Link href="/records" className="text-sm text-faint hover:text-gold">
+          <Link href="/records" className="text-sm text-faint hover:text-ink">
             Game boards
           </Link>
         </div>
@@ -439,7 +435,7 @@ export default function FeedPage() {
         initialSyncedAt={bundle.liveSyncedAt}
       />
 
-      <header className="mt-8 flex flex-wrap items-end justify-between gap-4 border-b border-gold/20 pb-6">
+      <header className="mt-8 flex flex-wrap items-end justify-between gap-4 border-b border-ink/10 pb-6">
         <div>
           {user ? (
             <h1 className="text-2xl font-semibold text-ink">Feed</h1>
@@ -452,7 +448,7 @@ export default function FeedPage() {
         </div>
         <Link
           href="/draft"
-          className="bg-gold px-4 py-2 text-sm text-dark transition hover:bg-gold/90"
+          className="bg-banner px-4 py-2 text-sm transition hover:bg-banner/90"
         >
           Draft a run
         </Link>
@@ -467,7 +463,7 @@ export default function FeedPage() {
       <div
         role="tablist"
         aria-label="Sort feed"
-        className="mt-8 flex gap-6 border-b border-gold/20 text-sm"
+        className="mt-8 flex gap-6 border-b border-ink/10 text-sm"
       >
         {SORTS.map((s) => (
           <button
@@ -477,7 +473,7 @@ export default function FeedPage() {
             onClick={() => changeSort(s.id)}
             className={`-mb-px border-b-2 pb-3 transition ${
               sort === s.id
-                ? "border-gold text-gold"
+                ? "border-banner text-banner"
                 : "border-transparent text-faint hover:text-ink"
             }`}
           >
@@ -507,7 +503,7 @@ export default function FeedPage() {
         <button
           onClick={loadMore}
           disabled={loadingMore}
-          className="mt-8 w-full border border-gold/25 px-4 py-3 text-sm text-muted transition hover:border-gold/50 hover:text-gold disabled:opacity-50"
+          className="mt-8 w-full rounded-full border border-ink/15 px-4 py-3 text-sm text-muted transition hover:border-ink/30 hover:text-ink disabled:opacity-50"
         >
           {loadingMore ? "Loading…" : "Load more"}
         </button>
@@ -518,30 +514,16 @@ export default function FeedPage() {
 
 function EmptyFeedWalkthrough() {
   return (
-    <div className="border border-gold/20 px-5 py-8">
-      <p className="text-xs uppercase tracking-[0.18em] text-gold">
-        Example Clear
+    <div className="rounded-xl bg-surface px-5 py-8 shadow-[0_1px_2px_rgb(42_36_28_/_0.08)]">
+      <p className="text-sm leading-relaxed text-muted">
+        Nobody has posted a Clear yet. A finished Marathon is five games
+        beaten, clock frozen, and a spot on the boards — that can be you.
       </p>
-      <p className="mt-3 text-sm leading-relaxed text-muted">
-        A finished Marathon looks like this: five games beaten, clock frozen,
-        posted to the feed and the boards. Nobody has posted one yet — that
-        can be you.
-      </p>
-      <ol className="mt-5 flex flex-wrap gap-0.5" aria-hidden>
-        {["1", "2", "3", "4", "5"].map((n) => (
-          <li
-            key={n}
-            className="flex h-10 w-10 items-center justify-center bg-gold/15 font-mono text-[11px] text-gold"
-          >
-            {n}
-          </li>
-        ))}
-      </ol>
       <p className="mt-5 flex flex-wrap gap-4 text-sm">
-        <Link href="/how" className="text-gold hover:underline">
+        <Link href="/how" className="text-banner hover:underline">
           How it works
         </Link>
-        <Link href="/draft" className="text-gold hover:underline">
+        <Link href="/draft" className="text-banner hover:underline">
           Draft a Sprint
         </Link>
       </p>
@@ -813,7 +795,7 @@ function TopColumn({
           No Clears yet.{" "}
           {GAUNTLET_MODES.find((mode) => mode.id === runType)?.games ?? 5}{" "}
           games.{" "}
-          <Link href="/how" className="text-gold hover:underline">
+          <Link href="/how" className="text-banner hover:underline">
             How it works
           </Link>
         </p>

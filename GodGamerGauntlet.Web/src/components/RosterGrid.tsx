@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useState } from "react";
 import type { Game } from "@/lib/api";
 
 export default function RosterGrid({
@@ -21,7 +22,7 @@ export default function RosterGrid({
     return (
       <p className="text-sm text-faint">
         The roster did not load.{" "}
-        <Link href="/records" className="text-gold hover:underline">
+        <Link href="/records" className="text-banner hover:underline">
           Open Games
         </Link>
         .
@@ -30,36 +31,46 @@ export default function RosterGrid({
   }
 
   return (
-    <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7">
+    <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
       {games.map((game) => (
         <li key={game.id}>
-          <Link
-            href={`/records/${game.id}`}
-            title={game.title}
-            className="group block border border-gold/20 bg-surface transition hover:border-gold/50"
-          >
-            <span className="relative block aspect-[4/3] overflow-hidden bg-white/5">
-              {game.thumb ? (
-                <Image
-                  src={game.thumb}
-                  alt=""
-                  fill
-                  unoptimized
-                  sizes="160px"
-                  className="object-cover opacity-90 transition group-hover:opacity-100"
-                />
-              ) : (
-                <span className="flex h-full items-center justify-center font-mono text-lg text-faint">
-                  {game.title.slice(0, 1)}
-                </span>
-              )}
-            </span>
-            <span className="block truncate px-1.5 py-1.5 text-[11px] leading-tight text-muted group-hover:text-ink">
-              {game.title}
-            </span>
-          </Link>
+          <GameCard game={game} />
         </li>
       ))}
     </ul>
+  );
+}
+
+function GameCard({ game }: { game: Game }) {
+  const [broken, setBroken] = useState(false);
+  const showArt = Boolean(game.thumb) && !broken;
+
+  return (
+    <Link
+      href={`/records/${game.id}`}
+      title={game.title}
+      className="group block rounded-xl bg-surface shadow-[0_1px_2px_rgb(42_36_28_/_0.08),0_8px_20px_rgb(42_36_28_/_0.06)] transition hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgb(42_36_28_/_0.12)]"
+    >
+      <span className="relative block aspect-[2/1] overflow-hidden rounded-t-xl bg-[repeating-linear-gradient(-45deg,rgb(42_36_28_/_0.04),rgb(42_36_28_/_0.04)_8px,rgb(42_36_28_/_0.08)_8px,rgb(42_36_28_/_0.08)_16px)]">
+        {showArt ? (
+          <Image
+            src={game.thumb!}
+            alt=""
+            fill
+            unoptimized
+            sizes="220px"
+            onError={() => setBroken(true)}
+            className="object-cover object-center"
+          />
+        ) : (
+          <span className="flex h-full items-center justify-center px-2 text-center text-xs font-medium text-muted">
+            {game.title}
+          </span>
+        )}
+      </span>
+      <span className="block truncate px-2.5 py-2 text-[13px] leading-tight text-ink">
+        {game.title}
+      </span>
+    </Link>
   );
 }

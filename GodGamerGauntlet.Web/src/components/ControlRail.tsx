@@ -32,7 +32,7 @@ export default function ControlRail() {
   if (!mounted || hidden || !runId) return null;
 
   return (
-    <aside className="fixed top-0 right-0 z-30 hidden h-dvh w-80 flex-col border-l border-gold/25 bg-surface pt-14 lg:flex">
+    <aside className="control-rail fixed top-0 right-0 z-30 hidden h-dvh w-80 flex-col border-l border-gold/25 pt-14 lg:flex">
       <div className="flex items-center justify-between gap-2 border-b border-gold/25 px-4 py-3">
         <Link
           href={`/control/${runId}`}

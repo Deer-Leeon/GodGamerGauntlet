@@ -68,7 +68,7 @@ export default function LoginPage() {
 
       <div
         role="tablist"
-        className="mt-8 flex gap-6 border-b border-gold/20 text-sm"
+        className="mt-8 flex gap-6 border-b border-ink/10 text-sm"
       >
         {(["login", "register"] as const).map((m) => (
           <button
@@ -81,7 +81,7 @@ export default function LoginPage() {
             }}
             className={`-mb-px border-b-2 pb-3 transition ${
               mode === m
-                ? "border-gold text-gold"
+                ? "border-banner text-banner"
                 : "border-transparent text-faint hover:text-ink"
             }`}
           >
@@ -158,12 +158,12 @@ export default function LoginPage() {
           )}
         </label>
 
-        {error && <p className="text-sm text-red-400/90">{error}</p>}
+        {error && <p className="text-sm text-banner">{error}</p>}
 
         <button
           type="submit"
           disabled={submitting}
-          className="mt-2 bg-gold px-4 py-2.5 text-sm text-dark transition hover:bg-gold/90 disabled:cursor-not-allowed disabled:opacity-50"
+          className="mt-2 bg-banner px-4 py-2.5 text-sm transition hover:bg-banner/90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {submitting
             ? "One sec…"

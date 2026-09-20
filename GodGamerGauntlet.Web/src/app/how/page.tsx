@@ -11,17 +11,17 @@ export const metadata: Metadata = {
 export default function HowItWorksPage() {
   return (
     <main className="site-content flex-1 px-5 py-8 sm:px-7">
-      <header className="border-b border-gold/20 pb-6">
-        <h1 className="text-2xl font-semibold">How it works</h1>
-        <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted">
+      <header className="pb-2">
+        <h1>How it works</h1>
+        <p className="mt-3 max-w-xl text-base leading-relaxed text-muted">
           A solo speedrun gauntlet. Draft a lineup, run every game start to
           finish, and put the Clear on the boards.
         </p>
       </header>
 
-      <ol className="mt-10 max-w-2xl space-y-10">
-        <li>
-          <p className="text-xs uppercase tracking-[0.18em] text-gold">1</p>
+      <ol className="mt-10 max-w-2xl space-y-5">
+        <li className="rounded-xl bg-surface px-5 py-6 shadow-[0_1px_2px_rgb(42_36_28_/_0.08)]">
+          <p className="text-sm font-medium text-banner">1</p>
           <h2 className="mt-1">Pick a length</h2>
           <p className="mt-2 text-sm leading-relaxed text-muted">
             Sprint, Marathon, or Endurance. Harder lineups rank higher on the
@@ -29,40 +29,43 @@ export default function HowItWorksPage() {
           </p>
           <ul className="mt-4 space-y-2 text-sm">
             {GAUNTLET_MODES.map((mode) => (
-              <li key={mode.id} className="border border-gold/20 px-4 py-3">
-                <span className="text-ink">{mode.label}</span>
-                <span className="text-faint"> · {mode.games} games — </span>
-                <span className="text-muted">{mode.blurb}</span>
+              <li
+                key={mode.id}
+                className={`rounded-xl px-4 py-3 ${mode.chip}`}
+              >
+                <span className="font-medium">{mode.label}</span>
+                <span className="opacity-70"> · {mode.games} games — </span>
+                <span>{mode.blurb}</span>
               </li>
             ))}
           </ul>
         </li>
 
-        <li>
-          <p className="text-xs uppercase tracking-[0.18em] text-gold">2</p>
+        <li className="rounded-xl bg-surface px-5 py-6 shadow-[0_1px_2px_rgb(42_36_28_/_0.08)]">
+          <p className="text-sm font-medium text-banner">2</p>
           <h2 className="mt-1">Draft from the 19 games</h2>
           <p className="mt-2 text-sm leading-relaxed text-muted">
             The catalog is closed. Build a lineup in the Draft Room — no
             account needed until you start the clock.
           </p>
-          <p className="mt-4 flex flex-wrap gap-3 text-sm">
-            <Link
-              href="/records"
-              className="border border-gold/30 px-4 py-2 text-muted transition hover:border-gold hover:text-ink"
-            >
-              Games
-            </Link>
+          <p className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-3 text-sm">
             <Link
               href="/draft"
-              className="bg-gold px-4 py-2 text-dark transition hover:bg-gold/90"
+              className="bg-banner px-4 py-2 transition hover:bg-banner/90"
             >
               Draft a lineup
+            </Link>
+            <Link
+              href="/records"
+              className="text-muted underline-offset-4 hover:text-ink hover:underline"
+            >
+              Games
             </Link>
           </p>
         </li>
 
-        <li>
-          <p className="text-xs uppercase tracking-[0.18em] text-gold">3</p>
+        <li className="rounded-xl bg-surface px-5 py-6 shadow-[0_1px_2px_rgb(42_36_28_/_0.08)]">
+          <p className="text-sm font-medium text-banner">3</p>
           <h2 className="mt-1">Run start to finish</h2>
           <p className="mt-2 text-sm leading-relaxed text-muted">
             Split when you beat a game. Use the site control deck, or download
@@ -72,30 +75,30 @@ export default function HowItWorksPage() {
           <p className="mt-4">
             <Link
               href="/timer"
-              className="text-sm text-gold hover:underline"
+              className="text-sm text-banner hover:underline"
             >
               Download GGG Timer
             </Link>
           </p>
         </li>
 
-        <li>
-          <p className="text-xs uppercase tracking-[0.18em] text-gold">4</p>
+        <li className="rounded-xl bg-surface px-5 py-6 shadow-[0_1px_2px_rgb(42_36_28_/_0.08)]">
+          <p className="text-sm font-medium text-banner">4</p>
           <h2 className="mt-1">Post the Clear</h2>
           <p className="mt-2 text-sm leading-relaxed text-muted">
             Finish every game and the run lands on the feed and the boards. A
             DNF still counts for furthest survival.
           </p>
-          <p className="mt-4 flex flex-wrap gap-3 text-sm">
+          <p className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-3 text-sm">
             <Link
               href="/leaderboard"
-              className="border border-gold/30 px-4 py-2 text-muted transition hover:border-gold hover:text-ink"
+              className="text-muted underline-offset-4 hover:text-ink hover:underline"
             >
               Boards
             </Link>
             <Link
               href="/login?next=/draft"
-              className="border border-gold/30 px-4 py-2 text-muted transition hover:border-gold hover:text-ink"
+              className="text-muted underline-offset-4 hover:text-ink hover:underline"
             >
               Create an account
             </Link>
@@ -103,7 +106,7 @@ export default function HowItWorksPage() {
         </li>
       </ol>
 
-      <section className="mt-14 max-w-2xl border-t border-gold/20 pt-8">
+      <section className="mt-14 max-w-2xl border-t border-ink/10 pt-8">
         <h2>Words used here</h2>
         <dl className="mt-4 space-y-4 text-sm leading-relaxed">
           <div>

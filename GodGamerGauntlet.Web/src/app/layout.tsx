@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Script from "next/script";
-import { JetBrains_Mono, Outfit, Syne } from "next/font/google";
+import { Fraunces, JetBrains_Mono, Outfit } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { AuthProvider } from "@/lib/auth";
 import SiteNav from "@/components/SiteNav";
@@ -18,8 +18,8 @@ const outfit = Outfit({
   subsets: ["latin"],
 });
 
-const syne = Syne({
-  variable: "--font-syne",
+const fraunces = Fraunces({
+  variable: "--font-fraunces",
   subsets: ["latin"],
 });
 
@@ -55,7 +55,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${outfit.variable} ${syne.variable} ${jetbrainsMono.variable} antialiased`}
+      className={`${outfit.variable} ${fraunces.variable} ${jetbrainsMono.variable} antialiased`}
     >
       <body className="bg-dark text-muted">
         <Script

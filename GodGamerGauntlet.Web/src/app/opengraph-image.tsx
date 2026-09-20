@@ -13,38 +13,44 @@ export default function OpenGraphImage() {
           justifyContent: "center",
           width: "100%",
           height: "100%",
-          background: "#18181a",
-          color: "#f2f2f0",
+          background: "#F6F0E4",
+          color: "#2A241C",
           padding: "80px",
         }}
       >
         <div
           style={{
             fontSize: 64,
-            fontWeight: 700,
-            letterSpacing: "-0.04em",
-            color: "#c4b49a",
+            fontWeight: 600,
+            letterSpacing: "0",
+            color: "#2A241C",
           }}
         >
           God Gamer Gauntlet
         </div>
         <div
           style={{
-            marginTop: 24,
-            fontSize: 32,
-            color: "#b4b4b0",
+            marginTop: 28,
+            display: "flex",
+            gap: 16,
+            fontSize: 28,
+            color: "#5C5348",
           }}
         >
-          Sprint · Marathon · Endurance
+          <span>Sprint</span>
+          <span>·</span>
+          <span>Marathon</span>
+          <span>·</span>
+          <span>Endurance</span>
         </div>
         <div
           style={{
-            marginTop: 16,
+            marginTop: 20,
             fontSize: 24,
-            color: "#8a8a86",
+            color: "#8A7F72",
           }}
         >
-          Draft 3, 5, or 7 full-game speedruns
+          A solo speedrun club. 19 games.
         </div>
       </div>
     ),

@@ -133,7 +133,7 @@ export default function BrowseRail() {
           {live.length === 0 ? (
             <p className="browse-rail-empty">
               No live gauntlets.{" "}
-              <Link href="/how" className="text-gold hover:text-ink">
+              <Link href="/how" className="text-banner hover:text-ink">
                 How it works
               </Link>
             </p>
@@ -155,7 +155,7 @@ export default function BrowseRail() {
           {bestRuns.length === 0 ? (
             <p className="browse-rail-empty">
               Nobody that far along yet.{" "}
-              <Link href="/records" className="text-gold hover:text-ink">
+              <Link href="/records" className="text-banner hover:text-ink">
                 See the games
               </Link>
             </p>

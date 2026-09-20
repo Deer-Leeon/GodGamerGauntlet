@@ -63,7 +63,7 @@ export default function ControlBoard({
 
   if (loadError && !state) {
     return (
-      <div className="grid flex-1 place-items-center px-4 text-center text-gray-400">
+      <div className="control-deck-theme grid flex-1 place-items-center px-4 text-center text-gray-400">
         Run not found.
       </div>
     );
@@ -71,7 +71,7 @@ export default function ControlBoard({
 
   if (!state) {
     return (
-      <div className="grid flex-1 place-items-center px-4 text-center text-gray-500">
+      <div className="control-deck-theme grid flex-1 place-items-center px-4 text-center text-gray-500">
         Connecting to run…
       </div>
     );
@@ -336,7 +336,7 @@ export default function ControlBoard({
           window.focus();
           rootRef.current?.focus();
         }}
-        className="obs-control-root flex h-full min-h-0 flex-1 flex-col gap-2 overflow-hidden px-3 py-2 outline-none"
+        className="obs-control-root control-deck-theme flex h-full min-h-0 flex-1 flex-col gap-2 overflow-hidden px-3 py-2 outline-none"
       >
         {body}
       </div>
@@ -348,7 +348,7 @@ export default function ControlBoard({
       ref={rootRef}
       tabIndex={-1}
       onPointerDown={() => rootRef.current?.focus()}
-      className="flex flex-col gap-2 outline-none"
+      className="control-deck-theme flex flex-col gap-2 outline-none"
     >
       {body}
     </div>
