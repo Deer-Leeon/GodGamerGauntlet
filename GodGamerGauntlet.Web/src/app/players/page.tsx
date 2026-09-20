@@ -5,6 +5,9 @@ import Link from "next/link";
 import { timeAgo } from "@/components/RunSocial";
 import { getPlayers, type PlayerCard } from "@/lib/api";
 
+const COLS =
+  "sm:grid-cols-[minmax(0,1.3fr)_4rem_4rem_minmax(0,11rem)_5.25rem]";
+
 export default function PlayersPage() {
   const [players, setPlayers] = useState<PlayerCard[]>([]);
   const [query, setQuery] = useState("");
@@ -46,9 +49,13 @@ export default function PlayersPage() {
 
   return (
     <main className="site-content flex-1 px-5 py-8 sm:px-7">
-      <header className="border-b border-gold/20 pb-6">
-        <h1 className="text-2xl font-semibold">Players</h1>
-        <p className="mt-2 text-sm leading-relaxed text-muted">
+      <header className="border-b-2 border-ink/15 pb-6">
+        <p className="font-pixel text-[10px] leading-6 text-banner">
+          PLAYER SELECT
+        </p>
+        <h1 className="mt-2 text-2xl font-semibold">Players</h1>
+        <div className="mt-3 h-1.5 w-20 bg-banner" />
+        <p className="mt-4 text-sm leading-relaxed text-muted">
           Look up anyone and open their gauntlet history.
         </p>
       </header>
@@ -77,7 +84,9 @@ export default function PlayersPage() {
       )}
 
       <div className="feed-list mt-5">
-        <div className="feed-head hidden grid-cols-[1fr_5rem_5rem_7rem_6rem] gap-3 border-b border-gold/20 py-3.5 text-sm text-faint sm:grid">
+        <div
+          className={`feed-head hidden ${COLS} items-center gap-3 border-b border-ink/10 py-2 text-xs uppercase tracking-wide text-faint sm:grid`}
+        >
           <span>Player</span>
           <span className="text-right">Clears</span>
           <span className="text-right">DNFs</span>
@@ -102,27 +111,24 @@ export default function PlayersPage() {
             <li key={player.username} className="feed-row">
               <Link
                 href={`/u/${encodeURIComponent(player.username)}`}
-                className="grid grid-cols-1 items-baseline gap-1 py-3.5 text-sm sm:grid-cols-[1fr_5rem_5rem_7rem_6rem] sm:gap-3"
+                className={`grid grid-cols-1 items-center gap-x-3 gap-y-0.5 py-2 text-sm sm:grid ${COLS} sm:h-11 sm:overflow-hidden sm:py-0`}
               >
-                <span className="truncate font-medium text-ink hover:text-gold">
+                <span className="truncate font-medium text-ink hover:text-banner">
                   {player.username}
                 </span>
-                <span className="text-faint sm:hidden">
-                  {player.attemptCount === 0
-                    ? "No gauntlets yet"
-                    : `${player.clearCount} Clear${player.clearCount === 1 ? "" : "s"} · ${player.dnfCount} DNF`}
-                  {rankLine(player) ? ` · ${rankLine(player)}` : ""}
-                </span>
-                <span className="hidden text-right font-mono tabular-nums text-muted sm:block">
+                <span className="hidden whitespace-nowrap text-right font-mono tabular-nums text-muted sm:block">
                   {player.clearCount}
                 </span>
-                <span className="hidden text-right font-mono tabular-nums text-muted sm:block">
+                <span className="hidden whitespace-nowrap text-right font-mono tabular-nums text-muted sm:block">
                   {player.dnfCount}
                 </span>
-                <span className="hidden text-right font-mono tabular-nums text-muted sm:block">
+                <span
+                  title={rankTitle(player) ?? undefined}
+                  className="hidden truncate whitespace-nowrap text-right font-mono tabular-nums text-muted sm:block"
+                >
                   {rankLine(player) ?? "—"}
                 </span>
-                <span className="hidden text-right text-sm text-faint sm:block">
+                <span className="hidden truncate whitespace-nowrap text-right text-faint sm:block">
                   {player.lastRunAt ? timeAgo(player.lastRunAt) : "—"}
                 </span>
               </Link>
@@ -134,12 +140,27 @@ export default function PlayersPage() {
   );
 }
 
+function ranksOf(player: PlayerCard): { n: number; label: string }[] {
+  const ranks: { n: number; label: string }[] = [];
+  if (player.sprintRank != null) ranks.push({ n: player.sprintRank, label: "Sprint" });
+  if (player.marathonRank != null) ranks.push({ n: player.marathonRank, label: "Marathon" });
+  if (player.enduranceRank != null) ranks.push({ n: player.enduranceRank, label: "Endurance" });
+  if (player.standardRank != null) ranks.push({ n: player.standardRank, label: "Std" });
+  if (player.liteRank != null) ranks.push({ n: player.liteRank, label: "Lite" });
+  return ranks;
+}
+
 function rankLine(player: PlayerCard): string | null {
-  const parts: string[] = [];
-  if (player.sprintRank != null) parts.push(`#${player.sprintRank} Sprint`);
-  if (player.marathonRank != null) parts.push(`#${player.marathonRank} Marathon`);
-  if (player.enduranceRank != null) parts.push(`#${player.enduranceRank} Endurance`);
-  if (player.standardRank != null) parts.push(`#${player.standardRank} Std`);
-  if (player.liteRank != null) parts.push(`#${player.liteRank} Lite`);
-  return parts.length === 0 ? null : parts.join(" · ");
+  const ranks = ranksOf(player);
+  if (ranks.length === 0) return null;
+  const best = Math.min(...ranks.map((rank) => rank.n));
+  const winners = ranks.filter((rank) => rank.n === best);
+  if (winners.length === 1) return `#${winners[0].n} ${winners[0].label}`;
+  return `#${best}`;
+}
+
+function rankTitle(player: PlayerCard): string | null {
+  const ranks = ranksOf(player);
+  if (ranks.length === 0) return null;
+  return ranks.map((rank) => `#${rank.n} ${rank.label}`).join(" · ");
 }
