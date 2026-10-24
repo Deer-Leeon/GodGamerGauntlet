@@ -24,6 +24,7 @@ public class CourtApiFactory : WebApplicationFactory<Program>
         builder.UseSetting("Jwt:Secret", "integration-test-secret");
         builder.UseSetting("RawgApiKey", "");
         builder.UseSetting("SrcImport:BulkEnabled", "false");
+        builder.UseSetting("SrcImport:DailySyncEnabled", "false");
         builder.UseSetting("SrcImport:PageSize", "2");
 
         builder.ConfigureServices(services =>

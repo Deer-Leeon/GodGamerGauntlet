@@ -41,7 +41,9 @@ public sealed record SrcRunQuery(
     string? RegionId,
     bool? Emulated,
     int Max,
-    int Offset);
+    int Offset,
+    string OrderBy = "submitted",
+    string Direction = "asc");
 
 public sealed class SrcRunPage
 {

@@ -341,9 +341,7 @@ public sealed partial class SrcImportService
         if (children.Count == 0)
         {
             cursor.Superseded = false;
-            cursor.Note = Trim(
-                "This slice still has more than 10,000 runs after splitting by level, platform, region, and emulator. The first 10,000 are stored.",
-                SrcImportCursor.NoteMaxLength);
+            cursor.Note = Trim(SrcImportCursor.CappedSliceNote, SrcImportCursor.NoteMaxLength);
             logger.LogWarning(
                 "SRC partition {Category} {Status} kept the first {Cap} runs.",
                 cursor.CategorySrcId, cursor.Status, RunOffsetCap);
@@ -360,20 +358,20 @@ public sealed partial class SrcImportService
         await context.SaveChangesAsync(cancellationToken);
     }
 
-    private async Task UpsertRunAsync(
+    private async Task<IReadOnlyList<BoardTouch>> UpsertRunAsync(
         Guid gameId,
         Category category,
         IReadOnlyList<Variable> localVars,
         SrcRun run,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(run.Id) || run.Id.Length > Submission.SrcRunIdMaxLength) return;
+        if (string.IsNullOrWhiteSpace(run.Id) || run.Id.Length > Submission.SrcRunIdMaxLength) return [];
 
         var players = run.Players ?? [];
-        if (players.Count == 0) return;
+        if (players.Count == 0) return [];
 
         var timeMs = (long)Math.Round((run.Times?.PrimaryT ?? 0) * 1000d);
-        if (timeMs <= 0) return;
+        if (timeMs <= 0) return [];
 
         var links = ProofUrls.HttpLinks(
             (run.Videos?.Links ?? []).Select(l => l.Uri).Append(run.Splits?.Uri));
@@ -383,7 +381,7 @@ public sealed partial class SrcImportService
         video = Trim(video, Submission.VideoUrlMaxLength);
 
         var status = MapStatus(run.Status?.Status);
-        if (status != SubmissionStatus.Verified) return;
+        if (status != SubmissionStatus.Verified) return [];
 
         var level = await EnsureRunLevelAsync(gameId, run.Level, cancellationToken);
         var (platformId, platformName) = await ResolveNameAsync(
@@ -412,6 +410,8 @@ public sealed partial class SrcImportService
 
         var existing = await context.Submissions
             .FirstOrDefaultAsync(s => s.SrcRunId == run.Id, cancellationToken);
+        var previousPlayer = existing?.PlayerId;
+        var previousCategory = existing?.CategoryId;
 
         Submission submission;
         if (existing is null)
@@ -516,6 +516,15 @@ public sealed partial class SrcImportService
         }
 
         await context.SaveChangesAsync(cancellationToken);
+        var touches = new List<BoardTouch> { new(submission.PlayerId, submission.CategoryId) };
+        if (previousPlayer is Guid oldPlayer
+            && previousCategory is Guid oldCategory
+            && (oldPlayer != submission.PlayerId || oldCategory != submission.CategoryId))
+        {
+            touches.Add(new BoardTouch(oldPlayer, oldCategory));
+        }
+
+        return touches;
     }
 
     private async Task MaybeRecomputeAsync(Guid gameId, CancellationToken cancellationToken)

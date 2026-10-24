@@ -191,8 +191,8 @@ public sealed class SrcClient(HttpClient http, SrcRateLimiter limiter) : ISrcCli
             $"max={query.Max}",
             $"offset={query.Offset}",
             "embed=players,platform,region",
-            "orderby=submitted",
-            "direction=asc",
+            $"orderby={RunOrder(query.OrderBy)}",
+            $"direction={RunDirection(query.Direction)}",
         };
         if (!string.IsNullOrEmpty(query.CategoryId))
             parts.Add($"category={Uri.EscapeDataString(query.CategoryId)}");
@@ -217,6 +217,18 @@ public sealed class SrcClient(HttpClient http, SrcRateLimiter limiter) : ISrcCli
         var envelope = await response.Content.ReadFromJsonAsync<SrcDataEnvelope<List<SrcRun>>>(Json, cancellationToken);
         return new SrcRunPage { Data = envelope?.Data ?? [] };
     }
+
+    /// <summary>
+    /// Only the two orders the daily sync and the historical import use.
+    /// Anything else stays on submitted so a query cannot change the URL shape.
+    /// </summary>
+    private static string RunOrder(string? orderBy) =>
+        string.Equals(orderBy, "verify-date", StringComparison.OrdinalIgnoreCase)
+            ? "verify-date"
+            : "submitted";
+
+    private static string RunDirection(string? direction) =>
+        string.Equals(direction, "desc", StringComparison.OrdinalIgnoreCase) ? "desc" : "asc";
 
     private async Task<HttpResponseMessage> SendAsync(
         string relativeUrl, string? apiKey, CancellationToken cancellationToken)

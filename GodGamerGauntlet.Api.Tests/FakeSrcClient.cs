@@ -94,9 +94,24 @@ public sealed class FakeSrcClient : ISrcClient
         if (query.Emulated is bool emulated)
             rows = rows.Where(run => (run.System?.Emulated == true) == emulated);
 
-        var page = rows.Skip(query.Offset).Take(query.Max).ToList();
+        var ordered = rows.ToList();
+        if (string.Equals(query.Direction, "desc", StringComparison.OrdinalIgnoreCase))
+        {
+            ordered = string.Equals(query.OrderBy, "verify-date", StringComparison.OrdinalIgnoreCase)
+                ? ordered.OrderByDescending(run => RunInstant(run.Status?.VerifyDate)).ToList()
+                : ordered.OrderByDescending(run => RunInstant(run.Submitted)).ToList();
+        }
+
+        var page = ordered.Skip(query.Offset).Take(query.Max).ToList();
         return Task.FromResult(new SrcRunPage { Data = page });
     }
+
+    /// <summary>
+    /// Missing dates sort last on a descending page so a cutoff walk stops
+    /// before them. Ascending queries keep insertion order for the historical tests.
+    /// </summary>
+    private static DateTime RunInstant(string? value) =>
+        DateTime.TryParse(value, out var parsed) ? parsed : DateTime.MinValue;
 
     public static string BoardKey(
         string gameId, string categoryId, IReadOnlyDictionary<string, string>? filters)

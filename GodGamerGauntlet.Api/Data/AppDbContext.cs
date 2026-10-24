@@ -27,6 +27,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<GameSrcLink> GameSrcLinks => Set<GameSrcLink>();
     public DbSet<SrcImportCursor> SrcImportCursors => Set<SrcImportCursor>();
+    public DbSet<SrcDailySyncState> SrcDailySyncStates => Set<SrcDailySyncState>();
     public DbSet<UsernameReservation> UsernameReservations => Set<UsernameReservation>();
     public DbSet<GameTech> GameTeches => Set<GameTech>();
     public DbSet<GameTechClip> GameTechClips => Set<GameTechClip>();
@@ -470,6 +471,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .WithMany()
                 .HasForeignKey(c => c.GameId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<SrcDailySyncState>(entity =>
+        {
+            entity.Property(s => s.Id).ValueGeneratedNever();
+            entity.Property(s => s.LastError).HasMaxLength(SrcDailySyncState.ErrorMaxLength);
         });
 
         modelBuilder.Entity<UsernameReservation>(entity =>

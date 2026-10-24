@@ -13,6 +13,13 @@ public class SrcImportCursor
     public const int EmulatedMaxLength = 8;
     public const int NoteMaxLength = 500;
 
+    /// <summary>
+    /// Stored on a slice that still exceeded 10,000 runs after the finest split.
+    /// The daily sync reads this sentence back; keep the wording stable.
+    /// </summary>
+    public const string CappedSliceNote =
+        "This slice still has more than 10,000 runs after splitting by level, platform, region, and emulator. The first 10,000 are stored.";
+
     public Guid Id { get; set; }
 
     public Guid GameId { get; set; }

@@ -108,6 +108,7 @@ builder.Services.AddHttpClient<GodGamerGauntlet.Api.Services.Src.ISrcClient, God
 });
 builder.Services.AddScoped<GodGamerGauntlet.Api.Services.Src.SrcImportService>();
 builder.Services.AddHostedService<GodGamerGauntlet.Api.Services.Src.SrcImportBackgroundService>();
+builder.Services.AddHostedService<GodGamerGauntlet.Api.Services.Src.SrcDailySyncBackgroundService>();
 builder.Services.AddScoped<GodGamerGauntlet.Api.Services.Src.SrcClaimService>();
 
 // Discord WR broadcast: no-op unless DISCORD_WR_WEBHOOK_URL is configured.
