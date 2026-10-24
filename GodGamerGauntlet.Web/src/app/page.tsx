@@ -429,7 +429,7 @@ export default function FeedPage() {
       <section className="mt-8" aria-labelledby="home-roster-heading">
         <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
           <h2 id="home-roster-heading" className="text-ink">
-            The 19 games
+            The games
           </h2>
           <Link href="/records" className="text-sm text-faint hover:text-ink">
             Game boards

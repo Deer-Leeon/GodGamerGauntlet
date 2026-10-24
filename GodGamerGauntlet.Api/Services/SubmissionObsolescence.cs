@@ -17,7 +17,7 @@ public static class SubmissionObsolescence
     public static string BoardKey(Submission submission)
     {
         var ids = SubcategoryKey(submission).OrderBy(id => id).Select(id => id.ToString("N"));
-        return string.Join(',', ids);
+        return $"{submission.LevelId:N}|{string.Join(',', ids)}";
     }
 
     /// <summary>

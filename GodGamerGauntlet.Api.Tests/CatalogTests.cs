@@ -117,5 +117,8 @@ public class CatalogTests : IClassFixture<CourtApiFactory>
         Assert.Equal(
             GauntletRoster.Games.Select(g => g.Title).OrderBy(t => t).ToList(),
             SrcFlagshipMap.Games.Select(g => g.Title).OrderBy(t => t).ToList());
+        Assert.Equal(155, titles.Count);
+        Assert.Contains(titles, t => t == "Celeste");
+        Assert.Contains(titles, t => t == "Super Mario 64");
     }
 }

@@ -10,7 +10,7 @@ export default function HomeWelcome() {
       <h1 className="mt-3 text-ink">God Gamer Gauntlet</h1>
       <div className="mt-3 h-1.5 w-28 bg-banner" />
       <p className="mt-5 max-w-2xl text-base leading-relaxed text-muted">
-        Draft 3, 5, or 7 full games from these 19, speedrun them start to
+        Draft 3, 5, or 7 full games from the roster, speedrun them start to
         finish, and post the Clear.
       </p>
       <p className="mt-2 max-w-2xl text-sm leading-relaxed text-faint">
@@ -34,7 +34,7 @@ export default function HomeWelcome() {
           How it works
         </Link>
         <Link href="/records" className="text-muted underline-offset-4 hover:text-ink hover:underline">
-          See the 19 games
+          See the games
         </Link>
         <Link href="/draft" className="text-muted underline-offset-4 hover:text-ink hover:underline">
           Draft a lineup

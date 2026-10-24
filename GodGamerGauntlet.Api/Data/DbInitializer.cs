@@ -22,7 +22,7 @@ public static class DbInitializer
     }
 
     /// <summary>
-    /// Seeds the demo user and the closed <see cref="GauntletRoster"/> catalog.
+    /// Seeds the demo user and the <see cref="GauntletRoster"/> catalog.
     /// Idempotent.
     /// </summary>
     public static async Task SeedAsync(AppDbContext context)
@@ -40,6 +40,7 @@ public static class DbInitializer
 
         await PromoteFounderAdminAsync(context);
         await SeedRosterGamesAsync(context);
+        await SeedRosterLinksAsync(context);
         await RetireNonRosterGamesAsync(context);
         await SeedRosterTechAsync(context);
     }
@@ -74,15 +75,16 @@ public static class DbInitializer
             .GroupBy(g => g.Title.ToLowerInvariant())
             .ToDictionary(g => g.Key, g => g.First());
 
-        for (var rank = 0; rank < GauntletRoster.Games.Count; rank++)
+        foreach (var entry in GauntletRoster.Games)
         {
-            var entry = GauntletRoster.Games[rank];
             var match = byTitle.GetValueOrDefault(entry.Title.ToLowerInvariant());
 
             if (match is not null)
             {
                 match.IsFeatured = true;
-                match.PopularityRank = rank;
+                match.PopularityRank = GauntletRoster.PopularityRank(entry);
+                match.AllTimeRank = entry.AllTimeRank;
+                match.RecentRank = entry.RecentRank;
                 match.BaseDifficulty = entry.BaseDifficulty;
                 if (entry.Thumb is not null)
                 {
@@ -98,7 +100,9 @@ public static class DbInitializer
                 BaseDifficulty = entry.BaseDifficulty,
                 Thumb = entry.Thumb,
                 IsFeatured = true,
-                PopularityRank = rank
+                PopularityRank = GauntletRoster.PopularityRank(entry),
+                AllTimeRank = entry.AllTimeRank,
+                RecentRank = entry.RecentRank,
             });
         }
 
@@ -106,17 +110,15 @@ public static class DbInitializer
     }
 
     /// <summary>
-    /// Takes everything outside the roster off the catalog, then hard-deletes
-    /// the rows nothing points at. A leftover game that still has run slots,
-    /// boards, or submissions keeps its row so that history stays readable by
-    /// id — it just stops appearing in the Draft Room and records directory.
+    /// Takes everything outside the roster off the catalog. A game with run
+    /// slots or submissions stays so that history remains readable by id.
+    /// An idle leftover, including its empty boards and source link, is deleted.
     /// </summary>
     private static async Task RetireNonRosterGamesAsync(AppDbContext context)
     {
-        var stale = await context.Games
-            .Where(g => g.IsFeatured)
-            .ToListAsync();
-        stale = stale.Where(g => !GauntletRoster.Contains(g.Title)).ToList();
+        var stale = (await context.Games.ToListAsync())
+            .Where(g => !GauntletRoster.Contains(g.Title))
+            .ToList();
 
         foreach (var game in stale)
         {
@@ -124,24 +126,107 @@ public static class DbInitializer
         }
 
         await context.SaveChangesAsync();
+        if (stale.Count == 0) return;
 
-        // EF cannot translate this to a single delete across five dependents on
-        // every provider, so gather the referenced ids first.
-        var referenced = new HashSet<Guid>();
-        referenced.UnionWith(await context.RunSlots.Select(s => s.GameId).Distinct().ToListAsync());
-        referenced.UnionWith(await context.Categories.Select(c => c.GameId).Distinct().ToListAsync());
-        referenced.UnionWith(await context.Submissions.Select(s => s.GameId).Distinct().ToListAsync());
-        referenced.UnionWith(await context.GameModerators.Select(m => m.GameId).Distinct().ToListAsync());
-        referenced.UnionWith(await context.GameSrcLinks.Select(l => l.GameId).Distinct().ToListAsync());
-        referenced.UnionWith(await context.GameTeches.Select(t => t.GameId).Distinct().ToListAsync());
+        var staleIds = stale.Select(g => g.Id).ToList();
+        var busy = new HashSet<Guid>();
+        busy.UnionWith(await context.Submissions
+            .Where(s => staleIds.Contains(s.GameId))
+            .Select(s => s.GameId)
+            .Distinct()
+            .ToListAsync());
+        busy.UnionWith(await context.RunSlots
+            .Where(s => staleIds.Contains(s.GameId))
+            .Select(s => s.GameId)
+            .Distinct()
+            .ToListAsync());
 
-        var orphans = await context.Games
-            .Where(g => !g.IsFeatured && !referenced.Contains(g.Id))
-            .ToListAsync();
+        var idle = staleIds.Where(id => !busy.Contains(id)).ToList();
+        if (idle.Count == 0) return;
 
-        if (orphans.Count == 0) return;
+        context.Categories.RemoveRange(await context.Categories
+            .Where(c => idle.Contains(c.GameId))
+            .ToListAsync());
+        context.GameSrcLinks.RemoveRange(await context.GameSrcLinks
+            .Where(l => idle.Contains(l.GameId))
+            .ToListAsync());
+        context.GameModerators.RemoveRange(await context.GameModerators
+            .Where(m => idle.Contains(m.GameId))
+            .ToListAsync());
+        context.GameTeches.RemoveRange(await context.GameTeches
+            .Where(t => idle.Contains(t.GameId))
+            .ToListAsync());
+        await context.SaveChangesAsync();
 
+        var orphans = await context.Games.Where(g => idle.Contains(g.Id)).ToListAsync();
         context.Games.RemoveRange(orphans);
+        await context.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Points each roster game at its speedrun.com id and opens it for import.
+    /// A link that was previously locked had a category-name snapshot and no
+    /// rules; those empty boards are removed so the import can write them.
+    /// Boards that already have submissions are left in place.
+    /// </summary>
+    private static async Task SeedRosterLinksAsync(AppDbContext context)
+    {
+        var titles = GauntletRoster.Games.Select(g => g.Title).ToList();
+        var games = await context.Games.Where(g => titles.Contains(g.Title)).ToListAsync();
+        var byTitle = games.ToDictionary(g => g.Title, StringComparer.OrdinalIgnoreCase);
+        var gameIds = games.Select(g => g.Id).ToList();
+
+        var links = await context.GameSrcLinks
+            .Where(l => gameIds.Contains(l.GameId))
+            .ToListAsync();
+        var linkByGame = links.ToDictionary(l => l.GameId);
+        var lockedGameIds = new List<Guid>();
+
+        foreach (var entry in GauntletRoster.Games)
+        {
+            if (!byTitle.TryGetValue(entry.Title, out var game)) continue;
+
+            if (!linkByGame.TryGetValue(game.Id, out var link))
+            {
+                link = new GameSrcLink
+                {
+                    Id = Guid.NewGuid(),
+                    GameId = game.Id,
+                    SrcGameId = entry.SrcGameId,
+                    SrcAbbreviation = entry.SrcAbbreviation,
+                    SrcWeblink = $"https://www.speedrun.com/{entry.SrcAbbreviation}",
+                    ImportEnabled = true,
+                };
+                context.GameSrcLinks.Add(link);
+                linkByGame[game.Id] = link;
+                continue;
+            }
+
+            if (!link.ImportEnabled)
+            {
+                lockedGameIds.Add(game.Id);
+            }
+
+            link.SrcGameId = entry.SrcGameId;
+            link.SrcAbbreviation = entry.SrcAbbreviation;
+            link.SrcWeblink ??= $"https://www.speedrun.com/{entry.SrcAbbreviation}";
+            link.ImportEnabled = true;
+        }
+
+        if (lockedGameIds.Count > 0)
+        {
+            var kept = await context.Submissions
+                .Where(s => lockedGameIds.Contains(s.GameId))
+                .Select(s => s.CategoryId)
+                .Distinct()
+                .ToListAsync();
+            var keep = kept.ToHashSet();
+            var snapshot = await context.Categories
+                .Where(c => lockedGameIds.Contains(c.GameId) && c.SrcCategoryId != null)
+                .ToListAsync();
+            context.Categories.RemoveRange(snapshot.Where(c => !keep.Contains(c.Id)));
+        }
+
         await context.SaveChangesAsync();
     }
 
@@ -271,7 +356,7 @@ public static class DbInitializer
             "https://www.youtube.com/watch?v=gHvXUeisefw",
             null),
         new(
-            "sm",
+            "supermetroid",
             "mockball",
             "Mockball",
             "Morph into a ball on landing without losing run speed. Opens early Super Missiles without fighting Spore Spawn.",

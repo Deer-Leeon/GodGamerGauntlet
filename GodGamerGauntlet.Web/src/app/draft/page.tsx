@@ -305,7 +305,7 @@ export default function DraftRoomPage() {
           <h1 className="mt-2 text-2xl font-semibold">Draft</h1>
           <div className="mt-3 h-1.5 w-20 bg-banner" />
           <p className="mt-2 text-sm leading-relaxed text-muted">
-            Build a {slotCount}-game speedrun gauntlet from the 19 games.
+            Build a {slotCount}-game speedrun gauntlet from the roster.
             Lineups are free; sign in only to start the clock.
           </p>
         </div>

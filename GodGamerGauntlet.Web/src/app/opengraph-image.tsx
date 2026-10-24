@@ -62,7 +62,7 @@ export default function OpenGraphImage() {
             color: "#6B6B6B",
           }}
         >
-          19 games. Start to finish.
+          Start to finish.
         </div>
       </div>
     ),

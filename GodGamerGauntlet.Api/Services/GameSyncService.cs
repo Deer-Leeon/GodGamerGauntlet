@@ -14,7 +14,7 @@ public class GameSyncService(
     private const int DefaultDifficulty = 70;
 
     /// <summary>
-    /// Off by default: the catalog is the closed <c>GauntletRoster</c>, and an
+    /// Off by default: the catalog is <c>GauntletRoster</c>, and an
     /// ingest would refill it with 20,000 games we hold no speedrun.com licence
     /// for. Set <c>Catalog:RawgSyncEnabled</c> to reopen it.
     /// </summary>
@@ -26,7 +26,7 @@ public class GameSyncService(
         if (!SyncEnabled)
         {
             logger.LogInformation(
-                "RAWG sync skipped: catalog is the closed gauntlet roster (Catalog:RawgSyncEnabled is false).");
+                "RAWG sync skipped: catalog is the gauntlet roster (Catalog:RawgSyncEnabled is false).");
             return new GameSyncResult(0, 0);
         }
 

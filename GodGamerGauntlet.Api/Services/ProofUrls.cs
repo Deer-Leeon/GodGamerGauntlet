@@ -35,4 +35,23 @@ public static partial class ProofUrls
 
         return null;
     }
+
+    /// <summary>Every http(s) link on a run, normalized. The import stores these; it does not rehost the video.</summary>
+    public static List<string> HttpLinks(IEnumerable<string?> candidates)
+    {
+        var links = new List<string>();
+        foreach (var raw in candidates)
+        {
+            if (string.IsNullOrWhiteSpace(raw)) continue;
+            if (!Uri.TryCreate(raw.Trim(), UriKind.Absolute, out var uri)) continue;
+            if (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps) continue;
+
+            var builder = new UriBuilder(uri) { Scheme = "https", Port = -1 };
+            var https = builder.Uri.ToString().TrimEnd('/');
+            if (https.Length > 500 || links.Contains(https, StringComparer.OrdinalIgnoreCase)) continue;
+            links.Add(https);
+        }
+
+        return links;
+    }
 }

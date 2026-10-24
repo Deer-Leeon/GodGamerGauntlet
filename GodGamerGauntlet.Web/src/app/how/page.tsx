@@ -5,7 +5,7 @@ import { GAUNTLET_MODES } from "@/lib/site";
 export const metadata: Metadata = {
   title: "How it works",
   description:
-    "Pick Sprint, Marathon, or Endurance. Draft from 19 games. Speedrun them start to finish. Post the Clear.",
+    "Pick Sprint, Marathon, or Endurance. Draft from the roster. Speedrun them start to finish. Post the Clear.",
 };
 
 export default function HowItWorksPage() {
@@ -51,7 +51,7 @@ export default function HowItWorksPage() {
           <p className="font-pixel text-[10px] leading-5 text-banner">
             STAGE 02
           </p>
-          <h2 className="mt-2">Draft from the 19 games</h2>
+          <h2 className="mt-2">Draft from the roster</h2>
           <p className="mt-2 text-sm leading-relaxed text-muted">
             The catalog is closed. Build a lineup in the Draft Room — no
             account needed until you start the clock.
@@ -136,7 +136,7 @@ export default function HowItWorksPage() {
           <div>
             <dt className="text-ink">Games</dt>
             <dd className="mt-1 text-muted">
-              The 19-game roster, plus per-game baseline times.
+              The roster, plus per-game baseline times.
             </dd>
           </div>
           <div>

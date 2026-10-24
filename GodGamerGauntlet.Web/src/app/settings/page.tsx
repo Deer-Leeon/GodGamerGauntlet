@@ -268,7 +268,7 @@ export default function SettingsPage() {
         <h2 className="text-sm font-medium text-ink">speedrun.com account</h2>
         {user.srcUserId ? (
           <p className="text-sm leading-relaxed text-muted">
-            Linked. We import <em>your</em> personal bests on the 19 roster
+            Linked. We import <em>your</em> personal bests on the roster
             games; the name is locked to you.
           </p>
         ) : (

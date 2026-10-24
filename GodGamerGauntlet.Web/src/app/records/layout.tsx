@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Games",
   description:
-    "The 19-game God Gamer Gauntlet roster and per-game baseline times.",
+    "The speedrun.com most-run and most-active games, and per-game baseline times.",
 };
 
 export default function RecordsLayout({

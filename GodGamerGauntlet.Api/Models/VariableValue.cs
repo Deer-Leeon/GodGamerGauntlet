@@ -16,5 +16,8 @@ public class VariableValue
     /// <summary>speedrun.com value id when imported.</summary>
     public string? SrcValueId { get; set; }
 
+    /// <summary>Rules text attached to this choice, when speedrun.com has one.</summary>
+    public string? Rules { get; set; }
+
     public Variable? Variable { get; set; }
 }

@@ -67,7 +67,7 @@ public sealed class SrcClient(HttpClient http, SrcRateLimiter limiter) : ISrcCli
         string idOrAbbreviation, CancellationToken cancellationToken = default)
     {
         using var response = await SendAsync(
-            $"games/{Uri.EscapeDataString(idOrAbbreviation)}?embed=categories,variables",
+            $"games/{Uri.EscapeDataString(idOrAbbreviation)}?embed=categories,levels,variables,platforms,regions",
             apiKey: null,
             cancellationToken);
         if (response.StatusCode == HttpStatusCode.NotFound) return null;
@@ -101,6 +101,61 @@ public sealed class SrcClient(HttpClient http, SrcRateLimiter limiter) : ISrcCli
         return envelope?.Data;
     }
 
+    public async Task<SrcLeaderboard?> GetLevelLeaderboardAsync(
+        string gameId,
+        string levelId,
+        string categoryId,
+        IReadOnlyDictionary<string, string>? variableFilters,
+        CancellationToken cancellationToken = default)
+    {
+        var query = new List<string> { "embed=players" };
+        if (variableFilters is not null)
+        {
+            foreach (var (variableId, valueId) in variableFilters)
+            {
+                query.Add($"var-{Uri.EscapeDataString(variableId)}={Uri.EscapeDataString(valueId)}");
+            }
+        }
+
+        using var response = await SendAsync(
+            $"leaderboards/{Uri.EscapeDataString(gameId)}/level/{Uri.EscapeDataString(levelId)}/{Uri.EscapeDataString(categoryId)}?{string.Join('&', query)}",
+            apiKey: null,
+            cancellationToken);
+        if (response.StatusCode == HttpStatusCode.NotFound) return null;
+        response.EnsureSuccessStatusCode();
+        var envelope = await response.Content.ReadFromJsonAsync<SrcDataEnvelope<SrcLeaderboard>>(Json, cancellationToken);
+        return envelope?.Data;
+    }
+
+    public Task<string?> GetPlatformNameAsync(string platformId, CancellationToken cancellationToken = default) =>
+        GetNamedResourceAsync($"platforms/{Uri.EscapeDataString(platformId)}", cancellationToken);
+
+    public Task<string?> GetRegionNameAsync(string regionId, CancellationToken cancellationToken = default) =>
+        GetNamedResourceAsync($"regions/{Uri.EscapeDataString(regionId)}", cancellationToken);
+
+    public Task<string?> GetUserNameAsync(string userId, CancellationToken cancellationToken = default) =>
+        GetNamedResourceAsync($"users/{Uri.EscapeDataString(userId)}", cancellationToken);
+
+    private async Task<string?> GetNamedResourceAsync(string path, CancellationToken cancellationToken)
+    {
+        using var response = await SendAsync(path, apiKey: null, cancellationToken);
+        if (response.StatusCode == HttpStatusCode.NotFound) return null;
+        response.EnsureSuccessStatusCode();
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
+        if (!doc.RootElement.TryGetProperty("data", out var data)) return null;
+        if (data.TryGetProperty("name", out var name) && name.ValueKind == JsonValueKind.String)
+            return name.GetString();
+        if (data.TryGetProperty("names", out var names)
+            && names.TryGetProperty("international", out var international)
+            && international.ValueKind == JsonValueKind.String)
+        {
+            return international.GetString();
+        }
+
+        return null;
+    }
+
     public async Task<SrcUser?> GetProfileAsync(
         string apiKey, CancellationToken cancellationToken = default)
     {
@@ -126,6 +181,41 @@ public sealed class SrcClient(HttpClient http, SrcRateLimiter limiter) : ISrcCli
         response.EnsureSuccessStatusCode();
         var envelope = await response.Content.ReadFromJsonAsync<SrcDataEnvelope<List<SrcPersonalBest>>>(Json, cancellationToken);
         return envelope?.Data ?? [];
+    }
+
+    public async Task<SrcRunPage> GetRunsAsync(SrcRunQuery query, CancellationToken cancellationToken = default)
+    {
+        var parts = new List<string>
+        {
+            $"game={Uri.EscapeDataString(query.GameId)}",
+            $"max={query.Max}",
+            $"offset={query.Offset}",
+            "embed=players,platform,region",
+            "orderby=submitted",
+            "direction=asc",
+        };
+        if (!string.IsNullOrEmpty(query.CategoryId))
+            parts.Add($"category={Uri.EscapeDataString(query.CategoryId)}");
+        if (!string.IsNullOrEmpty(query.Status))
+            parts.Add($"status={Uri.EscapeDataString(query.Status)}");
+        if (!string.IsNullOrEmpty(query.LevelId))
+            parts.Add($"level={Uri.EscapeDataString(query.LevelId)}");
+        if (!string.IsNullOrEmpty(query.PlatformId))
+            parts.Add($"platform={Uri.EscapeDataString(query.PlatformId)}");
+        if (!string.IsNullOrEmpty(query.RegionId))
+            parts.Add($"region={Uri.EscapeDataString(query.RegionId)}");
+        if (query.Emulated is bool emulated)
+            parts.Add($"emulated={(emulated ? "true" : "false")}");
+
+        using var response = await SendAsync("runs?" + string.Join('&', parts), apiKey: null, cancellationToken);
+        if (response.StatusCode == HttpStatusCode.BadRequest && query.Offset > 0)
+        {
+            throw new SrcOffsetCapException();
+        }
+
+        response.EnsureSuccessStatusCode();
+        var envelope = await response.Content.ReadFromJsonAsync<SrcDataEnvelope<List<SrcRun>>>(Json, cancellationToken);
+        return new SrcRunPage { Data = envelope?.Data ?? [] };
     }
 
     private async Task<HttpResponseMessage> SendAsync(

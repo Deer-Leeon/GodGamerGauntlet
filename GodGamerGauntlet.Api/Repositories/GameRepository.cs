@@ -8,7 +8,7 @@ public class GameRepository(AppDbContext context) : IGameRepository
 {
     public async Task<IReadOnlyList<Game>> GetAllAsync(CancellationToken cancellationToken = default)
     {
-        // IsFeatured marks the closed GauntletRoster catalog; a retired game
+        // IsFeatured marks the GauntletRoster catalog; a retired game
         // stays reachable by id but never appears in a browse list again.
         return await context.Games
             .AsNoTracking()

@@ -1,7 +1,7 @@
 export const SITE_URL = "https://godgamergauntlet.com";
 
 export const SITE_DESCRIPTION =
-  "Draft 3, 5, or 7 full-game speedruns from a closed 19-game roster. Sprint, Marathon, or Endurance — start to finish.";
+  "Draft 3, 5, or 7 full-game speedruns from the roster. Sprint, Marathon, or Endurance — start to finish.";
 
 export const GAUNTLET_MODES = [
   {

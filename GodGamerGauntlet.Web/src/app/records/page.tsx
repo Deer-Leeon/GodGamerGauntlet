@@ -56,10 +56,9 @@ export default function RecordsDirectoryPage() {
         <h1 className="mt-2 text-2xl font-semibold">Games</h1>
         <div className="mt-3 h-1.5 w-20 bg-banner" />
         <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted">
-          These 19 games are the whole catalog — what you draft, and the only
-          boards we would import from speedrun.com. Times here are
-          Gauntlet-verified VODs or attributed imports; every imported row
-          links out.
+          The catalog is speedrun.com’s 100 most-run games and 100 most-active
+          games. Times here are Gauntlet-verified VODs or a runner’s own claimed
+          personal bests; every imported row links out.
         </p>
         <RosterDisclaimer />
       </header>

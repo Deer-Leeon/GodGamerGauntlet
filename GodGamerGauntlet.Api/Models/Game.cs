@@ -29,8 +29,14 @@ public class Game
     public bool IsFeatured { get; set; } = false;
 
     /// <summary>
-    /// Position in RAWG's most-added ordering (0 = curated staple). The default
-    /// sinks anything ingested before this field existed to the bottom.
+    /// Catalog display order. All-time chart position, or 100 plus the active-chart
+    /// position for games that are not in the all-time hundred.
     /// </summary>
     public int PopularityRank { get; set; } = 999999;
+
+    /// <summary>1-based place on speedrun.com's most-runs chart. Null when the game is only on the active chart.</summary>
+    public int? AllTimeRank { get; set; }
+
+    /// <summary>1-based place on speedrun.com's most-active chart. Null when the game is only on the all-time chart.</summary>
+    public int? RecentRank { get; set; }
 }

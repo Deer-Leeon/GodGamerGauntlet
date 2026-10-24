@@ -16,13 +16,17 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<UserStreamLink> UserStreamLinks => Set<UserStreamLink>();
     public DbSet<UserFollow> UserFollows => Set<UserFollow>();
     public DbSet<Category> Categories => Set<Category>();
+    public DbSet<GameLevel> GameLevels => Set<GameLevel>();
     public DbSet<Variable> Variables => Set<Variable>();
     public DbSet<VariableValue> VariableValues => Set<VariableValue>();
     public DbSet<Submission> Submissions => Set<Submission>();
     public DbSet<SubmissionVariable> SubmissionVariables => Set<SubmissionVariable>();
+    public DbSet<SubmissionPlayer> SubmissionPlayers => Set<SubmissionPlayer>();
+    public DbSet<SubmissionProof> SubmissionProofs => Set<SubmissionProof>();
     public DbSet<GameModerator> GameModerators => Set<GameModerator>();
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<GameSrcLink> GameSrcLinks => Set<GameSrcLink>();
+    public DbSet<SrcImportCursor> SrcImportCursors => Set<SrcImportCursor>();
     public DbSet<UsernameReservation> UsernameReservations => Set<UsernameReservation>();
     public DbSet<GameTech> GameTeches => Set<GameTech>();
     public DbSet<GameTechClip> GameTechClips => Set<GameTechClip>();
@@ -205,6 +209,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                   .HasMaxLength(Category.NameMaxLength)
                   .IsRequired();
             entity.Property(c => c.SrcCategoryId).HasMaxLength(Category.SrcIdMaxLength);
+            entity.Property(c => c.Weblink).HasMaxLength(Category.WeblinkMaxLength);
+            entity.Property(c => c.Type).HasMaxLength(Category.TypeMaxLength);
+            entity.Property(c => c.PlayersType).HasMaxLength(Category.PlayersTypeMaxLength);
+            entity.Property(c => c.Miscellaneous).HasDefaultValue(false);
             entity.HasIndex(c => c.SrcCategoryId)
                 .IsUnique()
                 .HasFilter("\"SrcCategoryId\" IS NOT NULL");
@@ -228,6 +236,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                   .HasMaxLength(Variable.NameMaxLength)
                   .IsRequired();
             entity.Property(v => v.SrcVariableId).HasMaxLength(Variable.SrcIdMaxLength);
+            entity.Property(v => v.Scope).HasMaxLength(Variable.ScopeMaxLength);
             entity.HasIndex(v => new { v.CategoryId, v.SrcVariableId })
                 .IsUnique()
                 .HasFilter("\"SrcVariableId\" IS NOT NULL");
@@ -251,6 +260,22 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.HasIndex(x => new { x.VariableId, x.Value }).IsUnique();
         });
 
+        modelBuilder.Entity<GameLevel>(entity =>
+        {
+            entity.Property(l => l.Name).HasMaxLength(GameLevel.NameMaxLength).IsRequired();
+            entity.Property(l => l.SrcLevelId).HasMaxLength(GameLevel.SrcIdMaxLength);
+            entity.Property(l => l.Weblink).HasMaxLength(GameLevel.WeblinkMaxLength);
+            entity.HasIndex(l => l.SrcLevelId)
+                .IsUnique()
+                .HasFilter("\"SrcLevelId\" IS NOT NULL");
+            entity.HasIndex(l => l.GameId);
+
+            entity.HasOne(l => l.Game)
+                .WithMany()
+                .HasForeignKey(l => l.GameId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
         modelBuilder.Entity<Submission>(entity =>
         {
             entity.Property(s => s.VideoUrl)
@@ -267,6 +292,13 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                   .HasMaxLength(20)
                   .HasDefaultValue(SubmissionOrigin.Native);
             entity.Property(s => s.SrcRunId).HasMaxLength(Submission.SrcRunIdMaxLength);
+            entity.Property(s => s.PlatformSrcId).HasMaxLength(Submission.SrcRunIdMaxLength);
+            entity.Property(s => s.PlatformName).HasMaxLength(Submission.SrcNameMaxLength);
+            entity.Property(s => s.RegionSrcId).HasMaxLength(Submission.SrcRunIdMaxLength);
+            entity.Property(s => s.RegionName).HasMaxLength(Submission.SrcNameMaxLength);
+            entity.Property(s => s.VerifierSrcId).HasMaxLength(Submission.SrcRunIdMaxLength);
+            entity.Property(s => s.VerifierName).HasMaxLength(Submission.SrcNameMaxLength);
+            entity.Property(s => s.SrcWeblink).HasMaxLength(Submission.WeblinkMaxLength);
             entity.HasIndex(s => s.SrcRunId)
                 .IsUnique()
                 .HasFilter("\"SrcRunId\" IS NOT NULL");
@@ -300,6 +332,21 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                   .WithMany()
                   .HasForeignKey(s => s.ExaminerId)
                   .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(s => s.Level)
+                  .WithMany()
+                  .HasForeignKey(s => s.LevelId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasMany(s => s.Players)
+                  .WithOne(p => p.Submission)
+                  .HasForeignKey(p => p.SubmissionId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasMany(s => s.Proofs)
+                  .WithOne(p => p.Submission)
+                  .HasForeignKey(p => p.SubmissionId)
+                  .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<SubmissionVariable>(entity =>
@@ -317,6 +364,24 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                   .WithMany()
                   .HasForeignKey(x => x.VariableValueId)
                   .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<SubmissionPlayer>(entity =>
+        {
+            entity.Property(p => p.Name).HasMaxLength(SubmissionPlayer.NameMaxLength).IsRequired();
+            entity.Property(p => p.SrcUserId).HasMaxLength(SubmissionPlayer.SrcIdMaxLength);
+            entity.HasIndex(p => new { p.SubmissionId, p.SortOrder });
+
+            entity.HasOne(p => p.User)
+                .WithMany()
+                .HasForeignKey(p => p.UserId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<SubmissionProof>(entity =>
+        {
+            entity.Property(p => p.Url).HasMaxLength(SubmissionProof.UrlMaxLength).IsRequired();
+            entity.HasIndex(p => new { p.SubmissionId, p.SortOrder });
         });
 
         modelBuilder.Entity<GameModerator>(entity =>
@@ -377,6 +442,34 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .WithMany()
                 .HasForeignKey(l => l.GameId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<SrcImportCursor>(entity =>
+        {
+            entity.Property(c => c.CategorySrcId).HasMaxLength(SrcImportCursor.SrcIdMaxLength).IsRequired();
+            entity.Property(c => c.Status).HasMaxLength(SrcImportCursor.StatusMaxLength).IsRequired();
+            entity.Property(c => c.LevelSrcId).HasMaxLength(SrcImportCursor.SrcIdMaxLength).IsRequired();
+            entity.Property(c => c.PlatformSrcId).HasMaxLength(SrcImportCursor.SrcIdMaxLength).IsRequired();
+            entity.Property(c => c.RegionSrcId).HasMaxLength(SrcImportCursor.SrcIdMaxLength).IsRequired();
+            entity.Property(c => c.Emulated).HasMaxLength(SrcImportCursor.EmulatedMaxLength).IsRequired();
+            entity.Property(c => c.Note).HasMaxLength(SrcImportCursor.NoteMaxLength);
+            entity.HasIndex(c => new
+            {
+                c.GameId,
+                c.IsStructure,
+                c.CategorySrcId,
+                c.Status,
+                c.LevelSrcId,
+                c.PlatformSrcId,
+                c.RegionSrcId,
+                c.Emulated,
+            }).IsUnique();
+            entity.HasIndex(c => new { c.Completed, c.Superseded, c.IsStructure, c.UpdatedAt });
+
+            entity.HasOne(c => c.Game)
+                .WithMany()
+                .HasForeignKey(c => c.GameId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<UsernameReservation>(entity =>

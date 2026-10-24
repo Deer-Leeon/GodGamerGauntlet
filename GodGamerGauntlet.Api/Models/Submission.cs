@@ -11,6 +11,8 @@ public class Submission
     public const int VideoUrlMaxLength = 500;
     public const int RejectReasonMaxLength = 1000;
     public const int SrcRunIdMaxLength = 16;
+    public const int SrcNameMaxLength = 100;
+    public const int WeblinkMaxLength = 300;
 
     public Guid Id { get; set; }
 
@@ -55,6 +57,29 @@ public class Submission
     /// <summary>When the examiner decided; null while Pending.</summary>
     public DateTime? ReviewedAt { get; set; }
 
+    /// <summary>Individual level this run was played on. Null for a full-game run.</summary>
+    public Guid? LevelId { get; set; }
+
+    public string? PlatformSrcId { get; set; }
+
+    public string? PlatformName { get; set; }
+
+    public string? RegionSrcId { get; set; }
+
+    public string? RegionName { get; set; }
+
+    public string? VerifierSrcId { get; set; }
+
+    public string? VerifierName { get; set; }
+
+    public string? SrcWeblink { get; set; }
+
+    public long? RealtimeMs { get; set; }
+
+    public long? RealtimeNoloadsMs { get; set; }
+
+    public long? IngameMs { get; set; }
+
     public Game? Game { get; set; }
 
     public Category? Category { get; set; }
@@ -63,5 +88,11 @@ public class Submission
 
     public User? Examiner { get; set; }
 
+    public GameLevel? Level { get; set; }
+
     public ICollection<SubmissionVariable> Variables { get; set; } = new List<SubmissionVariable>();
+
+    public ICollection<SubmissionPlayer> Players { get; set; } = new List<SubmissionPlayer>();
+
+    public ICollection<SubmissionProof> Proofs { get; set; } = new List<SubmissionProof>();
 }

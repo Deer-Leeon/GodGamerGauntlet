@@ -35,7 +35,10 @@ public class ModerationController(
             .AsNoTracking()
             .AnyAsync(m => m.GameId == gameId && m.UserId == CurrentUserId, cancellationToken);
 
-    /// <summary>Pending submissions for every game the caller moderates, oldest first.</summary>
+    /// <summary>
+    /// Pending native submissions for every game the caller moderates, oldest first.
+    /// Imported speedrun.com rows are not the courtroom queue.
+    /// </summary>
     [HttpGet("queue")]
     [ProducesResponseType(typeof(IEnumerable<ModerationQueueItemDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetQueue(CancellationToken cancellationToken)
@@ -44,7 +47,7 @@ public class ModerationController(
 
         var query = context.Submissions
             .AsNoTracking()
-            .Where(s => s.Status == SubmissionStatus.Pending);
+            .Where(s => s.Status == SubmissionStatus.Pending && s.Origin == SubmissionOrigin.Native);
 
         if (!isAdmin)
         {
@@ -223,7 +226,7 @@ public class ModerationController(
             .ToListAsync(cancellationToken);
 
         return candidates
-            .Where(s => SubmissionObsolescence.SubcategoryKey(s).SetEquals(boardKey))
+            .Where(s => s.LevelId == verified.LevelId && SubmissionObsolescence.SubcategoryKey(s).SetEquals(boardKey))
             .OrderBy(s => s.PrimaryTimeMs)
             .ThenBy(s => s.SubmittedAt)
             .FirstOrDefault();
@@ -252,7 +255,7 @@ public class ModerationController(
             .ToListAsync(cancellationToken);
 
         var board = rivals
-            .Where(s => SubmissionObsolescence.SubcategoryKey(s).SetEquals(boardKey))
+            .Where(s => s.LevelId == verified.LevelId && SubmissionObsolescence.SubcategoryKey(s).SetEquals(boardKey))
             .Append(verified)
             .ToList();
 

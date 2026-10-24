@@ -780,6 +780,12 @@ export interface GameModeratorInfo {
   assignedAt: string;
 }
 
+export interface RecordsLevel {
+  id: string;
+  name: string;
+  rules: string | null;
+}
+
 export interface GameRecords {
   gameId: string;
   title: string;
@@ -787,6 +793,8 @@ export interface GameRecords {
   categories: RecordsCategory[];
   moderators: GameModeratorInfo[];
   srcGameUrl?: string | null;
+  levels?: RecordsLevel[];
+  levelCategories?: RecordsCategory[];
 }
 
 export interface SubmissionVariableTag {
@@ -940,12 +948,14 @@ export function getRecordsBoard(
   gameId: string,
   categoryId: string,
   variableValueIds: string[],
+  levelId?: string | null,
 ): Promise<RecordRow[]> {
-  const values = variableValueIds.length
-    ? `?values=${variableValueIds.join(",")}`
-    : "";
+  const params = new URLSearchParams();
+  if (variableValueIds.length) params.set("values", variableValueIds.join(","));
+  if (levelId) params.set("levelId", levelId);
+  const query = params.toString();
   return request<RecordRow[]>(
-    `/api/games/${gameId}/categories/${categoryId}/leaderboard${values}`,
+    `/api/games/${gameId}/categories/${categoryId}/leaderboard${query ? `?${query}` : ""}`,
   );
 }
 

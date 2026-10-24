@@ -3,9 +3,8 @@ using GodGamerGauntlet.Api.Data;
 namespace GodGamerGauntlet.Api.Services.Src;
 
 /// <summary>
-/// The speedrun.com boards we import, projected straight from
-/// <see cref="GauntletRoster"/> — the catalog roster and the licensed board
-/// list are the same 19 games by construction. Titles match a catalog
+/// The speedrun.com boards we know, projected straight from
+/// <see cref="GauntletRoster"/>. Titles match a catalog
 /// <c>Game.Title</c> (case-insensitive); abbreviations are speedrun.com's exact
 /// lookup keys, never fuzzy-matched.
 /// </summary>

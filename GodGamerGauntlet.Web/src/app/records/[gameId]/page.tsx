@@ -37,6 +37,7 @@ export default function RecordsPage() {
   const [records, setRecords] = useState<GameRecords | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [categoryId, setCategoryId] = useState<string | null>(null);
+  const [levelId, setLevelId] = useState<string | null>(null);
   // variableId → selected valueId; absent key means "All".
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [rows, setRows] = useState<RecordRow[]>([]);
@@ -86,10 +87,19 @@ export default function RecordsPage() {
     };
   }, [gameId]);
 
-  const category: RecordsCategory | null = useMemo(
-    () => records?.categories.find((c) => c.id === categoryId) ?? null,
-    [records, categoryId],
-  );
+  const visibleCategories = useMemo(() => {
+    if (!records) return [];
+    return levelId ? (records.levelCategories ?? []) : records.categories;
+  }, [records, levelId]);
+
+  const category: RecordsCategory | null = useMemo(() => {
+    if (!records) return null;
+    return (
+      records.categories.find((item) => item.id === categoryId) ??
+      records.levelCategories?.find((item) => item.id === categoryId) ??
+      null
+    );
+  }, [records, categoryId]);
 
   const subcategoryVariables = useMemo(
     () => category?.variables.filter((v) => v.isSubcategory) ?? [],
@@ -99,10 +109,14 @@ export default function RecordsPage() {
   const filterIds = useMemo(() => Object.values(filters).sort(), [filters]);
 
   useEffect(() => {
-    if (!categoryId) return;
+    if (!categoryId) {
+      setRows([]);
+      setBoardLoading(false);
+      return;
+    }
     let cancelled = false;
     setBoardLoading(true);
-    getRecordsBoard(gameId, categoryId, filterIds)
+    getRecordsBoard(gameId, categoryId, filterIds, levelId)
       .then((fetched) => {
         if (!cancelled) setRows(fetched);
       })
@@ -117,12 +131,22 @@ export default function RecordsPage() {
     };
     // filterIds is derived; joining keeps the dependency primitive.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameId, categoryId, filterIds.join(",")]);
+  }, [gameId, categoryId, levelId, filterIds.join(",")]);
 
   function switchCategory(id: string) {
     setCategoryId(id);
     setFilters({});
     setRulesOpen(false);
+  }
+
+  function selectLevel(next: string | null) {
+    setLevelId(next);
+    setFilters({});
+    setRulesOpen(false);
+    const list = next
+      ? (records?.levelCategories ?? [])
+      : (records?.categories ?? []);
+    setCategoryId(list[0]?.id ?? null);
   }
 
   function pickValue(variableId: string, valueId: string | null) {
@@ -252,18 +276,42 @@ export default function RecordsPage() {
 
       {section === "tech" ? (
         <GameTechPanel gameId={gameId} />
-      ) : records.categories.length === 0 ? (
+      ) : records.categories.length === 0 &&
+        (records.levels?.length ?? 0) === 0 ? (
         <p className="py-14 text-sm text-faint">
           No categories exist for this game yet.
         </p>
       ) : (
         <>
+          {(records.levels?.length ?? 0) > 0 && (
+            <label className="mt-8 flex items-center gap-3 text-sm text-faint">
+              Level
+              <select
+                value={levelId ?? ""}
+                onChange={(event) => selectLevel(event.target.value || null)}
+                className="border border-gold/30 bg-transparent px-2 py-1 text-ink"
+              >
+                <option value="">Full game</option>
+                {records.levels?.map((level) => (
+                  <option key={level.id} value={level.id}>
+                    {level.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+
+          {visibleCategories.length === 0 ? (
+            <p className="py-14 text-sm text-faint">
+              No categories for this level.
+            </p>
+          ) : (
           <div
             role="tablist"
             aria-label="Category"
             className="mt-8 flex flex-wrap gap-6 border-b border-gold/20 text-sm"
           >
-            {records.categories.map((item) => (
+            {visibleCategories.map((item) => (
               <button
                 key={item.id}
                 role="tab"
@@ -279,6 +327,7 @@ export default function RecordsPage() {
               </button>
             ))}
           </div>
+          )}
 
           {subcategoryVariables.length > 0 && (
             <div className="mt-5 flex flex-col gap-3">

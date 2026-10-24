@@ -65,24 +65,31 @@ public class SrcController(
         }
     }
 
+    [HttpGet("~/api/admin/src/import")]
+    [Authorize]
+    [ProducesResponseType(typeof(SrcImportStatus), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> ImportStatus(CancellationToken cancellationToken)
+    {
+        if (!await IsAdminAsync(cancellationToken)) return Forbid();
+        return Ok(await importer.GetStatusAsync(cancellationToken));
+    }
+
     [HttpPost("~/api/admin/src/import")]
     [Authorize]
-    [ProducesResponseType(typeof(SrcImportResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(SrcImportStatus), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> ImportBulk(CancellationToken cancellationToken)
     {
         if (!await IsAdminAsync(cancellationToken)) return Forbid();
         if (!importer.BulkEnabled)
         {
-            return StatusCode(
-                StatusCodes.Status403Forbidden,
-                "Bulk import stays off until SrcImport:BulkEnabled is true (written commercial license).");
+            return StatusCode(StatusCodes.Status403Forbidden, SrcImportService.BulkDisabledMessage);
         }
 
         try
         {
-            var result = await importer.ImportBulkAsync(cancellationToken);
-            return Ok(ToResponse(result));
+            return Ok(await importer.StartBulkAsync(cancellationToken));
         }
         catch (InvalidOperationException ex)
         {
@@ -90,33 +97,36 @@ public class SrcController(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "SRC bulk import failed.");
-            return Problem("SRC import failed.");
+            logger.LogError(ex, "SRC bulk import failed to start.");
+            return Problem("SRC import failed to start.");
         }
     }
 
     [HttpPost("~/api/admin/src/import/{abbreviation}")]
     [Authorize]
-    [ProducesResponseType(typeof(SrcImportResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(SrcImportStatus), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> ImportGame(string abbreviation, CancellationToken cancellationToken)
     {
         if (!await IsAdminAsync(cancellationToken)) return Forbid();
         if (!importer.BulkEnabled)
         {
-            return StatusCode(
-                StatusCodes.Status403Forbidden,
-                "Bulk import stays off until SrcImport:BulkEnabled is true (written commercial license).");
+            return StatusCode(StatusCodes.Status403Forbidden, SrcImportService.BulkDisabledMessage);
         }
 
         try
         {
-            var result = await importer.ImportGameAsync(abbreviation, cancellationToken);
-            return Ok(ToResponse(result));
+            return Ok(await importer.EnqueueGameAsync(abbreviation, cancellationToken));
         }
         catch (InvalidOperationException ex)
         {
-            return StatusCode(StatusCodes.Status403Forbidden, ex.Message);
+            if (ex.Message == SrcImportService.BulkDisabledMessage)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, ex.Message);
+            }
+
+            return NotFound(ex.Message);
         }
     }
 
@@ -170,7 +180,4 @@ public class SrcController(
     private Task<bool> IsAdminAsync(CancellationToken cancellationToken) =>
         context.Users.AsNoTracking()
             .AnyAsync(u => u.Id == CurrentUserId && u.IsAdmin, cancellationToken);
-
-    private static SrcImportResponse ToResponse(SrcImportResult result) =>
-        new(result.Games, result.Categories, result.RunsUpserted, result.RunsSkipped, result.PlayersReserved, result.Notes);
 }

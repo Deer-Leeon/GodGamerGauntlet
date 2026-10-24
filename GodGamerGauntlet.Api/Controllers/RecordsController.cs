@@ -25,7 +25,7 @@ public class RecordsController(AppDbContext context) : ControllerBase
 
         var categories = await context.Categories
             .AsNoTracking()
-            .Where(c => c.GameId == gameId)
+            .Where(c => c.GameId == gameId && !c.Miscellaneous)
             .Include(c => c.Variables)
             .ThenInclude(v => v.Values)
             .OrderBy(c => c.CreatedAt)
@@ -44,29 +44,45 @@ public class RecordsController(AppDbContext context) : ControllerBase
             .AsNoTracking()
             .FirstOrDefaultAsync(l => l.GameId == gameId, cancellationToken);
 
+        var levels = await context.GameLevels
+            .AsNoTracking()
+            .Where(l => l.GameId == gameId)
+            .OrderBy(l => l.Name)
+            .Select(l => new RecordsLevelDto(l.Id, l.Name, l.Rules))
+            .ToListAsync(cancellationToken);
+
+        RecordsCategoryDto MapCategory(Category category) => new(
+            category.Id,
+            category.Name,
+            category.Rules,
+            category.Variables
+                .OrderBy(v => v.Name)
+                .Select(v => new RecordsVariableDto(
+                    v.Id,
+                    v.Name,
+                    v.IsSubcategory,
+                    v.IsRequired,
+                    v.Values
+                        .OrderBy(x => x.Value)
+                        .Select(x => new RecordsValueDto(x.Id, x.Value))
+                        .ToList()))
+                .ToList());
+
         var dto = new GameRecordsDto(
             game.Id,
             game.Title,
             game.Thumb,
-            categories.Select(c => new RecordsCategoryDto(
-                c.Id,
-                c.Name,
-                c.Rules,
-                c.Variables
-                    .OrderBy(v => v.Name)
-                    .Select(v => new RecordsVariableDto(
-                        v.Id,
-                        v.Name,
-                        v.IsSubcategory,
-                        v.IsRequired,
-                        v.Values
-                            .OrderBy(x => x.Value)
-                            .Select(x => new RecordsValueDto(x.Id, x.Value))
-                            .ToList()))
-                    .ToList()))
+            categories
+                .Where(c => c.Type == null || c.Type == "per-game")
+                .Select(MapCategory)
                 .ToList(),
             moderators,
-            srcLink?.SrcWeblink);
+            srcLink?.SrcWeblink,
+            levels,
+            categories
+                .Where(c => c.Type == "per-level")
+                .Select(MapCategory)
+                .ToList());
 
         return Ok(dto);
     }
@@ -75,6 +91,7 @@ public class RecordsController(AppDbContext context) : ControllerBase
     /// The verified board: current (non-obsolete) runs, fastest first, one row
     /// per player. Optional ?values= (comma-separated VariableValue ids) narrows
     /// to runs carrying every listed value — subcategory pills on the UI.
+    /// Optional ?levelId= reads an individual level; omitted means the full game.
     /// </summary>
     [HttpGet("categories/{categoryId:guid}/leaderboard")]
     [ProducesResponseType(typeof(IEnumerable<RecordRowDto>), StatusCodes.Status200OK)]
@@ -83,6 +100,7 @@ public class RecordsController(AppDbContext context) : ControllerBase
         Guid gameId,
         Guid categoryId,
         [FromQuery] string? values,
+        [FromQuery] Guid? levelId,
         CancellationToken cancellationToken)
     {
         var categoryExists = await context.Categories
@@ -102,6 +120,9 @@ public class RecordsController(AppDbContext context) : ControllerBase
                 s.CategoryId == categoryId
                 && s.Status == SubmissionStatus.Verified
                 && !s.IsObsolete);
+        query = levelId is Guid selectedLevel
+            ? query.Where(s => s.LevelId == selectedLevel)
+            : query.Where(s => s.LevelId == null);
 
         foreach (var valueId in filterIds)
         {

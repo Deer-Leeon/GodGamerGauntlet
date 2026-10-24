@@ -14,7 +14,7 @@ export default function RosterGrid({
 }) {
   if (loading) {
     return (
-      <p className="text-sm text-faint">Loading the 19-game roster…</p>
+      <p className="text-sm text-faint">Loading the roster…</p>
     );
   }
 

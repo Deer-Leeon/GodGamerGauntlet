@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace GodGamerGauntlet.Api.Services.Src;
@@ -24,7 +25,25 @@ public sealed class SrcGame
     public string? Weblink { get; set; }
     public SrcNames? Names { get; set; }
     public SrcEmbed<List<SrcCategory>>? Categories { get; set; }
+    public SrcEmbed<List<SrcLevel>>? Levels { get; set; }
     public SrcEmbed<List<SrcVariable>>? Variables { get; set; }
+    public SrcEmbed<List<SrcNamed>>? Platforms { get; set; }
+    public SrcEmbed<List<SrcNamed>>? Regions { get; set; }
+}
+
+public sealed class SrcNamed
+{
+    public string? Id { get; set; }
+    public string? Name { get; set; }
+    public SrcNames? Names { get; set; }
+}
+
+public sealed class SrcLevel
+{
+    public string? Id { get; set; }
+    public string? Name { get; set; }
+    public string? Weblink { get; set; }
+    public string? Rules { get; set; }
 }
 
 public sealed class SrcCategory
@@ -33,7 +52,15 @@ public sealed class SrcCategory
     public string? Name { get; set; }
     public string? Type { get; set; }
     public string? Weblink { get; set; }
+    public string? Rules { get; set; }
     public bool Miscellaneous { get; set; }
+    public SrcPlayerCount? Players { get; set; }
+}
+
+public sealed class SrcPlayerCount
+{
+    public string? Type { get; set; }
+    public int Value { get; set; }
 }
 
 public sealed class SrcVariable
@@ -63,6 +90,7 @@ public sealed class SrcVariableValues
 public sealed class SrcVariableChoice
 {
     public string? Label { get; set; }
+    public string? Rules { get; set; }
 }
 
 public sealed class SrcLeaderboard
@@ -95,7 +123,16 @@ public sealed class SrcRun
     public SrcRunStatus? Status { get; set; }
     public SrcTimes? Times { get; set; }
     public SrcVideos? Videos { get; set; }
+    public SrcSplits? Splits { get; set; }
     public SrcSystem? System { get; set; }
+
+    /// <summary>Embedded platform. The id also stays on <see cref="SrcSystem.Platform"/>.</summary>
+    public object? Platform { get; set; }
+
+    /// <summary>Embedded region. The id also stays on <see cref="SrcSystem.Region"/>.</summary>
+    public object? Region { get; set; }
+
+    [JsonConverter(typeof(SrcPlayerListConverter))]
     public List<SrcPlayer>? Players { get; set; }
     public Dictionary<string, string>? Values { get; set; }
 }
@@ -103,12 +140,26 @@ public sealed class SrcRun
 public sealed class SrcRunStatus
 {
     public string? Status { get; set; }
+    public string? Examiner { get; set; }
+    public string? Reason { get; set; }
+
+    [JsonPropertyName("verify-date")]
+    public string? VerifyDate { get; set; }
 }
 
 public sealed class SrcTimes
 {
     [JsonPropertyName("primary_t")]
     public double PrimaryT { get; set; }
+
+    [JsonPropertyName("realtime_t")]
+    public double? RealtimeT { get; set; }
+
+    [JsonPropertyName("realtime_noloads_t")]
+    public double? RealtimeNoloadsT { get; set; }
+
+    [JsonPropertyName("ingame_t")]
+    public double? IngameT { get; set; }
 }
 
 public sealed class SrcVideos
@@ -121,8 +172,15 @@ public sealed class SrcVideoLink
     public string? Uri { get; set; }
 }
 
+public sealed class SrcSplits
+{
+    public string? Uri { get; set; }
+}
+
 public sealed class SrcSystem
 {
+    public object? Platform { get; set; }
+    public object? Region { get; set; }
     public bool Emulated { get; set; }
 }
 
@@ -139,6 +197,49 @@ public sealed class SrcUser
     public string? Id { get; set; }
     public SrcNames? Names { get; set; }
     public string? Weblink { get; set; }
+}
+
+/// <summary>
+/// Run players are a list until embedded, when speedrun.com wraps them in data.
+/// </summary>
+public sealed class SrcPlayerListConverter : JsonConverter<List<SrcPlayer>>
+{
+    private static readonly JsonSerializerOptions PlayerJson = new()
+    {
+        PropertyNameCaseInsensitive = true,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+    };
+
+    public override List<SrcPlayer>? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType == JsonTokenType.Null) return null;
+        if (reader.TokenType == JsonTokenType.StartArray)
+        {
+            var list = new List<SrcPlayer>();
+            while (reader.Read() && reader.TokenType != JsonTokenType.EndArray)
+            {
+                list.Add(JsonSerializer.Deserialize<SrcPlayer>(ref reader, PlayerJson)!);
+            }
+
+            return list;
+        }
+
+        if (reader.TokenType == JsonTokenType.StartObject)
+        {
+            using var doc = JsonDocument.ParseValue(ref reader);
+            if (doc.RootElement.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Array)
+            {
+                return data.Deserialize<List<SrcPlayer>>(PlayerJson) ?? [];
+            }
+
+            return [];
+        }
+
+        throw new JsonException("speedrun.com players payload was not a list.");
+    }
+
+    public override void Write(Utf8JsonWriter writer, List<SrcPlayer> value, JsonSerializerOptions options) =>
+        JsonSerializer.Serialize(writer, value, PlayerJson);
 }
 
 public static class SrcRunIds

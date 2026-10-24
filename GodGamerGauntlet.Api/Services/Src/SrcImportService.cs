@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using GodGamerGauntlet.Api.Data;
 using GodGamerGauntlet.Api.Models;
 using Microsoft.EntityFrameworkCore;
@@ -14,35 +15,40 @@ public sealed class SrcImportResult
     public List<string> Notes { get; } = [];
 }
 
-public sealed class SrcImportService(
+public sealed partial class SrcImportService(
     AppDbContext context,
     ISrcClient src,
     IConfiguration configuration,
     ILogger<SrcImportService> logger)
 {
+    public const string BulkDisabledMessage =
+        "Bulk import stays off until SrcImport:BulkEnabled is true.";
+
+    /// <summary>speedrun.com will not return offset 10,000 or higher for one runs query.</summary>
+    public const int RunOffsetCap = 10_000;
+
     public bool BulkEnabled =>
         bool.TryParse(configuration["SrcImport:BulkEnabled"], out var enabled) && enabled;
 
     /// <summary>
-    /// Fills every enabled flagship board. Requires <see cref="BulkEnabled"/>.
+    /// Queues a full run-history import for every enabled catalog game.
+    /// Requires <see cref="BulkEnabled"/>. The hosted worker drains the cursors.
     /// </summary>
     public async Task<SrcImportResult> ImportBulkAsync(CancellationToken cancellationToken)
     {
+        var status = await StartBulkAsync(cancellationToken);
         var result = new SrcImportResult();
-        foreach (var entry in SrcFlagshipMap.Games)
-        {
-            await ImportMappedGameAsync(entry.Abbreviation, playerSrcId: null, SubmissionOrigin.SrcImport, result, cancellationToken);
-        }
-
+        result.Notes.Add(
+            $"Import queued. {status.CursorsOpen} open cursors, {status.RunsStored} runs stored.");
         return result;
     }
 
-    public async Task<SrcImportResult> ImportGameAsync(string abbreviation, CancellationToken cancellationToken)
-    {
-        var result = new SrcImportResult();
-        await ImportMappedGameAsync(abbreviation, playerSrcId: null, SubmissionOrigin.SrcImport, result, cancellationToken);
-        return result;
-    }
+    /// <summary>
+    /// Imports one game's full run history before returning. Used by tests.
+    /// The admin endpoint queues the same work and returns immediately.
+    /// </summary>
+    public async Task<SrcImportResult> ImportGameAsync(string abbreviation, CancellationToken cancellationToken) =>
+        await DrainGameAsync(abbreviation, cancellationToken);
 
     /// <summary>
     /// Claim-gated path: scaffold flagship games this runner has PBs on and
@@ -108,16 +114,18 @@ public sealed class SrcImportService(
 
         var categories = remote.Categories?.Data ?? [];
         var variables = remote.Variables?.Data ?? [];
+        var levels = remote.Levels?.Data ?? [];
+        await EnsureLevelsAsync(local.Id, levels, cancellationToken);
         var importedCategories = 0;
 
         foreach (var srcCategory in categories)
         {
-            if (!string.Equals(srcCategory.Type, "per-game", StringComparison.OrdinalIgnoreCase)) continue;
-            if (srcCategory.Miscellaneous) continue;
             if (string.IsNullOrWhiteSpace(srcCategory.Id) || string.IsNullOrWhiteSpace(srcCategory.Name)) continue;
+            var perLevel = string.Equals(srcCategory.Type, "per-level", StringComparison.OrdinalIgnoreCase);
+            if (!perLevel && !string.Equals(srcCategory.Type, "per-game", StringComparison.OrdinalIgnoreCase)) continue;
 
             var category = await EnsureCategoryAsync(local.Id, srcCategory, cancellationToken);
-            var localVars = await EnsureVariablesAsync(category, srcCategory.Id, variables, cancellationToken);
+            var localVars = await EnsureVariablesAsync(category, srcCategory.Id, variables, perLevel, cancellationToken);
             importedCategories++;
 
             var subAxes = localVars
@@ -131,32 +139,29 @@ public sealed class SrcImportService(
                 .Where(axis => axis.Values.Count > 0)
                 .ToList();
 
-            foreach (var filter in Cartesian(subAxes))
+            if (perLevel)
             {
-                var board = await src.GetLeaderboardAsync(remote.Id, srcCategory.Id, filter, cancellationToken);
-                if (board?.Runs is null) continue;
-
-                foreach (var row in board.Runs)
+                var gameLevels = await context.GameLevels
+                    .Where(l => l.GameId == local.Id && l.SrcLevelId != null)
+                    .ToListAsync(cancellationToken);
+                foreach (var level in gameLevels)
                 {
-                    if (row.Run is null) continue;
-                    var outcome = await TryImportRunAsync(
-                        local.Id,
-                        category,
-                        localVars,
-                        row.Run,
-                        origin,
-                        playerSrcId,
-                        forcedPlayerId,
-                        cancellationToken);
-                    if (outcome == ImportOutcome.Skipped)
+                    foreach (var filter in Cartesian(subAxes))
                     {
-                        result.RunsSkipped++;
+                        var board = await src.GetLevelLeaderboardAsync(
+                            remote.Id, level.SrcLevelId!, srcCategory.Id, filter, cancellationToken);
+                        await ImportBoardAsync(
+                            local.Id, category, localVars, board, origin, playerSrcId, forcedPlayerId, result, cancellationToken);
                     }
-                    else
-                    {
-                        result.RunsUpserted++;
-                        if (outcome == ImportOutcome.Reserved) result.PlayersReserved++;
-                    }
+                }
+            }
+            else
+            {
+                foreach (var filter in Cartesian(subAxes))
+                {
+                    var board = await src.GetLeaderboardAsync(remote.Id, srcCategory.Id, filter, cancellationToken);
+                    await ImportBoardAsync(
+                        local.Id, category, localVars, board, origin, playerSrcId, forcedPlayerId, result, cancellationToken);
                 }
             }
 
@@ -214,7 +219,16 @@ public sealed class SrcImportService(
     {
         var existing = await context.Categories
             .FirstOrDefaultAsync(c => c.SrcCategoryId == srcCategory.Id, cancellationToken);
-        if (existing is not null) return existing;
+        if (existing is not null)
+        {
+            existing.Rules ??= NormalizeRules(srcCategory.Rules);
+            existing.Weblink ??= srcCategory.Weblink;
+            existing.Type ??= srcCategory.Type;
+            existing.Miscellaneous = srcCategory.Miscellaneous;
+            existing.PlayersType ??= srcCategory.Players?.Type;
+            if (srcCategory.Players is { Value: > 0 }) existing.PlayersValue ??= srcCategory.Players.Value;
+            return existing;
+        }
 
         var name = srcCategory.Name!.Trim();
         if (name.Length > Category.NameMaxLength) name = name[..Category.NameMaxLength];
@@ -229,7 +243,12 @@ public sealed class SrcImportService(
             GameId = gameId,
             Name = name,
             SrcCategoryId = srcCategory.Id,
-            Rules = null,
+            Rules = NormalizeRules(srcCategory.Rules),
+            Weblink = srcCategory.Weblink,
+            Type = srcCategory.Type,
+            Miscellaneous = srcCategory.Miscellaneous,
+            PlayersType = srcCategory.Players?.Type,
+            PlayersValue = srcCategory.Players is { Value: > 0 } ? srcCategory.Players.Value : null,
             CreatedAt = DateTime.UtcNow,
         };
         context.Categories.Add(category);
@@ -241,9 +260,10 @@ public sealed class SrcImportService(
         Category category,
         string srcCategoryId,
         IReadOnlyList<SrcVariable> srcVariables,
+        bool levelBoard,
         CancellationToken cancellationToken)
     {
-        var applicable = srcVariables.Where(v => AppliesTo(v, srcCategoryId)).ToList();
+        var applicable = srcVariables.Where(v => AppliesTo(v, srcCategoryId, levelBoard)).ToList();
         foreach (var srcVar in applicable)
         {
             if (string.IsNullOrWhiteSpace(srcVar.Id) || string.IsNullOrWhiteSpace(srcVar.Name)) continue;
@@ -258,16 +278,28 @@ public sealed class SrcImportService(
             {
                 var name = srcVar.Name.Trim();
                 if (name.Length > Variable.NameMaxLength) name = name[..Variable.NameMaxLength];
+                var takenNames = await context.Variables
+                    .Where(v => v.CategoryId == category.Id)
+                    .Select(v => v.Name)
+                    .ToListAsync(cancellationToken);
+                takenNames.AddRange(context.ChangeTracker.Entries<Variable>()
+                    .Where(entry => entry.Entity.CategoryId == category.Id)
+                    .Select(entry => entry.Entity.Name));
                 variable = new Variable
                 {
                     Id = Guid.NewGuid(),
                     CategoryId = category.Id,
-                    Name = name,
+                    Name = UniqueLabel(name, srcVar.Id, takenNames, Variable.NameMaxLength),
                     SrcVariableId = srcVar.Id,
                     IsSubcategory = srcVar.IsSubcategory,
                     IsRequired = srcVar.Mandatory,
+                    Scope = srcVar.Scope?.Type,
                 };
                 context.Variables.Add(variable);
+            }
+            else
+            {
+                variable.Scope ??= srcVar.Scope?.Type;
             }
 
             foreach (var (valueId, choice) in srcVar.Values?.Values ?? [])
@@ -277,13 +309,23 @@ public sealed class SrcImportService(
                 if (label.Length > VariableValue.ValueMaxLength) label = label[..VariableValue.ValueMaxLength];
 
                 var exists = variable.Values.Any(x => x.SrcValueId == valueId);
-                if (exists) continue;
+                if (exists)
+                {
+                    var current = variable.Values.First(x => x.SrcValueId == valueId);
+                    current.Rules ??= NormalizeRules(choice.Rules);
+                    continue;
+                }
                 variable.Values.Add(new VariableValue
                 {
                     Id = Guid.NewGuid(),
                     VariableId = variable.Id,
-                    Value = label,
+                    Value = UniqueLabel(
+                        label,
+                        valueId,
+                        variable.Values.Select(x => x.Value),
+                        VariableValue.ValueMaxLength),
                     SrcValueId = valueId,
+                    Rules = NormalizeRules(choice.Rules),
                 });
             }
         }
@@ -296,13 +338,15 @@ public sealed class SrcImportService(
             .ToListAsync(cancellationToken);
     }
 
-    private static bool AppliesTo(SrcVariable variable, string srcCategoryId)
+    private static bool AppliesTo(SrcVariable variable, string srcCategoryId, bool levelBoard)
     {
         var scope = variable.Scope?.Type;
-        if (string.Equals(scope, "all-levels", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(scope, "single-level", StringComparison.OrdinalIgnoreCase))
+        var levelScope = string.Equals(scope, "all-levels", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(scope, "single-level", StringComparison.OrdinalIgnoreCase);
+        if (levelBoard != levelScope && !string.Equals(scope, "global", StringComparison.OrdinalIgnoreCase) && scope is not null)
         {
-            return false;
+            if (levelBoard && string.Equals(scope, "full-game", StringComparison.OrdinalIgnoreCase)) return false;
+            if (!levelBoard && levelScope) return false;
         }
 
         if (!string.IsNullOrEmpty(variable.Category)
@@ -335,59 +379,101 @@ public sealed class SrcImportService(
             return ImportOutcome.Skipped;
         }
 
-        if (!SrcRunIds.IsEmptyLevel(run.Level)) return ImportOutcome.Skipped;
+        var links = ProofUrls.HttpLinks((run.Videos?.Links ?? []).Select(l => l.Uri));
+        var video = ProofUrls.FirstAccepted(links) ?? links.FirstOrDefault();
+        if (video is null) return ImportOutcome.Skipped;
 
         var players = run.Players ?? [];
-        if (players.Count != 1) return ImportOutcome.Skipped;
-
-        var player = players[0];
-        var isGuest = string.Equals(player.Rel, "guest", StringComparison.OrdinalIgnoreCase)
-            || string.IsNullOrWhiteSpace(player.Id);
-        if (!isGuest && onlySrcUserId is not null
-            && !string.Equals(player.Id, onlySrcUserId, StringComparison.OrdinalIgnoreCase))
+        if (players.Count == 0) return ImportOutcome.Skipped;
+        if (onlySrcUserId is not null && !players.Any(p =>
+                !string.Equals(p.Rel, "guest", StringComparison.OrdinalIgnoreCase)
+                && string.Equals(p.Id, onlySrcUserId, StringComparison.OrdinalIgnoreCase)))
         {
             return ImportOutcome.Skipped;
         }
 
-        if (isGuest && onlySrcUserId is not null) return ImportOutcome.Skipped;
-
-        var video = ProofUrls.FirstAccepted((run.Videos?.Links ?? []).Select(l => l.Uri));
-        if (video is null) return ImportOutcome.Skipped;
-
         var timeMs = (long)Math.Round(run.Times?.PrimaryT * 1000 ?? 0);
         if (timeMs <= 0) return ImportOutcome.Skipped;
 
-        Guid playerId;
         var reserved = false;
-        if (forcedPlayerId is Guid forced)
+        var seated = new List<(SrcPlayer Source, User User)>();
+        foreach (var source in players)
         {
-            playerId = forced;
-        }
-        else
-        {
-            var (user, created) = await EnsurePlayerAsync(player, cancellationToken);
-            playerId = user.Id;
-            reserved = created;
+            if (forcedPlayerId is Guid forced && seated.Count == 0)
+            {
+                var forcedUser = await context.Users.FirstAsync(u => u.Id == forced, cancellationToken);
+                seated.Add((source, forcedUser));
+                continue;
+            }
+
+            var (user, created) = await EnsurePlayerAsync(source, cancellationToken);
+            if (created) reserved = true;
+            seated.Add((source, user));
         }
 
+        var primary = seated[0];
         var playedOn = ParsePlayedOn(run);
+        var verifiedAt = ParseSubmittedDate(run.Status?.VerifyDate) ?? DateTime.UtcNow;
+        var level = await EnsureRunLevelAsync(gameId, run.Level, cancellationToken);
+        var (platformId, platformName) = await ResolveNameAsync(run.System?.Platform, src.GetPlatformNameAsync, cancellationToken);
+        var (regionId, regionName) = await ResolveNameAsync(run.System?.Region, src.GetRegionNameAsync, cancellationToken);
+        var verifierId = string.IsNullOrWhiteSpace(run.Status?.Examiner) ? null : run.Status.Examiner;
+        var verifierName = verifierId is null ? null : await src.GetUserNameAsync(verifierId, cancellationToken);
         var submission = new Submission
         {
             Id = Guid.NewGuid(),
             GameId = gameId,
             CategoryId = category.Id,
-            PlayerId = playerId,
+            LevelId = level?.Id,
+            PlayerId = primary.User.Id,
             PrimaryTimeMs = timeMs,
+            RealtimeMs = ToMs(run.Times?.RealtimeT),
+            IngameMs = ToMs(run.Times?.IngameT),
             VideoUrl = video,
             PlayedOn = playedOn,
             IsEmulator = run.System?.Emulated == true,
+            PlatformSrcId = platformId,
+            PlatformName = platformName,
+            RegionSrcId = regionId,
+            RegionName = regionName,
+            VerifierSrcId = verifierId,
+            VerifierName = verifierName is null ? null : Trim(verifierName, Submission.SrcNameMaxLength),
+            SrcWeblink = run.Weblink,
             Status = SubmissionStatus.Verified,
             Origin = origin,
             SrcRunId = run.Id,
             IsObsolete = false,
             SubmittedAt = ParseSubmitted(run) ?? playedOn.UtcDateTime,
-            ReviewedAt = DateTime.UtcNow,
+            ReviewedAt = verifiedAt,
         };
+
+        for (var i = 0; i < seated.Count; i++)
+        {
+            var (source, user) = seated[i];
+            var guest = string.Equals(source.Rel, "guest", StringComparison.OrdinalIgnoreCase)
+                || string.IsNullOrWhiteSpace(source.Id);
+            submission.Players.Add(new SubmissionPlayer
+            {
+                Id = Guid.NewGuid(),
+                SubmissionId = submission.Id,
+                UserId = user.Id,
+                Name = PlayerLabel(source),
+                SrcUserId = guest ? null : source.Id,
+                IsGuest = guest,
+                SortOrder = i,
+            });
+        }
+
+        for (var i = 0; i < links.Count; i++)
+        {
+            submission.Proofs.Add(new SubmissionProof
+            {
+                Id = Guid.NewGuid(),
+                SubmissionId = submission.Id,
+                Url = links[i],
+                SortOrder = i,
+            });
+        }
 
         foreach (var (srcVarId, srcValId) in run.Values ?? [])
         {
@@ -405,6 +491,104 @@ public sealed class SrcImportService(
 
         context.Submissions.Add(submission);
         return reserved ? ImportOutcome.Reserved : ImportOutcome.Inserted;
+    }
+
+    private async Task ImportBoardAsync(
+        Guid gameId,
+        Category category,
+        IReadOnlyList<Variable> localVars,
+        SrcLeaderboard? board,
+        SubmissionOrigin origin,
+        string? playerSrcId,
+        Guid? forcedPlayerId,
+        SrcImportResult result,
+        CancellationToken cancellationToken)
+    {
+        if (board?.Runs is null) return;
+        foreach (var row in board.Runs)
+        {
+            if (row.Run is null) continue;
+            var outcome = await TryImportRunAsync(
+                gameId, category, localVars, row.Run, origin, playerSrcId, forcedPlayerId, cancellationToken);
+            if (outcome == ImportOutcome.Skipped)
+            {
+                result.RunsSkipped++;
+            }
+            else
+            {
+                result.RunsUpserted++;
+                if (outcome == ImportOutcome.Reserved) result.PlayersReserved++;
+            }
+        }
+    }
+
+    private async Task EnsureLevelsAsync(
+        Guid gameId, IReadOnlyList<SrcLevel> levels, CancellationToken cancellationToken)
+    {
+        foreach (var level in levels)
+        {
+            if (string.IsNullOrWhiteSpace(level.Id) || string.IsNullOrWhiteSpace(level.Name)) continue;
+            var row = await context.GameLevels
+                .FirstOrDefaultAsync(l => l.SrcLevelId == level.Id, cancellationToken);
+            if (row is null)
+            {
+                context.GameLevels.Add(new GameLevel
+                {
+                    Id = Guid.NewGuid(),
+                    GameId = gameId,
+                    Name = Trim(level.Name, GameLevel.NameMaxLength),
+                    SrcLevelId = level.Id,
+                    Rules = NormalizeRules(level.Rules),
+                    Weblink = level.Weblink,
+                });
+            }
+            else
+            {
+                row.Name = Trim(level.Name, GameLevel.NameMaxLength);
+                row.Rules = NormalizeRules(level.Rules) ?? row.Rules;
+                row.Weblink ??= level.Weblink;
+            }
+        }
+
+        await context.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task<GameLevel?> EnsureRunLevelAsync(
+        Guid gameId, object? level, CancellationToken cancellationToken)
+    {
+        var srcId = SrcRunIds.AsId(level);
+        if (string.IsNullOrWhiteSpace(srcId)) return null;
+        var row = await context.GameLevels
+            .FirstOrDefaultAsync(l => l.SrcLevelId == srcId, cancellationToken);
+        if (row is not null) return row;
+
+        row = new GameLevel
+        {
+            Id = Guid.NewGuid(),
+            GameId = gameId,
+            Name = Trim(srcId, GameLevel.NameMaxLength),
+            SrcLevelId = srcId,
+        };
+        context.GameLevels.Add(row);
+        await context.SaveChangesAsync(cancellationToken);
+        return row;
+    }
+
+    private static readonly ConcurrentDictionary<string, string?> ResourceNames = new(StringComparer.Ordinal);
+
+    private async Task<(string? Id, string? Name)> ResolveNameAsync(
+        object? value,
+        Func<string, CancellationToken, Task<string?>> lookup,
+        CancellationToken cancellationToken)
+    {
+        var (id, name) = ReadRef(value);
+        if (id is null || name is not null) return (id, name);
+        var cacheKey = lookup.Method.Name + ":" + id;
+        if (ResourceNames.TryGetValue(cacheKey, out var cached)) return (id, cached);
+        name = await lookup(id, cancellationToken);
+        var trimmed = name is null ? null : Trim(name, Submission.SrcNameMaxLength);
+        ResourceNames.TryAdd(cacheKey, trimmed);
+        return (id, trimmed);
     }
 
     private async Task<(User User, bool Created)> EnsurePlayerAsync(
@@ -493,8 +677,8 @@ public sealed class SrcImportService(
 
     private static DateTimeOffset ParsePlayedOn(SrcRun run)
     {
-        if (DateTimeOffset.TryParse(run.Date, out var date)) return date;
-        if (DateTimeOffset.TryParse(run.Submitted, out var submitted)) return submitted;
+        if (DateTimeOffset.TryParse(run.Date, out var date)) return date.ToUniversalTime();
+        if (DateTimeOffset.TryParse(run.Submitted, out var submitted)) return submitted.ToUniversalTime();
         return DateTimeOffset.UtcNow;
     }
 
@@ -512,6 +696,72 @@ public sealed class SrcImportService(
         var stem = name.Length > budget ? name[..budget] : name;
         return stem + suffix;
     }
+
+    private static string? NormalizeRules(string? rules)
+    {
+        if (string.IsNullOrWhiteSpace(rules)) return null;
+        var trimmed = rules.Trim();
+        const int max = 20_000;
+        return trimmed.Length <= max ? trimmed : trimmed[..max];
+    }
+
+    private static string UniqueLabel(string label, string srcId, IEnumerable<string> taken, int maxLength)
+    {
+        var trimmed = label.Length <= maxLength ? label : label[..maxLength];
+        if (!taken.Any(t => t == trimmed)) return trimmed;
+        var suffix = " · " + srcId;
+        var room = Math.Max(0, maxLength - suffix.Length);
+        var stem = label.Length <= room ? label : label[..room];
+        return stem + suffix;
+    }
+
+    private static string Trim(string value, int max) =>
+        value.Length <= max ? value : value[..max];
+
+    private static long? ToMs(double? seconds)
+    {
+        if (seconds is null or <= 0) return null;
+        return (long)Math.Round(seconds.Value * 1000);
+    }
+
+    private static string PlayerLabel(SrcPlayer player)
+    {
+        var name = player.Names?.International ?? player.Name ?? player.Id ?? "Runner";
+        return Trim(name, SubmissionPlayer.NameMaxLength);
+    }
+
+    private static (string? Id, string? Name) ReadRef(object? value)
+    {
+        var id = SrcRunIds.AsId(value);
+        string? name = null;
+        if (value is System.Text.Json.JsonElement el && el.ValueKind == System.Text.Json.JsonValueKind.Object)
+        {
+            name = NameOf(el);
+        }
+
+        if (id is { Length: > Submission.SrcRunIdMaxLength }) id = id[..Submission.SrcRunIdMaxLength];
+        if (name is { Length: > Submission.SrcNameMaxLength }) name = name[..Submission.SrcNameMaxLength];
+        return (string.IsNullOrWhiteSpace(id) ? null : id, string.IsNullOrWhiteSpace(name) ? null : name);
+    }
+
+    private static string? NameOf(System.Text.Json.JsonElement el)
+    {
+        if (el.TryGetProperty("name", out var plain) && plain.ValueKind == System.Text.Json.JsonValueKind.String)
+            return plain.GetString();
+        if (el.TryGetProperty("names", out var names)
+            && names.TryGetProperty("international", out var international)
+            && international.ValueKind == System.Text.Json.JsonValueKind.String)
+        {
+            return international.GetString();
+        }
+
+        if (el.TryGetProperty("data", out var data) && data.ValueKind == System.Text.Json.JsonValueKind.Object)
+            return NameOf(data);
+        return null;
+    }
+
+    private static DateTime? ParseSubmittedDate(string? value) =>
+        DateTime.TryParse(value, out var parsed) ? DateTime.SpecifyKind(parsed, DateTimeKind.Utc) : null;
 
     private static List<Dictionary<string, string>> Cartesian(
         IReadOnlyList<(string SrcId, IReadOnlyList<string> Values)> axes)

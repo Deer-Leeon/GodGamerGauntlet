@@ -11,6 +11,12 @@ public class Category
 
     public const int SrcIdMaxLength = 16;
 
+    public const int WeblinkMaxLength = 300;
+
+    public const int TypeMaxLength = 20;
+
+    public const int PlayersTypeMaxLength = 20;
+
     public Guid Id { get; set; }
 
     public Guid GameId { get; set; }
@@ -22,6 +28,18 @@ public class Category
 
     /// <summary>Markdown rules the community moderators maintain.</summary>
     public string? Rules { get; set; }
+
+    public string? Weblink { get; set; }
+
+    /// <summary>speedrun.com category type: per-game or per-level. Null for a board created here.</summary>
+    public string? Type { get; set; }
+
+    public bool Miscellaneous { get; set; }
+
+    /// <summary>exactly or up-to, from the speedrun.com category.</summary>
+    public string? PlayersType { get; set; }
+
+    public int? PlayersValue { get; set; }
 
     public DateTime CreatedAt { get; set; }
 

@@ -11,6 +11,8 @@ public class Variable
 
     public const int SrcIdMaxLength = 16;
 
+    public const int ScopeMaxLength = 32;
+
     public Guid Id { get; set; }
 
     public Guid CategoryId { get; set; }
@@ -25,6 +27,9 @@ public class Variable
 
     /// <summary>True when a submission must select a value for this variable.</summary>
     public bool IsRequired { get; set; }
+
+    /// <summary>speedrun.com scope: global, full-game, all-levels, or single-level.</summary>
+    public string? Scope { get; set; }
 
     public Category? Category { get; set; }
 

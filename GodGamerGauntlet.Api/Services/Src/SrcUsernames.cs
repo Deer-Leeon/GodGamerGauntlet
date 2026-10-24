@@ -63,33 +63,42 @@ public static class SrcUsernames
         var preferred = ToHandle(srcName, disambiguator);
         if (!await TakenAsync(context, preferred, cancellationToken)) return preferred;
 
-        var idPart = new string(disambiguator.Where(char.IsAsciiLetterOrDigit).Take(6).ToArray());
-        var stem = preferred.Length > 18 ? preferred[..17] : preferred;
-        var candidate = $"{stem}_{idPart}";
-        if (candidate.Length > AccountRules.UsernameMax)
+        var seed = new string(disambiguator.Where(char.IsAsciiLetterOrDigit).Take(8).ToArray());
+        if (seed.Length < 4) seed = Guid.NewGuid().ToString("N")[..8];
+        var stemSource = preferred is "src" or "srcplayer" ? "runner" : preferred;
+
+        for (var i = 0; i < 30; i++)
         {
-            candidate = candidate[..AccountRules.UsernameMax];
+            var suffix = i == 0 ? seed : seed + i.ToString();
+            if (suffix.Length > 10) suffix = suffix[..10];
+            var room = AccountRules.UsernameMax - suffix.Length - 1;
+            if (room < AccountRules.UsernameMin) continue;
+            var stem = stemSource.Length <= room ? stemSource : stemSource[..room];
+            if (!AccountRules.TryNormalizeUsername(stem + "_" + suffix, out var candidate, out _)) continue;
+            if (!await TakenAsync(context, candidate, cancellationToken)) return candidate;
         }
 
-        if (AccountRules.TryNormalizeUsername(candidate, out var normalized, out _)
-            && !await TakenAsync(context, normalized, cancellationToken))
+        for (var i = 0; i < 5; i++)
         {
-            return normalized;
+            var fallback = "u" + Guid.NewGuid().ToString("N")[..12];
+            if (!await TakenAsync(context, fallback, cancellationToken)) return fallback;
         }
 
-        for (var i = 0; i < 12; i++)
-        {
-            var stamped = ToHandle(srcName, disambiguator + i);
-            if (!await TakenAsync(context, stamped, cancellationToken)) return stamped;
-        }
-
-        return ToHandle("src", Guid.NewGuid().ToString("N"));
+        throw new InvalidOperationException("Could not allocate a unique username.");
     }
 
-    private static Task<bool> TakenAsync(
+    private static async Task<bool> TakenAsync(
         AppDbContext context, string username, CancellationToken cancellationToken)
     {
-        var key = username.ToLower();
-        return context.Users.AnyAsync(u => u.Username.ToLower() == key, cancellationToken);
+        if (context.ChangeTracker.Entries<User>().Any(entry =>
+                string.Equals(entry.Entity.Username, username, StringComparison.OrdinalIgnoreCase)))
+        {
+            return true;
+        }
+
+        var key = username.ToLowerInvariant();
+        return await context.Users.AnyAsync(
+            u => u.Username == username || u.Username.ToLower() == key,
+            cancellationToken);
     }
 }

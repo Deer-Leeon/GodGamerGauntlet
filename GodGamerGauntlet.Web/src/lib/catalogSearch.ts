@@ -88,7 +88,7 @@ function matchesFilters(game: Game, filters: SearchFilters): boolean {
   return true;
 }
 
-/** Roster display order (PopularityRank on the closed 19). */
+/** Roster display order (PopularityRank: all-time chart, then active-only). */
 function compareFeatured(a: Game, b: Game): number {
   if (a.popularityRank !== b.popularityRank) {
     return a.popularityRank - b.popularityRank;

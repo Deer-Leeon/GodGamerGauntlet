@@ -32,6 +32,8 @@ public record RecordsCategoryDto(
     string? Rules,
     IReadOnlyList<RecordsVariableDto> Variables);
 
+public record RecordsLevelDto(Guid Id, string Name, string? Rules);
+
 /// <summary>Everything the /records/[gameId] page needs besides the board rows.</summary>
 public record GameRecordsDto(
     Guid GameId,
@@ -39,7 +41,9 @@ public record GameRecordsDto(
     string? Thumb,
     IReadOnlyList<RecordsCategoryDto> Categories,
     IReadOnlyList<ModeratorDto> Moderators,
-    string? SrcGameUrl);
+    string? SrcGameUrl,
+    IReadOnlyList<RecordsLevelDto> Levels,
+    IReadOnlyList<RecordsCategoryDto> LevelCategories);
 
 /// <summary>One row on a verified speedrun leaderboard.</summary>
 public record RecordRowDto(
