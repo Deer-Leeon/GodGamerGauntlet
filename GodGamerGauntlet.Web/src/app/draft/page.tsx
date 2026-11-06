@@ -479,8 +479,8 @@ export default function DraftRoomPage() {
               return (
                 <li key={game.id} className="feed-row flex items-center gap-4 py-4">
                   <Link
-                    href={`/records/${game.id}#tech`}
-                    title={`Learn skips — ${game.title}`}
+                    href={`/records/${game.id}`}
+                    title={game.title}
                     className="shrink-0"
                   >
                     <GameThumb game={game} />
@@ -557,7 +557,7 @@ export default function DraftRoomPage() {
                     <>
                       <div className="min-w-0 flex-1">
                         <Link
-                          href={`/records/${game.id}#tech`}
+                          href={`/records/${game.id}`}
                           className="block truncate text-sm text-ink hover:text-banner"
                         >
                           {game.title}

@@ -25,8 +25,9 @@ export default function HomeWelcome() {
       <h1 className="mt-3 text-ink">God Gamer Gauntlet</h1>
       <div className="mx-auto mt-3 h-1.5 w-28 bg-banner" />
       <p className="mx-auto mt-5 max-w-xl text-base leading-relaxed text-muted">
-        Ludwig came up with the God Gamer Challenge. Win 10 different online
-        games in a row.
+        Ludwig came up with the God Gamer Challenge.
+        <br />
+        Win 10 different online games in a row.
       </p>
       <details className="group mt-4 text-left">
         <summary className="mx-auto flex w-fit cursor-pointer list-none items-center gap-2 text-sm text-muted hover:text-ink [&::-webkit-details-marker]:hidden">
