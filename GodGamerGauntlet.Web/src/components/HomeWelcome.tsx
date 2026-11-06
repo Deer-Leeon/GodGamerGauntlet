@@ -18,53 +18,63 @@ const STREAM = [
 
 export default function HomeWelcome() {
   return (
-    <section>
+    <section className="mx-auto max-w-3xl text-center">
       <p className="font-pixel text-[10px] leading-6 text-banner">
         THE CHALLENGE
       </p>
       <h1 className="mt-3 text-ink">God Gamer Gauntlet</h1>
-      <div className="mt-3 h-1.5 w-28 bg-banner" />
-      <p className="mt-5 max-w-2xl text-base leading-relaxed text-muted">
-        Ludwig came up with the God Gamer Challenge. You can take it on as a
-        grind, or on stream, where the later rules exist to deal with stream
-        sniping.
+      <div className="mx-auto mt-3 h-1.5 w-28 bg-banner" />
+      <p className="mx-auto mt-5 max-w-xl text-base leading-relaxed text-muted">
+        Ludwig came up with the God Gamer Challenge. Win 10 different online
+        games in a row.
       </p>
-      <div className="mt-6 grid max-w-3xl gap-4 sm:grid-cols-2">
-        <article className="border-2 border-ink/15 bg-white px-4 py-5">
-          <h2 className="text-base text-ink">The grind</h2>
-          <p className="mt-2 text-sm leading-relaxed text-muted">
-            For you, off stream. These are the rules the runs started with.
-          </p>
-          <ul className="mt-3 list-disc space-y-2 pl-5 text-sm leading-relaxed text-muted">
-            {GRIND.map((rule) => (
-              <li key={rule}>{rule}</li>
-            ))}
-          </ul>
-        </article>
-        <article className="border-2 border-ink/15 bg-white px-4 py-5">
-          <h2 className="text-base text-ink">If you are streaming</h2>
-          <p className="mt-2 text-sm leading-relaxed text-muted">
-            Later updates, so a streamed attempt can deal with stream sniping.
-            They are not part of the grind.
-          </p>
-          <ul className="mt-3 list-disc space-y-2 pl-5 text-sm leading-relaxed text-muted">
-            {STREAM.map((rule) => (
-              <li key={rule}>{rule}</li>
-            ))}
-          </ul>
-        </article>
-      </div>
-      <div className="mt-7 flex flex-wrap items-center gap-x-5 gap-y-3 text-sm">
-        <Link
-          href="/how"
-          className="bg-banner px-5 py-2.5 transition hover:bg-banner/90"
-        >
-          How it works
-        </Link>
-        <Link href="/records" className="text-muted underline-offset-4 hover:text-ink hover:underline">
-          See the games
-        </Link>
-      </div>
+      <details className="group mt-4 text-left">
+        <summary className="mx-auto flex w-fit cursor-pointer list-none items-center gap-2 text-sm text-muted hover:text-ink [&::-webkit-details-marker]:hidden">
+          <span
+            aria-hidden
+            className="font-pixel text-[10px] leading-5 text-banner group-open:hidden"
+          >
+            +
+          </span>
+          <span
+            aria-hidden
+            className="hidden font-pixel text-[10px] leading-5 text-banner group-open:inline"
+          >
+            −
+          </span>
+          The rules
+        </summary>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <article className="border-2 border-ink/15 bg-white px-4 py-5">
+            <h2 className="text-base text-ink">The grind</h2>
+            <p className="mt-2 text-sm leading-relaxed text-muted">
+              For you, off stream. These are the rules the runs started with.
+            </p>
+            <ul className="mt-3 list-disc space-y-2 pl-5 text-sm leading-relaxed text-muted">
+              {GRIND.map((rule) => (
+                <li key={rule}>{rule}</li>
+              ))}
+            </ul>
+          </article>
+          <article className="border-2 border-ink/15 bg-white px-4 py-5">
+            <h2 className="text-base text-ink">If you are streaming</h2>
+            <p className="mt-2 text-sm leading-relaxed text-muted">
+              Later updates, so a streamed attempt can deal with stream
+              sniping. They are not part of the grind.
+            </p>
+            <ul className="mt-3 list-disc space-y-2 pl-5 text-sm leading-relaxed text-muted">
+              {STREAM.map((rule) => (
+                <li key={rule}>{rule}</li>
+              ))}
+            </ul>
+          </article>
+        </div>
+        <p className="mt-4 text-center text-sm">
+          <Link href="/how" className="text-banner hover:underline">
+            How it works
+          </Link>
+        </p>
+      </details>
     </section>
   );
 }
