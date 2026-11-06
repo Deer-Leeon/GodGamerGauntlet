@@ -1,7 +1,7 @@
 export const SITE_URL = "https://godgamergauntlet.com";
 
 export const SITE_DESCRIPTION =
-  "Draft 3, 5, or 7 full-game speedruns from the roster. Sprint, Marathon, or Endurance — start to finish.";
+  "Ludwig's God Gamer Challenge: win 10 online games in a row. Streamers use a later version to deal with stream sniping.";
 
 export const GAUNTLET_MODES = [
   {

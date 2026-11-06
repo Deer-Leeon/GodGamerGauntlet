@@ -33,6 +33,7 @@ public interface IRecordBook
         CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<PlayerCardDto>> GetDirectoryAsync(
+        string? search = null,
         CancellationToken cancellationToken = default);
 }
 

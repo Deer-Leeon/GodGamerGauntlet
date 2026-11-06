@@ -26,7 +26,7 @@ export default function OpenGraphImage() {
             textTransform: "uppercase",
           }}
         >
-          SELECT A GAUNTLET
+          THE CHALLENGE
         </div>
         <div
           style={{
@@ -43,26 +43,20 @@ export default function OpenGraphImage() {
         <div
           style={{
             marginTop: 28,
-            display: "flex",
-            gap: 16,
             fontSize: 28,
             color: "#444444",
           }}
         >
-          <span>Sprint</span>
-          <span>·</span>
-          <span>Marathon</span>
-          <span>·</span>
-          <span>Endurance</span>
+          Ten wins in a row.
         </div>
         <div
           style={{
-            marginTop: 20,
+            marginTop: 16,
             fontSize: 24,
             color: "#6B6B6B",
           }}
         >
-          Start to finish.
+          Verified speedrun.com runs.
         </div>
       </div>
     ),

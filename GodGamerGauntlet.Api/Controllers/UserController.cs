@@ -16,9 +16,11 @@ public class UserController(IUserRepository userRepository, IRecordBook recordBo
 
     [HttpGet]
     [ProducesResponseType(typeof(IEnumerable<PlayerCardDto>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetAll(CancellationToken cancellationToken)
+    public async Task<IActionResult> GetAll(
+        [FromQuery] string? q,
+        CancellationToken cancellationToken)
     {
-        var players = await recordBook.GetDirectoryAsync(cancellationToken);
+        var players = await recordBook.GetDirectoryAsync(q, cancellationToken);
         return Ok(players);
     }
 

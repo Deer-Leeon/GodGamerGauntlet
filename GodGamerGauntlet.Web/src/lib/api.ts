@@ -299,9 +299,13 @@ export interface PlayerCard {
   lastRunAt: string | null;
 }
 
-/** Public roster. Email is never included. */
-export function getPlayers(): Promise<PlayerCard[]> {
-  return request<PlayerCard[]>("/api/users");
+/** Public roster. Email is never included. Search finds imported runners too. */
+export function getPlayers(query = "", signal?: AbortSignal): Promise<PlayerCard[]> {
+  const params = new URLSearchParams();
+  const trimmed = query.trim();
+  if (trimmed) params.set("q", trimmed);
+  const suffix = params.size > 0 ? `?${params.toString()}` : "";
+  return request<PlayerCard[]>(`/api/users${suffix}`, { signal });
 }
 
 /** The run is created for the authenticated user (JWT required). */

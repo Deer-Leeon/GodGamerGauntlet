@@ -1,51 +1,57 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { timeAgo } from "@/components/RunSocial";
 import { getPlayers, type PlayerCard } from "@/lib/api";
 
 const COLS =
   "sm:grid-cols-[minmax(0,1.3fr)_4rem_4rem_minmax(0,11rem)_5.25rem]";
+const SEARCH_DEBOUNCE_MS = 300;
 
 export default function PlayersPage() {
   const [players, setPlayers] = useState<PlayerCard[]>([]);
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
+    const handle = window.setTimeout(
+      () => setDebouncedQuery(query),
+      SEARCH_DEBOUNCE_MS,
+    );
+    return () => window.clearTimeout(handle);
+  }, [query]);
+
+  const trimmedQuery = debouncedQuery.trim();
+  const queryTooShort = trimmedQuery.length === 1;
+
+  useEffect(() => {
+    if (queryTooShort) return;
+
+    const controller = new AbortController();
     let cancelled = false;
     setLoading(true);
     setLoadError(null);
-    getPlayers()
+    getPlayers(trimmedQuery, controller.signal)
       .then((fetched) => {
         if (!cancelled) setPlayers(fetched);
       })
       .catch((error: unknown) => {
-        if (!cancelled) {
-          setLoadError(
-            error instanceof Error
-              ? error.message
-              : "Failed to load players.",
-          );
-        }
+        if (cancelled || controller.signal.aborted) return;
+        setLoadError(
+          error instanceof Error ? error.message : "Failed to load players.",
+        );
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled && !controller.signal.aborted) setLoading(false);
       });
     return () => {
       cancelled = true;
+      controller.abort();
     };
-  }, []);
-
-  const filtered = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    if (!needle) return players;
-    return players.filter((player) =>
-      player.username.toLowerCase().includes(needle),
-    );
-  }, [players, query]);
+  }, [trimmedQuery, queryTooShort]);
 
   return (
     <main className="site-content flex-1 px-5 py-8 sm:px-7">
@@ -56,7 +62,8 @@ export default function PlayersPage() {
         <h1 className="mt-2 text-2xl font-semibold">Players</h1>
         <div className="mt-3 h-1.5 w-20 bg-banner" />
         <p className="mt-4 text-sm leading-relaxed text-muted">
-          Look up anyone and open their gauntlet history.
+          Accounts and gauntlet runs are listed here. Search to find anyone
+          else.
         </p>
       </header>
 
@@ -94,20 +101,24 @@ export default function PlayersPage() {
           <span className="text-right">Last run</span>
         </div>
 
-        {loading && (
+        {queryTooShort && (
+          <p className="py-14 text-sm text-faint">Type at least 2 letters.</p>
+        )}
+
+        {!queryTooShort && loading && (
           <p className="py-14 text-sm text-faint">Loading players…</p>
         )}
 
-        {!loading && !loadError && filtered.length === 0 && (
+        {!queryTooShort && !loading && !loadError && players.length === 0 && (
           <p className="py-14 text-sm text-faint">
-            {players.length === 0
-              ? "No players yet."
-              : `No players matching “${query.trim()}”.`}
+            {trimmedQuery
+              ? `No players matching “${trimmedQuery}”.`
+              : "No players yet."}
           </p>
         )}
 
         <ol>
-          {filtered.map((player) => (
+          {!queryTooShort && !loading && players.map((player) => (
             <li key={player.username} className="feed-row">
               <Link
                 href={`/u/${encodeURIComponent(player.username)}`}

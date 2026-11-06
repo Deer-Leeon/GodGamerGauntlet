@@ -1,25 +1,44 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { GAUNTLET_MODES } from "@/lib/site";
+
+const UPDATED_RULES_URL =
+  "https://www.reddit.com/r/LudwigAhgren/comments/1fkrxjn/god_gamer_challenge_updated_rules/";
 
 export const metadata: Metadata = {
   title: "How it works",
   description:
-    "Pick Sprint, Marathon, or Endurance. Draft from the roster. Speedrun them start to finish. Post the Clear.",
+    "Ludwig created the God Gamer Challenge. The grind is 10 online wins in a row. Streamers use a later version to deal with stream sniping.",
 };
+
+const GRIND = [
+  "You pick 10 different online multiplayer games, and the order.",
+  "You win one game of each, in that order.",
+  "At least 2 of the games are battle royales.",
+  "One loss voids the run. You start over from the first game.",
+  "You play at your level. Beating much weaker players on purpose does not count.",
+];
+
+const STREAM = [
+  "You may queue one battle royale with more players on your side. That raises your chance of winning. (Fall Guys)",
+  "You may back out because your opponents are too good. That does not restart the run, and you can do it indefinitely. (Brawl Stars, Geoguessr)",
+  "If you enter a lobby and win, that win counts. If you lose, the loss does not count, you may reset that game, and the run does not restart. (Mario Kart)",
+  "You may back out of any game if you suspect someone in the lobby is stream sniping. That does not restart the run, and you can do it indefinitely. (Fall Guys, Mario Kart, Chess Bughouse, and many other games)",
+  "If you suspect a stream sniper is helping you, you may continue without resetting the game or the run.",
+];
 
 export default function HowItWorksPage() {
   return (
     <main className="site-content flex-1 px-5 py-8 sm:px-7">
       <header className="pb-2">
         <p className="font-pixel text-[10px] leading-6 text-banner">
-          STAGE SELECT
+          THE CHALLENGE
         </p>
         <h1 className="mt-2">How it works</h1>
         <div className="mt-3 h-1.5 w-28 bg-banner" />
         <p className="mt-5 max-w-xl text-base leading-relaxed text-muted">
-          A solo speedrun gauntlet. Draft a lineup, run every game start to
-          finish, and put the Clear on the boards.
+          Ludwig created the God Gamer Challenge. One version is the grind.
+          The other is for when you stream it and have to deal with stream
+          sniping.
         </p>
       </header>
 
@@ -28,125 +47,96 @@ export default function HowItWorksPage() {
           <p className="font-pixel text-[10px] leading-5 text-banner">
             STAGE 01
           </p>
-          <h2 className="mt-2">Pick a length</h2>
+          <h2 className="mt-2">Ludwig made it</h2>
           <p className="mt-2 text-sm leading-relaxed text-muted">
-            Sprint, Marathon, or Endurance. Harder lineups rank higher on the
-            boards.
+            Ludwig came up with the God Gamer Challenge. The grind is how it
+            started. The extra rules showed up later, once people were playing
+            it on stream.
           </p>
-          <ul className="mt-4 space-y-2 text-sm">
-            {GAUNTLET_MODES.map((mode) => (
-              <li
-                key={mode.id}
-                className={`px-4 py-3 ${mode.chip}`}
-              >
-                <span className="font-medium">{mode.label}</span>
-                <span className="opacity-70"> · {mode.games} games — </span>
-                <span>{mode.blurb}</span>
-              </li>
-            ))}
-          </ul>
         </li>
 
         <li className="border-2 border-ink/15 bg-white px-5 py-6">
           <p className="font-pixel text-[10px] leading-5 text-banner">
             STAGE 02
           </p>
-          <h2 className="mt-2">Draft from the roster</h2>
+          <h2 className="mt-2">The grind</h2>
           <p className="mt-2 text-sm leading-relaxed text-muted">
-            The catalog is closed. Build a lineup in the Draft Room — no
-            account needed until you start the clock.
+            For you, off stream. These are the rules the runs started with.
           </p>
-          <p className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-3 text-sm">
-            <Link
-              href="/draft"
-              className="bg-banner px-4 py-2 transition hover:bg-banner/90"
-            >
-              Draft a lineup
-            </Link>
-            <Link
-              href="/records"
-              className="text-muted underline-offset-4 hover:text-ink hover:underline"
-            >
-              Games
-            </Link>
-          </p>
+          <ul className="mt-4 list-disc space-y-2 pl-5 text-sm leading-relaxed text-muted">
+            {GRIND.map((rule) => (
+              <li key={rule}>{rule}</li>
+            ))}
+          </ul>
         </li>
 
         <li className="border-2 border-ink/15 bg-white px-5 py-6">
           <p className="font-pixel text-[10px] leading-5 text-banner">
             STAGE 03
           </p>
-          <h2 className="mt-2">Run start to finish</h2>
+          <h2 className="mt-2">If you are streaming</h2>
           <p className="mt-2 text-sm leading-relaxed text-muted">
-            Split when you beat a game. Use the site control deck, or download
-            GGG Timer so Space and Enter still work over a fullscreen game. The
-            website stores the run — it is the ledger, not the tick.
-          </p>
-          <p className="mt-4">
-            <Link
-              href="/timer"
-              className="text-sm text-banner hover:underline"
+            These updates are only for a streamed attempt, so you can deal
+            with stream sniping. They are not part of the grind. This summary
+            follows{" "}
+            <a
+              href={UPDATED_RULES_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="text-banner hover:underline"
             >
-              Download GGG Timer
-            </Link>
+              God Gamer Challenge — updated rules
+            </a>
+            .
           </p>
+          <ul className="mt-4 list-disc space-y-2 pl-5 text-sm leading-relaxed text-muted">
+            {STREAM.map((rule) => (
+              <li key={rule}>{rule}</li>
+            ))}
+          </ul>
         </li>
 
         <li className="border-2 border-ink/15 bg-white px-5 py-6">
           <p className="font-pixel text-[10px] leading-5 text-banner">
             STAGE 04
           </p>
-          <h2 className="mt-2">Post the Clear</h2>
+          <h2 className="mt-2">What that write-up argues</h2>
           <p className="mt-2 text-sm leading-relaxed text-muted">
-            Finish every game and the run lands on the feed and the boards. A
-            DNF still counts for furthest survival.
+            Those extra rules are there because of stream sniping, and they
+            put an asterisk on a streamed run. The same post says a stream
+            delay is the fix: it makes it much harder for a sniper to queue
+            into the lobby, so the challenge does not need another exception
+            after a loss.
+          </p>
+        </li>
+
+        <li className="border-2 border-ink/15 bg-white px-5 py-6">
+          <p className="font-pixel text-[10px] leading-5 text-banner">
+            STAGE 05
+          </p>
+          <h2 className="mt-2">This website</h2>
+          <p className="mt-2 text-sm leading-relaxed text-muted">
+            The games displayed here show their verified speedrun.com runs.
+            Each imported run links back to speedrun.com. The draft room is
+            this site&apos;s own lineup tool. It is not Ludwig&apos;s 10-win
+            challenge.
           </p>
           <p className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-3 text-sm">
             <Link
-              href="/leaderboard"
-              className="text-muted underline-offset-4 hover:text-ink hover:underline"
+              href="/records"
+              className="bg-banner px-4 py-2 transition hover:bg-banner/90"
             >
-              Boards
+              See the games
             </Link>
             <Link
-              href="/login?next=/draft"
+              href="/draft"
               className="text-muted underline-offset-4 hover:text-ink hover:underline"
             >
-              Create an account
+              Draft a lineup
             </Link>
           </p>
         </li>
       </ol>
-
-      <section className="mt-14 max-w-2xl border-t border-ink/10 pt-8">
-        <h2>Words used here</h2>
-        <dl className="mt-4 space-y-4 text-sm leading-relaxed">
-          <div>
-            <dt className="text-ink">Clear</dt>
-            <dd className="mt-1 text-muted">
-              You beat every game in the lineup.
-            </dd>
-          </div>
-          <div>
-            <dt className="text-ink">DNF</dt>
-            <dd className="mt-1 text-muted">
-              Did not finish. The boards still track how far you got.
-            </dd>
-          </div>
-          <div>
-            <dt className="text-ink">Games</dt>
-            <dd className="mt-1 text-muted">
-              The roster, plus per-game baseline times.
-            </dd>
-          </div>
-          <div>
-            <dt className="text-ink">Boards</dt>
-            <dd className="mt-1 text-muted">
-              Gauntlet rankings for Sprint, Marathon, and Endurance.
-            </dd>
-          </div>
-        </dl>
-      </section>
     </main>
   );
 }

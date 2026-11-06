@@ -41,10 +41,8 @@ const SORTS: { id: FeedSort; label: string }[] = [
 ];
 
 /**
- * Auth-aware landing banner above the feed: signed-out visitors get the
- * pitch, signed-in players get their gauntlet status (resume or start).
- * Parent waits for auth before mounting this so the pitch cannot flash
- * and then vanish for a signed-in player.
+ * Challenge introduction, then the signed-in player's gauntlet status.
+ * Auth is resolved before this mounts so the status card cannot flash in.
  */
 function HomeHero({
   user,
@@ -53,64 +51,62 @@ function HomeHero({
   user: User | null;
   live: ProfileLiveRun | null;
 }) {
-  if (!user) {
-    return <HomeWelcome />;
-  }
-
-  if (live) {
-    return (
-      <section className="flex flex-wrap items-center justify-between gap-4 border-2 border-ink/15 bg-white px-6 py-5">
-        <div className="min-w-0">
-          <p className="font-pixel text-[10px] leading-5 text-banner">
-            CONTINUE
-          </p>
-          <p className="mt-2 text-sm font-medium text-ink">Gauntlet in progress</p>
-          <p className="mt-1.5 truncate text-sm text-muted">
-            {live.slotsCompleted}/{live.totalSlots} beaten
-            {live.currentTitle && (
-              <>
-                {" · now playing "}
-                <span className="text-ink">{live.currentTitle}</span>
-              </>
-            )}
-          </p>
-        </div>
-        <div className="flex shrink-0 gap-3 text-sm">
-          <Link
-            href={`/run/${live.runId}`}
-            className="bg-banner px-5 py-2.5 transition hover:bg-banner/90"
-          >
-            Resume gauntlet
-          </Link>
-          <Link
-            href={`/control/${live.runId}`}
-            className="border border-ink/15 px-5 py-2.5 text-muted transition hover:border-ink/30 hover:text-ink"
-          >
-            Open control deck
-          </Link>
-        </div>
-      </section>
-    );
-  }
-
   return (
-    <section className="flex flex-wrap items-center justify-between gap-4 border-2 border-ink/15 bg-white px-6 py-5">
-      <div>
-        <p className="font-pixel text-[10px] leading-5 text-banner">
-          PLAYER READY
-        </p>
-        <p className="mt-2 text-sm font-medium text-ink">No gauntlet in flight</p>
-        <p className="mt-1.5 text-sm text-muted">
-          Draft a lineup and put a run on the board.
-        </p>
-      </div>
-      <Link
-        href="/draft"
-        className="shrink-0 bg-banner px-6 py-3 text-sm font-medium transition hover:bg-banner/90"
-      >
-        Start a new gauntlet
-      </Link>
-    </section>
+    <>
+      <HomeWelcome />
+      {user && live && (
+        <section className="mt-8 flex flex-wrap items-center justify-between gap-4 border-2 border-ink/15 bg-white px-6 py-5">
+          <div className="min-w-0">
+            <p className="font-pixel text-[10px] leading-5 text-banner">
+              CONTINUE
+            </p>
+            <p className="mt-2 text-sm font-medium text-ink">Gauntlet in progress</p>
+            <p className="mt-1.5 truncate text-sm text-muted">
+              {live.slotsCompleted}/{live.totalSlots} beaten
+              {live.currentTitle && (
+                <>
+                  {" · now playing "}
+                  <span className="text-ink">{live.currentTitle}</span>
+                </>
+              )}
+            </p>
+          </div>
+          <div className="flex shrink-0 gap-3 text-sm">
+            <Link
+              href={`/run/${live.runId}`}
+              className="bg-banner px-5 py-2.5 transition hover:bg-banner/90"
+            >
+              Resume gauntlet
+            </Link>
+            <Link
+              href={`/control/${live.runId}`}
+              className="border border-ink/15 px-5 py-2.5 text-muted transition hover:border-ink/30 hover:text-ink"
+            >
+              Open control deck
+            </Link>
+          </div>
+        </section>
+      )}
+      {user && !live && (
+        <section className="mt-8 flex flex-wrap items-center justify-between gap-4 border-2 border-ink/15 bg-white px-6 py-5">
+          <div>
+            <p className="font-pixel text-[10px] leading-5 text-banner">
+              PLAYER READY
+            </p>
+            <p className="mt-2 text-sm font-medium text-ink">No gauntlet in flight</p>
+            <p className="mt-1.5 text-sm text-muted">
+              Draft a lineup and put a run on the board.
+            </p>
+          </div>
+          <Link
+            href="/draft"
+            className="shrink-0 bg-banner px-6 py-3 text-sm font-medium transition hover:bg-banner/90"
+          >
+            Start a new gauntlet
+          </Link>
+        </section>
+      )}
+    </>
   );
 }
 
@@ -435,6 +431,10 @@ export default function FeedPage() {
             Game boards
           </Link>
         </div>
+        <p className="mb-4 max-w-2xl text-sm leading-relaxed text-muted">
+          The boards for the games on this page are the verified speedrun.com
+          runs for those games.
+        </p>
         <RosterGrid games={bundle.games} />
       </section>
 
@@ -445,13 +445,9 @@ export default function FeedPage() {
 
       <header className="mt-8 flex flex-wrap items-end justify-between gap-4 border-b border-ink/10 pb-6">
         <div>
-          {user ? (
-            <h1 className="text-2xl font-semibold text-ink">Feed</h1>
-          ) : (
-            <h2 className="text-2xl font-semibold text-ink">Feed</h2>
-          )}
+          <h2 className="text-2xl font-semibold text-ink">Feed</h2>
           <p className="mt-2 max-w-md text-sm leading-relaxed text-muted">
-            Live gauntlets and finished runs from the community.
+            Runs people have posted on this site.
           </p>
         </div>
         <Link
@@ -524,15 +520,14 @@ function EmptyFeedWalkthrough() {
   return (
     <div className="border-2 border-ink/15 bg-white px-5 py-8">
       <p className="text-sm leading-relaxed text-muted">
-        Nobody has posted a Clear yet. A finished Marathon is five games
-        beaten, clock frozen, and a spot on the boards — that can be you.
+        Nobody has posted a run here yet.
       </p>
       <p className="mt-5 flex flex-wrap gap-4 text-sm">
         <Link href="/how" className="text-banner hover:underline">
           How it works
         </Link>
-        <Link href="/draft" className="text-banner hover:underline">
-          Draft a Sprint
+        <Link href="/records" className="text-banner hover:underline">
+          Game boards
         </Link>
       </p>
     </div>

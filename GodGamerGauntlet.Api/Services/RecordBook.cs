@@ -330,18 +330,51 @@ public class RecordBook(AppDbContext context) : IRecordBook
             run.CurrentElapsedMs(DateTime.UtcNow));
     }
 
+    /// <summary>
+    /// People with an account or a gauntlet, capped so the page cannot download
+    /// every imported speedrun.com runner. A search of at least two letters
+    /// can still find one of those runners.
+    /// </summary>
     public async Task<IReadOnlyList<PlayerCardDto>> GetDirectoryAsync(
+        string? search = null,
         CancellationToken cancellationToken = default)
     {
-        var users = await context.Users
-            .AsNoTracking()
-            .Select(u => new { u.Id, u.Username, u.CreatedAt })
-            .ToListAsync(cancellationToken);
+        const int pageSize = 80;
+        var term = search?.Trim();
+        if (term is { Length: > 40 }) term = term[..40];
+        var searching = !string.IsNullOrEmpty(term);
+        if (searching && term!.Length < 2) return [];
 
-        var finished = await context.Runs
-            .AsNoTracking()
-            .Where(r => r.Status != RunStatus.Active)
-            .Select(r => new { r.UserId, r.Status, r.EndTime })
+        var usersQuery = context.Users.AsNoTracking();
+        if (searching)
+        {
+            var lowered = term!.ToLower();
+            usersQuery = usersQuery.Where(u =>
+                u.Username.ToLower().Contains(lowered)
+                || (u.DisplayName != null && u.DisplayName.ToLower().Contains(lowered)));
+        }
+        else
+        {
+            usersQuery = usersQuery.Where(u => !u.IsReserved || u.Runs.Any());
+        }
+
+        var users = await usersQuery
+            .Select(u => new
+            {
+                u.Id,
+                u.Username,
+                u.CreatedAt,
+                AttemptCount = u.Runs.Count(r => r.Status != RunStatus.Active),
+                ClearCount = u.Runs.Count(r => r.Status == RunStatus.Completed),
+                DnfCount = u.Runs.Count(r => r.Status == RunStatus.Failed),
+                LastRunAt = u.Runs
+                    .Where(r => r.Status != RunStatus.Active)
+                    .Max(r => (DateTime?)r.EndTime),
+            })
+            .OrderByDescending(u => u.LastRunAt != null)
+            .ThenByDescending(u => u.LastRunAt)
+            .ThenBy(u => u.Username)
+            .Take(pageSize)
             .ToListAsync(cancellationToken);
 
         var boards = await GetAllBoardsAsync(cancellationToken);
@@ -350,28 +383,20 @@ public class RecordBook(AppDbContext context) : IRecordBook
         var enduranceRank = boards[RunType.Endurance].ToDictionary(p => p.UserId, p => p.Rank);
         var standardRank = boards[RunType.Standard].ToDictionary(p => p.UserId, p => p.Rank);
         var liteRank = boards[RunType.Lite].ToDictionary(p => p.UserId, p => p.Rank);
-        var byUser = finished.GroupBy(r => r.UserId).ToDictionary(g => g.Key, g => g.ToList());
 
         return users
-            .Select(user =>
-            {
-                byUser.TryGetValue(user.Id, out var runs);
-                var attemptCount = runs?.Count ?? 0;
-                return new PlayerCardDto(
-                    user.Username,
-                    user.CreatedAt,
-                    attemptCount,
-                    runs?.Count(r => r.Status == RunStatus.Completed) ?? 0,
-                    runs?.Count(r => r.Status == RunStatus.Failed) ?? 0,
-                    sprintRank.TryGetValue(user.Id, out var spr) ? spr : null,
-                    marathonRank.TryGetValue(user.Id, out var mr) ? mr : null,
-                    enduranceRank.TryGetValue(user.Id, out var er) ? er : null,
-                    standardRank.TryGetValue(user.Id, out var sr) ? sr : null,
-                    liteRank.TryGetValue(user.Id, out var lr) ? lr : null,
-                    attemptCount == 0 ? null : runs!.Max(r => r.EndTime));
-            })
-            .OrderByDescending(p => p.LastRunAt ?? DateTime.MinValue)
-            .ThenBy(p => p.Username, StringComparer.OrdinalIgnoreCase)
+            .Select(user => new PlayerCardDto(
+                user.Username,
+                user.CreatedAt,
+                user.AttemptCount,
+                user.ClearCount,
+                user.DnfCount,
+                sprintRank.TryGetValue(user.Id, out var spr) ? spr : null,
+                marathonRank.TryGetValue(user.Id, out var mr) ? mr : null,
+                enduranceRank.TryGetValue(user.Id, out var er) ? er : null,
+                standardRank.TryGetValue(user.Id, out var sr) ? sr : null,
+                liteRank.TryGetValue(user.Id, out var lr) ? lr : null,
+                user.LastRunAt))
             .ToList();
     }
 
